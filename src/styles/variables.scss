@@ -1,0 +1,71 @@
+// base color
+// $blue:#324157;
+$blue:#1890ff;
+$light-blue:#1890ff;
+$red:#C03639;
+$pink: #E65D6E;
+$green: #30B08F;
+$tiffany: #4AB7BD;
+$yellow:#FEC171;
+$panGreen: #30B08F;
+
+// btn
+$button-radius: 4px;
+$button-padding: 10px 20px;
+$btn-bg-color: #268bff;
+$btn-bg-color-hover: #77b6ff;
+
+// sidebar
+// $menuText:#bfcbd9;
+// $menuActiveText:#409EFF;
+// $subMenuActiveText:#f4f4f5; // https://github.com/ElemeFE/element/issues/12951
+$menuText:rgb(51, 54, 57);
+$menuActiveText:#409EFF;
+$subMenuActiveText:#409EFF; // https://github.com/ElemeFE/element/issues/12951
+
+
+// menu
+// $menuBg:#305680;
+// $menuHover:#274568;
+$menuBg:#fff;
+$menuHover:#ececec;
+$menuTextHover: rgb(121, 181, 241);
+
+// $subMenuBg:#1f3853;
+// $subMenuHover:#001528;
+$subMenuBg:#fff;
+$subMenuHover:#ebedf1;
+
+$sideBarWidth: 210px;
+
+// header
+// $headerBg:#305680;
+// $headerTxt:#bfcbd9;
+// $headerTxtHover:#fff;
+$headerBg:#fff;
+$headerTxt:rgb(51, 54, 57);
+$headerTxtHover:#409EFF;
+
+// box-shadow
+$shadow: 0 2px 2px -2px #0003, 0 2px 5px 0 #00000024, 0 1px 5px 0 #0000001f;
+
+ // label
+$label: #838383;
+
+// the :export directive is the magic sauce for webpack
+// https://www.bluematador.com/blog/how-to-share-variables-between-js-and-sass
+:export {
+  menuText: $menuText;
+  menuActiveText: $menuActiveText;
+  subMenuActiveText: $subMenuActiveText;
+  menuBg: $menuBg;
+  menuHover: $menuHover;
+  subMenuBg: $subMenuBg;
+  subMenuHover: $subMenuHover;
+  sideBarWidth: $sideBarWidth;
+  headerBg: $headerBg;
+  headerTxt: $headerTxt;
+  headerTxtHover: $headerTxtHover;
+  shadow: $shadow;
+  label: $label;
+}

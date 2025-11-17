@@ -403,8 +403,8 @@ export default {
   },
 
   created() {
-    this.pageNo = 1
-    this.pageSize = 10
+    this.pagination.pageNo = 1
+    this.pagination.pageSize = 10
   },
 
   mounted() {
@@ -495,7 +495,7 @@ export default {
         return
       }
 
-      this.group = isInitial ? data.result : data.resultdata
+      this.group = isInitial ? data.data : data.datadata
 
       if (isInitial && this.group.length) {
         const [firstGroup] = this.group
@@ -535,21 +535,20 @@ export default {
         }
 
         const res = await list(params)
-        const { data } = res
 
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
+        if (res.code === '999999') {
+          this.$message.warning(res.message)
           return
         }
 
-        const { result } = data
-        this.resourceList = result.records.map(this.processFile)
+        const { data } = res.data
+        this.resourceList = data.records.map(this.processFile)
 
         // 更新分页信息
         this.pagination = {
-          pageNo: result.current,
-          pageSize: result.size,
-          total: result.total
+          pageNo: data.current,
+          pageSize: data.size,
+          total: data.total
         }
       } catch (error) {
         console.log(error)
@@ -586,7 +585,9 @@ export default {
         zip: icons.zip,
         png: icons.img,
         jpg: icons.img,
-        jpeg: icons.img
+        jpeg: icons.img,
+        sql: icons.sql,
+        json: icons.json
       }
       return iconMap[extension] || icons.file
     },

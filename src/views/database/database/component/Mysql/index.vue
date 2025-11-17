@@ -45,20 +45,13 @@
           </el-col>
           <el-col :span="12">
             <div class="wrap row">
-              <div class="label">FTP协议类型</div>
-              <el-select
+              <div class="label">数据库类型</div>
+              <el-input
                 v-model="databaseInfo.type"
                 size="mini"
-                placeholder="请选择FTP协议"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="item in ftpStyle"
-                  :key="item.value"
-                  :label="item.code"
-                  :value="item.code"
-                />
-              </el-select>
+                placeholder="Mysql"
+                :disabled="true"
+              />
             </div>
           </el-col>
         </el-row>
@@ -135,6 +128,31 @@
         <el-row>
           <el-col :span="12">
             <div class="wrap row">
+              <div class="label">数据库名称</div>
+              <el-input
+                v-model="databaseInfo.dbName"
+                size="mini"
+                placeholder="请输入数据库名称"
+                clearable
+              />
+            </div>
+          </el-col>
+          <el-col :span="12">
+            <div class="wrap row">
+              <div class="label">模式/Schema</div>
+              <el-input
+                v-model="databaseInfo.dbScheam"
+                size="mini"
+                placeholder="请输入模式/Schema"
+                :disabled="true"
+                clearable
+              />
+            </div>
+          </el-col>
+        </el-row>
+        <el-row>
+          <el-col :span="12">
+            <div class="wrap row">
               <div class="label">用户名</div>
               <el-input
                 v-model="databaseInfo.username"
@@ -158,44 +176,59 @@
           </el-col>
         </el-row>
         <el-row>
-          <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">编码格式</div>
-              <el-select
-                v-model="databaseInfo.controlEncoding"
-                size="mini"
-                placeholder="请选择编码格式"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="item in controlEncoding"
-                  :key="item.value"
-                  :label="item.code"
-                  :value="item.value"
-                />
-              </el-select>
-            </div>
-          </el-col>
-          <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">模式</div>
-              <el-select
-                v-model="databaseInfo.mode"
-                size="mini"
-                placeholder="请选择模式"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="item in ftpMode"
-                  :key="item.value"
-                  :label="item.code"
-                  :value="item.value"
-                />
-              </el-select>
+          <el-col :span="24">
+            <div class="title">
+              <img :src="icons.columns" width="20px" height="14px">
+              扩展属性
             </div>
           </el-col>
         </el-row>
-        <el-row class="row-top">
+        <el-row>
+          <el-col :span="24">
+            <div class="attribute-list">
+              <el-button
+                type="primary"
+                size="mini"
+                icon="el-icon-plus"
+                class="attribute-add"
+                @click="addAttribute"
+              >
+                添加属性
+              </el-button>
+              <el-table :data="attributes" border style="width: 100%">
+                <el-table-column prop="name" label="属性名" width="180">
+                  <template slot-scope="scope">
+                    <el-input
+                      v-model="scope.row.name"
+                      size="mini"
+                      placeholder="请输入属性名"
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column prop="value" label="属性值">
+                  <template slot-scope="scope">
+                    <el-input
+                      v-model="scope.row.value"
+                      size="mini"
+                      placeholder="请输入属性值"
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="100">
+                  <template slot-scope="scope">
+                    <el-button
+                      size="mini"
+                      type="danger"
+                      icon="el-icon-delete"
+                      @click="removeAttribute(scope.$index)"
+                    />
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-col>
+        </el-row>
+        <el-row>
           <el-col :span="12">
             <div class="grid-content test-connect">
               <el-button
@@ -234,33 +267,30 @@
   </el-container>
 </template>
 <script>
-import { encryptByPublicKey, decryptByPrivateKey } from '@/utils/rsa/rsa'
+import { encrypt } from '@/utils/encrypt/RsaUtil'
+import { decode } from '@/utils/encrypt/Base64Util'
 import icons from '@/assets/icon/icons.js'
-import dictCode from '@/api/database/dict/dictCode.js'
-import { getDict } from '@/api/database/dict/dict'
-import { isEmpty } from '@/utils/validate'
+import dictCode from '@/api/dict/dictCode.js'
+import { getDict } from '@/api/dict/dict'
 
 import { tree } from '@/api/database/database/dbGroup'
 import { connect, saveDb, detailDb } from '@/api/database/database/database'
+import { isEmpty } from '@/utils/validate'
 
 export default {
-  name: 'FTPComponent', // 组件名称
+  name: 'MysqlComponent', // 组件名称
   props: {},
   data() {
     return {
       icons,
       dbGroup: [],
       dbLabering: [],
-      ftpStyle: [],
-      ftpMode: [],
-      controlEncoding: [],
       databaseInfo: {
         id: '',
         groupId: '',
         name: '',
-        type: 'FTP',
-        mode: '',
-        controlEncoding: '',
+        type: 'MySQL',
+        label: '',
         category: 1,
         dbHost: '',
         dbPort: '',
@@ -295,9 +325,8 @@ export default {
         id: '',
         groupId: '',
         name: '',
-        type: '',
-        mode: '',
-        controlEncoding: '',
+        type: 'MySQL',
+        label: '',
         category: 1,
         dbHost: '',
         dbPort: '',
@@ -312,23 +341,14 @@ export default {
     // 获取数据源分组
     getDbGroup() {
       tree('').then((res) => {
-        this.dbGroup = res.data.result
+        this.dbGroup = res.data.data
       })
     },
 
     // 获取数据源分层
     getDict() {
       getDict(dictCode.DATA_SOURCE_LAYERING).then((res) => {
-        this.dbLabering = res.data.result
-      })
-      getDict(dictCode.FTP_STYPE).then((res) => {
-        this.ftpStyle = res.data.result
-      })
-      getDict(dictCode.FTP_MODE).then((res) => {
-        this.ftpMode = res.data.result
-      })
-      getDict(dictCode.CONTROL_ENCODING).then((res) => {
-        this.controlEncoding = res.data.result
+        this.dbLabering = res.data.data
       })
     },
 
@@ -346,33 +366,33 @@ export default {
     },
 
     // 测试连接
-    testConnect() {
+    async testConnect() {
       // 深拷贝 databaseInfo，避免修改原始对象
       const database = JSON.parse(JSON.stringify(this.databaseInfo))
-      database.password = encryptByPublicKey(database.password)
+      database.password = await encrypt(database.password)
 
       connect(database).then((res) => {
         const data = res.data
         if (data.code === '999999') {
           this.$message.warning(data.message)
         } else {
-          this.$message.success(data.result)
+          this.$message.success(data.data)
         }
       })
     },
 
     // 保存
-    save() {
+    async save() {
       // 深拷贝 databaseInfo，避免修改原始对象
       const database = JSON.parse(JSON.stringify(this.databaseInfo))
-      database.password = encryptByPublicKey(database.password)
+      database.password = await encrypt(database.password)
 
       saveDb(database).then((res) => {
         var data = res.data
         if (data.code === '999999') {
           this.$message.warning(data.message)
         } else {
-          this.$message.success(data.result)
+          this.$message.success(data.data)
           // 保存成功后
           this.reset()
           this.$emit('save-to-list')
@@ -387,18 +407,11 @@ export default {
         if (data.code === '999999') {
           this.$message.warning(data.message)
         } else {
-          this.databaseInfo = data.result
-
-          // RSA解密密码
-          this.databaseInfo.password = decryptByPrivateKey(
-            this.databaseInfo.password
-          )
-
-          // 处理配置属性
+          this.databaseInfo = data.data
+          this.databaseInfo.password = decode(this.databaseInfo.password)
+          // 处理扩展属性
           if (!isEmpty(this.databaseInfo.properties)) {
-            var properties = JSON.parse(this.databaseInfo.properties)
-            this.databaseInfo.controlEncoding = properties.controlEncoding
-            this.databaseInfo.mode = properties.mode
+            this.attributes = this.databaseInfo.properties
           }
         }
       })
@@ -486,10 +499,6 @@ export default {
       margin-bottom: 10px;
     }
   }
-}
-
-.row-top {
-    margin-top: 60px;
 }
 
 // 页脚样式

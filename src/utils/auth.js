@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie'
 
-const TokenKey = 'ETLedge-Token'
+const TokenKey = 'Pufferfish-Token'
 
 /**
  * 获取token

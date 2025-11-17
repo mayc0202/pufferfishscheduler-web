@@ -1,4 +1,4 @@
-import { UPMS_SERVICE, DATABASE_SERVICE, COLLECT_SERVICE } from '@/utils/request'
+import { PUFFERFISH_SERVICE } from '@/api/request'
 
 // 全局超时时间（30秒）
 const DEFAULT_TIMEOUT = 30000
@@ -10,7 +10,7 @@ const DEFAULT_TIMEOUT = 30000
 class HttpServiceFactory {
   /**
    * 创建 HTTP 服务实例
-   * @param {Object} service - axios 服务实例 (upmsService/databaseService/collectService)
+   * @param {Object} service - axios
    * @returns {Object} HTTP 工具实例
    */
   static create(service) {
@@ -141,12 +141,8 @@ class HttpServiceFactory {
 }
 
 // 为每个服务创建独立的 HTTP 工具实例
-const UPMS_API = HttpServiceFactory.create(UPMS_SERVICE)
-const DATABASE_API = HttpServiceFactory.create(DATABASE_SERVICE)
-const COLLECT_API = HttpServiceFactory.create(COLLECT_SERVICE)
+const PUFFERFISH_API = HttpServiceFactory.create(PUFFERFISH_SERVICE)
 
 export {
-  UPMS_API,
-  DATABASE_API,
-  COLLECT_API
+  PUFFERFISH_API
 }

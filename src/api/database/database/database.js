@@ -1,4 +1,4 @@
-import { DATABASE_API } from '@/api/http'
+import { PUFFERFISH_API } from '@/api/http'
 
 /**
  * 获取数据源
@@ -6,7 +6,7 @@ import { DATABASE_API } from '@/api/http'
  * @returns
  */
 export function getDbList(data) {
-  return DATABASE_API.get('/dbDatabase/list.do?groupId=' + data.groupId + '&dbId=' + data.dbId + '&name=' + data.name + '&pageNo=' + data.pageNo + '&pageSize=' + data.pageSize)
+  return PUFFERFISH_API.get('/dbDatabase/list.do?groupId=' + data.groupId + '&dbId=' + data.dbId + '&name=' + data.name + '&pageNo=' + data.pageNo + '&pageSize=' + data.pageSize)
 }
 
 /**
@@ -15,7 +15,7 @@ export function getDbList(data) {
  * @returns
  */
 export function saveDb(database) {
-  return DATABASE_API.post('/dbDatabase/save.do', database)
+  return PUFFERFISH_API.post('/dbDatabase/save.do', database)
 }
 
 /**
@@ -24,7 +24,7 @@ export function saveDb(database) {
  * @returns
  */
 export function updateDb(database) {
-  return DATABASE_API.put('/dbDatabase/update.do', database)
+  return PUFFERFISH_API.put('/dbDatabase/update.do', database)
 }
 
 /**
@@ -33,7 +33,7 @@ export function updateDb(database) {
  * @returns
  */
 export function deleteDb(id) {
-  return DATABASE_API.put('/dbDatabase/delete.do?id=' + id)
+  return PUFFERFISH_API.put('/dbDatabase/delete.do?id=' + id)
 }
 
 /**
@@ -42,7 +42,7 @@ export function deleteDb(id) {
  * @returns
  */
 export function detailDb(id) {
-  return DATABASE_API.get('/dbDatabase/detail.do?id=' + id)
+  return PUFFERFISH_API.get('/dbDatabase/detail.do?id=' + id)
 }
 
 /**
@@ -51,5 +51,5 @@ export function detailDb(id) {
  * @returns
  */
 export function connect(database) {
-  return DATABASE_API.post('/dbDatabase/connect.do', database)
+  return PUFFERFISH_API.post('/dbDatabase/connect.do', database)
 }

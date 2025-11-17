@@ -1,11 +1,11 @@
-import { DATABASE_API } from '@/api/http'
+import { PUFFERFISH_API } from '@/api/http'
 
 /**
  * tree
  * @returns
  */
 export function tree(name) {
-  return DATABASE_API.get('/resource/tree.do?name=' + String(name))
+  return PUFFERFISH_API.get('/resource/tree.do?name=' + String(name))
 }
 
 /**
@@ -14,7 +14,7 @@ export function tree(name) {
  * @returns
  */
 export function list(data) {
-  return DATABASE_API.get('/resource/list.do?dbId=' + data.dbId + '&name=' + data.name + '&path=' + data.path + '&pageNo=' + data.pageNo + '&pageSize=' + data.pageSize)
+  return PUFFERFISH_API.get('/resource/list.do?dbId=' + data.dbId + '&name=' + data.name + '&path=' + data.path + '&pageNo=' + data.pageNo + '&pageSize=' + data.pageSize)
 }
 
 /**
@@ -24,7 +24,7 @@ export function list(data) {
  * @returns
  */
 export function directoryTree(dbId, path) {
-  return DATABASE_API.tree('/resource/directoryTree.do?dbId=' + dbId + '&path=' + path)
+  return PUFFERFISH_API.tree('/resource/directoryTree.do?dbId=' + dbId + '&path=' + path)
 }
 
 /**
@@ -33,7 +33,7 @@ export function directoryTree(dbId, path) {
  * @returns
  */
 export function mkdir(data) {
-  return DATABASE_API.post('/resource/mkdir.do', data)
+  return PUFFERFISH_API.post('/resource/mkdir.do', data)
 }
 
 /**
@@ -42,7 +42,7 @@ export function mkdir(data) {
  * @returns
  */
 export function rename(data) {
-  return DATABASE_API.put('/resource/rename.do', data)
+  return PUFFERFISH_API.put('/resource/rename.do', data)
 }
 
 /**
@@ -51,7 +51,7 @@ export function rename(data) {
  * @returns
  */
 export function remove(data) {
-  return DATABASE_API.delete('/resource/remove.do?dbId=' + data.dbId + '&type=' + data.type + '&path=' + data.path)
+  return PUFFERFISH_API.delete('/resource/remove.do?dbId=' + data.dbId + '&type=' + data.type + '&path=' + data.path)
 }
 
 /**
@@ -60,7 +60,7 @@ export function remove(data) {
  * @returns
  */
 export function move(data) {
-  return DATABASE_API.post('/resource/move.do', data)
+  return PUFFERFISH_API.post('/resource/move.do', data)
 }
 
 /**
@@ -72,7 +72,7 @@ export function move(data) {
  * @returns
  */
 export function upload(formData, onProgress, signal, timeout) {
-  return DATABASE_API.uploadFile('/resource/upload.do', formData, {
+  return PUFFERFISH_API.uploadFile('/resource/upload.do', formData, {
     onUploadProgress: onProgress,
     signal, // 支持 AbortController
     timeout: timeout // 超时时间（毫秒）

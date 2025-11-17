@@ -26,20 +26,16 @@ module.exports = {
     },
     // 将请求代理到本地后端服务，从而避免跨域问题
     proxy: {
-      [process.env.VUE_APP_ETL_UPMS]: {
-        target: 'http://127.0.0.1:8082/etl-upms',
-        changeOrigin: true,
-        logLevel: 'debug',
+      // 匹配以 VUE_APP_PUFFERFISH_SCHEDULER 为前缀的请求（即 /pufferfishscheduler）
+      [process.env.VUE_APP_PUFFERFISH_SCHEDULER]: {
+        target: 'http://127.0.0.1:8080', // 后端服务地址
+        changeOrigin: true, // 开启跨域
+        logLevel: 'debug', // 打印代理日志（方便调试）
+        // 路径重写规则：确保请求路径完整传递给后端
+        // 例如：前端请求 /pufferfishscheduler/auth/getAuth.do
+        // 后端实际接收：http://127.0.0.1:8080/pufferfishscheduler/auth/getAuth.do
         pathRewrite: {
-          '^/etl-upms': ''
-        }
-      },
-      [process.env.VUE_APP_ETL_DATABASE]: {
-        target: 'http://127.0.0.1:8083/etl-database',
-        changeOrigin: true,
-        logLevel: 'debug',
-        pathRewrite: {
-          '^/etl-database': ''
+          [`^${process.env.VUE_APP_PUFFERFISH_SCHEDULER}`]: process.env.VUE_APP_PUFFERFISH_SCHEDULER
         }
       }
     },

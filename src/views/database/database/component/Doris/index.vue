@@ -291,10 +291,11 @@
   </el-container>
 </template>
 <script>
-import { encryptByPublicKey, decryptByPrivateKey } from '@/utils/rsa/rsa'
+import { encrypt } from '@/utils/encrypt/RsaUtil'
+import { decode } from '@/utils/encrypt/Base64Util'
 import icons from '@/assets/icon/icons.js'
-import dictCode from '@/api/database/dict/dictCode.js'
-import { getDict } from '@/api/database/dict/dict'
+import dictCode from '@/api/dict/dictCode.js'
+import { getDict } from '@/api/dict/dict'
 import { tree } from '@/api/database/database/dbGroup'
 import { connect, saveDb, detailDb } from '@/api/database/database/database'
 import { isEmpty } from '@/utils/validate'
@@ -371,14 +372,14 @@ export default {
     // 获取数据源分组
     getDbGroup() {
       tree('').then((res) => {
-        this.dbGroup = res.data.result
+        this.dbGroup = res.data.data
       })
     },
 
     // 获取数据源分层
     getDict() {
       getDict(dictCode.DATA_SOURCE_LAYERING).then((res) => {
-        this.dbLabering = res.data.result
+        this.dbLabering = res.data.data
       })
     },
 
@@ -396,33 +397,33 @@ export default {
     },
 
     // 测试连接
-    testConnect() {
+    async testConnect() {
       // 深拷贝 databaseInfo，避免修改原始对象
       const database = JSON.parse(JSON.stringify(this.databaseInfo))
-      database.password = encryptByPublicKey(database.password)
+      database.password = await encrypt(database.password)
 
       connect(database).then((res) => {
         const data = res.data
         if (data.code === '999999') {
           this.$message.warning(data.message)
         } else {
-          this.$message.success(data.result)
+          this.$message.success(data.data)
         }
       })
     },
 
     // 保存
-    save() {
+    async save() {
       // 深拷贝 databaseInfo，避免修改原始对象
       const database = JSON.parse(JSON.stringify(this.databaseInfo))
-      database.password = encryptByPublicKey(database.password)
+      database.password = await encrypt(database.password)
 
       saveDb(database).then((res) => {
         var data = res.data
         if (data.code === '999999') {
           this.$message.warning(data.message)
         } else {
-          this.$message.success(data.result)
+          this.$message.success(data.data)
           // 保存成功后
           this.reset()
           this.$emit('save-to-list')
@@ -437,14 +438,9 @@ export default {
         if (data.code === '999999') {
           this.$message.warning(data.message)
         } else {
-          this.databaseInfo = data.result
-
+          this.databaseInfo = data.data
           // RSA解密密码
-          this.databaseInfo.password = decryptByPrivateKey(
-            this.databaseInfo.password
-          )
-
-          // 处理配置
+          this.databaseInfo.password = decode(this.databaseInfo.password)
 
           // 处理扩展属性
           if (!isEmpty(this.databaseInfo.extConfig)) {

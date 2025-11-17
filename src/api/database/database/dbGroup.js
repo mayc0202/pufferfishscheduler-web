@@ -1,11 +1,11 @@
-import { DATABASE_API } from '@/api/http'
+import { PUFFERFISH_API } from '@/api/http'
 
 /**
  * list
  * @returns
  */
 export function tree(name) {
-  return DATABASE_API.get('/dbGroup/tree.do?name=' + String(name))
+  return PUFFERFISH_API.get('/dbGroup/tree.do?name=' + String(name))
 }
 
 /**
@@ -14,7 +14,7 @@ export function tree(name) {
  * @returns
  */
 export function addGroup(group) {
-  return DATABASE_API.post('/dbGroup/add.do', group)
+  return PUFFERFISH_API.post('/dbGroup/add.do', group)
 }
 
 /**
@@ -23,7 +23,7 @@ export function addGroup(group) {
  * @returns
  */
 export function updateGroup(group) {
-  return DATABASE_API.put('/dbGroup/update.do', group)
+  return PUFFERFISH_API.put('/dbGroup/update.do', group)
 }
 
 /**
@@ -32,5 +32,5 @@ export function updateGroup(group) {
  * @returns
  */
 export function deleteGroup(id) {
-  return DATABASE_API.put('/dbGroup/delete.do?id=' + id)
+  return PUFFERFISH_API.put('/dbGroup/delete.do?id=' + id)
 }

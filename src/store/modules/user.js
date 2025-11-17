@@ -1,5 +1,5 @@
-import { login, logout, getUserInfo } from '@/api/upms/user'
-import { encryptByPublicKey } from '@/utils/rsa/rsa'
+import { login, logout, getUserInfo } from '@/api/upms/auth'
+import { encrypt } from '@/utils/encrypt/RsaUtil'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import router, { resetRouter } from '@/router'
 import { isEmpty } from '@/utils/validate'
@@ -38,15 +38,32 @@ const actions = {
   // user login
   login({ commit }, userInfo) {
     const { username, password } = userInfo
-    return new Promise((resolve, reject) => {
-      login(username, encryptByPublicKey(password)).then(response => {
-        const token = response.data.result
-        commit('SET_TOKEN', token) // 存入Vuex store
-        setToken(token) // 存入Cooike
+    // eslint-disable-next-line no-async-promise-executor
+    return new Promise(async(resolve, reject) => {
+      try {
+        const encryptedPassword = await encrypt(password)
+
+        if (!encryptedPassword) {
+          throw new Error('密码加密失败!')
+        }
+
+        // Encrypt password and login
+        const loginResponse = await login(
+          username,
+          encryptedPassword
+        )
+
+        const token = loginResponse.data.data
+
+        // Store token in Vuex and Cookie
+        commit('SET_TOKEN', token)
+        setToken(token)
+
         resolve()
-      }).catch(error => {
-        reject(error)
-      })
+      } catch (error) {
+      // Reject with error message or error object
+        reject(error.message || error)
+      }
     })
   },
 
@@ -58,9 +75,9 @@ const actions = {
         return resolve({ name: state.name, roles: state.roles })
       }
       getUserInfo().then(response => {
-        const data = response.data.result
+        const data = response.data.data
         if (!data) {
-          reject('Verification failed, please Login again.')
+          reject('验证失败，请重新登录!')
         }
 
         // 确保角色是数组

@@ -83,7 +83,7 @@
                     width="240"
                   />
                   <el-table-column
-                    prop="createdTime"
+                    prop="createdTimeTxt"
                     label="创建日期"
                     width="220"
                   />
@@ -256,10 +256,11 @@
       :visible="detailVisible"
       :width="560"
       :data="databaseInfo"
+      :loading="detailLoading"
       :exclude-fields="excludeFields"
       :label-map="customLabelMap"
       :border="true"
-      @onClose="detailVisible = false"
+      @onClose="handleDetailClose()"
     />
   </div>
 </template>
@@ -366,33 +367,36 @@ export default {
       loading: false,
       componentType: 0,
 
-      detailVisible: false,
+      detailVisible: false, // 详情弹窗显示状态
+      detailLoading: false, // 加载状态
       databaseInfo: {},
       // 自定义标签映射
       customLabelMap: {
         name: '数据源名称',
         groupName: '所属分组',
         labelName: '数据源分层',
-        category: '数据库类别',
+        categoryName: '数据库类别',
         type: '数据库类型',
         dbHost: '连接地址',
         dbPort: '端口号',
         dbSchema: '模式/Schema',
         dbName: '数据库名称',
-        createdTime: '创建时间',
+        createdTimeTxt: '创建时间',
         remark: '备注说明'
       },
       // 排除字段
       excludeFields: [
         'id',
         'groupId',
+        'category',
         'label',
         'username',
         'password',
         'beAddress',
         'feAddress',
         'properties',
-        'extConfig'
+        'extConfig',
+        'createdTime'
       ]
     }
   },
@@ -413,7 +417,7 @@ export default {
   methods: {
 
     handleChange(val) {
-      console.log(`分组 ${val}`)
+      // console.log(`分组 ${val}`)
     },
 
     /**
@@ -497,7 +501,7 @@ export default {
      */
     queryGroupsByName() {
       tree(this.searchGroup).then((res) => {
-        this.group = res.data.result
+        this.group = res.data.data
       })
     },
 
@@ -506,7 +510,7 @@ export default {
      */
     queryAll() {
       tree('').then((res) => {
-        this.group = res.data.result
+        this.group = res.data.data
         this.group.forEach(g => {
           g.icon = ''
         })
@@ -609,7 +613,6 @@ export default {
           })
         })
       } catch (error) {
-        console.error('打开数据源弹窗失败:', error)
         this.databaseDialog.visible = false
       } finally {
         this.loading = false
@@ -665,7 +668,7 @@ export default {
           this.$message.warning(data.message)
           return
         }
-        var result = data.result
+        var result = data.data
         this.pageNo = result.current
         this.pageSize = result.size
         this.total = result.total
@@ -707,6 +710,7 @@ export default {
      * 删除数据源
      */
     async handleDelete(dbId) {
+      console.log(dbId)
       this.loading = true
       try {
         await deleteDb(dbId).then((res) => {
@@ -714,7 +718,7 @@ export default {
           if (data.code === '999999') {
             this.$message.warning(data.message)
           } else {
-            this.$message.success(data.result)
+            this.$message.success(data.data)
             this.selectDbList()
           }
         })
@@ -723,22 +727,43 @@ export default {
       }
     },
 
-    // 查看数据源信息
-    handleDetail(dbId) {
-      this.detailVisible = true
-      detailDb(dbId).then((res) => {
-        var data = res.data
+    /**
+     * 查看数据源信息
+     * @param dbId
+     */
+    async handleDetail(dbId) {
+      try {
+        this.detailVisible = true
+        this.detailLoading = true // 加载中
+
+        const res = await detailDb(dbId)
+        const data = res.data || res // 适配不同响应结构
+
+        // 检查业务错误码
         if (data.code === '999999') {
-          this.$message.warning(data.message)
+          this.$message.warning(data.message || '系统错误')
+          this.detailLoading = false // 加载完成
           return
         }
-        this.databaseInfo = data.result
-        console.log(this.databaseInfo)
-      })
+
+        // 成功处理
+        this.databaseInfo = data.data
+      } catch (error) {
+        this.$message.error('获取详情失败')
+        this.detailLoading = false // 加载完成
+        console.error(error)
+      } finally {
+        this.detailLoading = false // 加载完成
+      }
     },
 
+    /**
+     * 关闭详情弹窗
+     */
     handleDetailClose() {
       this.detailVisible = false
+      this.detailLoading = false
+      this.databaseInfo = {}
     },
 
     /**
@@ -748,7 +773,7 @@ export default {
       this.loading = true
       try {
         getDbCategoryList().then((res) => {
-          this.databaseType = res.data.result
+          this.databaseType = res.data.data
           this.databaseType.forEach(d => {
             if (d.imgConfig != null && d.imgConfig !== '') {
               var config = JSON.parse(d.imgConfig)
@@ -766,9 +791,18 @@ export default {
     /**
      * 获取数据库基础信息集合
      */
-    getDbBasicList() {
-      getDbBasicList().then((res) => {
-        this.cacheDatabaseList = res.data.result
+    async getDbBasicList() {
+      try {
+        const res = await getDbBasicList()
+        const data = res.data || res
+
+        // 检查业务错误码
+        if (data.code === '999999') {
+          this.$message.warning(data.message || '系统错误')
+          return
+        }
+
+        this.cacheDatabaseList = data.data
         this.cacheDatabaseList.forEach(d => {
           if (d.imgConfig != null && d.imgConfig !== '') {
             var config = JSON.parse(d.imgConfig)
@@ -777,7 +811,10 @@ export default {
           }
         })
         this.databaseList = this.cacheDatabaseList.filter(db => db.categoryId === 1)
-      })
+      } catch (error) {
+        this.$message.error('获取详情失败')
+        console.error(error)
+      }
     },
 
     /**

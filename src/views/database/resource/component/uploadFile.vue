@@ -126,12 +126,14 @@ export default {
           }
         }, controller.signal, timeout)
 
+        // 清除超时定时器
         clearTimeout(timeoutId)
 
-        if (res.data.code === '999999') {
-          this.$message.warning(res.data.message)
+        const { data } = res
+        if (data.code === '999999') {
+          this.$message.warning(data.message)
         } else {
-          this.$message.success(res.data.result)
+          this.$message.success(data.data)
           this.$emit('success', true)
           this.handleClose()
         }

@@ -89,26 +89,31 @@ export function isArray(arg) {
 }
 
 /**
- * 检查值是否为空
+ * 检查值是否为空（严格模式）
  * @param {*} value - 要检查的值
  * @returns {boolean} - 如果值为空返回true，否则返回false
  */
 export function isEmpty(value) {
-  // 处理null和undefined
   if (value == null) return true
-  switch (typeof value) {
-    case 'string':
-      return value.trim().length === 0
-    case 'number':
-      return isNaN(value)
-    case 'boolean':
-      return value === false
-    case 'object':
-      // 检查空数组或空对象
-      return Array.isArray(value)
-        ? value.length === 0
-        : Object.keys(value).length === 0
-    default:
-      return false
+
+  if (typeof value === 'string') {
+    return value.trim().length === 0
   }
+
+  if (typeof value === 'number') {
+    return isNaN(value) || value === 0 // 可选：是否认为0也是空值
+  }
+
+  if (typeof value === 'boolean') {
+    return !value // 可选：是否认为false是空值
+  }
+
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) return value.length === 0
+    if (value instanceof Map || value instanceof Set) return value.size === 0
+    if (value instanceof Date) return false // Date对象永远不为空
+    return Object.keys(value).length === 0
+  }
+
+  return false
 }

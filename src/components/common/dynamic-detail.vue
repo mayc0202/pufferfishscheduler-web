@@ -8,7 +8,14 @@
     @close="$emit('onClose')"
   >
     <!-- 自定义描述列表容器 -->
-    <div class="custom-descriptions" :class="{ 'has-border': border }">
+    <div
+      v-loading="loading"
+      element-loading-text="加载中..."
+      element-loading-spinner="el-icon-loading"
+      class="custom-descriptions"
+      :class="{ 'has-border': border }"
+    >
+
       <!-- 内容区域 -->
       <div class="descriptions-content">
         <div
@@ -24,6 +31,11 @@
           <div class="descriptions-value">
             {{ value || '-' }} <!-- 空值显示横线 -->
           </div>
+        </div>
+
+        <!-- 空数据提示 -->
+        <div v-if="!loading && Object.keys(filteredData).length === 0" class="empty-container">
+          暂无数据
         </div>
       </div>
     </div>
@@ -50,6 +62,10 @@ export default {
     data: {
       type: Object,
       default: () => ({})
+    },
+    loading: {
+      type: Boolean,
+      default: false
     },
     // 动态排除字段：由父组件传递，默认值保持不变
     excludeFields: {
@@ -96,7 +112,8 @@ export default {
 .custom-descriptions {
   width: 100%;
   font-size: 14px;
-  padding: var(--dialog-padding);
+  /*padding: var(--dialog-padding);*/
+  min-height: 200px; /* 设置最小高度避免布局跳动 */
 }
 
 .custom-descriptions.has-border {
@@ -121,7 +138,7 @@ export default {
   font-weight: 500;
   border-bottom: 1px solid #e4e7ed;
   border-right: 1px solid #e4e7ed;
-  text-align: right;
+  text-align: left;
 }
 
 .descriptions-value {
@@ -134,6 +151,16 @@ export default {
 .descriptions-row:last-child .descriptions-label,
 .descriptions-row:last-child .descriptions-value {
   border-bottom: none;
+}
+
+/* 空数据样式 */
+.empty-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: #909399;
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 768px) {

@@ -52,58 +52,48 @@ service.interceptors.request.use(config => {
 })
 
 // 响应拦截器
-// 响应拦截器（适配真实后端结构，精准拦截999999）
 service.interceptors.response.use(
   response => {
-    const res = response.data // res = 后端返回的完整响应体（{code, message, result, status}）
+    const res = response.data
 
-    // -------------------------- 第一步：精准拦截 "999999" 系统错误 --------------------------
-    // 1. 先判断code是否存在（避免后端返回格式异常导致代码报错）
-    // 2. 统一转为字符串匹配（防止后端偶尔返回数字类型的999999）
+    // 精准拦截 "999999" 系统错误
     if (res.code !== undefined && String(res.code) === SYSTEM_ERROR) {
-      // 错误提示：优先用后端返回的message，无则用默认文案
       const errorMsg = res.message || '系统错误（999999），请联系管理员'
       Message.error(errorMsg)
-      // 拒绝Promise，让前端调用方（如login、getUserInfo）能捕获到该错误
-      return Promise.reject(new Error(errorMsg))
+
+      // 特殊处理令牌过期
+      if (res.message && res.message.includes('令牌')) {
+        handleSessionExpired()
+      }
+
+      // 仍然返回数据，让业务方法也能处理
+      return res
     }
 
-    // -------------------------- 第二步：处理会话过期等其他业务错误 --------------------------
-    // 注意：后端返回的code是字符串（如"50008"），需转成数字再判断
+    // 处理会话过期等其他业务错误
     const resCode = Number(res.code)
     if ([50008, 50012, 50014].includes(resCode)) {
       handleSessionExpired()
-      return Promise.reject(new Error(res.message || '会话已过期，请重新登录'))
+      return res // 仍然返回数据
     }
 
-    // -------------------------- 第三步：成功响应（按需返回数据） --------------------------
-    // 可选：如果前端业务只需要「业务数据」，可返回 res.result（如用户信息在res.result里）
-    // 若需要完整响应体（如code、status），则返回 res
-    return res // 或 return res.result;（根据你的业务需求选择）
+    return res
   },
-  // -------------------------- 第四步：网络错误/HTTP状态码错误（原逻辑保留，无需修改） --------------------------
   error => {
-    // 处理超时错误
+    // 网络错误处理保持不变
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
       handleNetworkError(error)
-      return Promise.reject(error)
-    }
-
-    // 处理无响应的网络错误（如断网）
-    if (!error.response) {
+    } else if (!error.response) {
       Message.error('网络异常，请检查网络连接！')
-      return Promise.reject(error)
-    }
-
-    // 处理HTTP状态码错误（401未授权、404不存在等）
-    const status = error.response.status
-    const message = httpErrorMap[status] || `请求错误（${status}）`
-    if (status === 401) {
-      handleUnauthorized()
     } else {
-      Message.error(message)
+      const status = error.response.status
+      const message = httpErrorMap[status] || `请求错误（${status}）`
+      if (status === 401) {
+        handleUnauthorized()
+      } else {
+        Message.error(message)
+      }
     }
-
     return Promise.reject(error)
   }
 )
@@ -159,15 +149,11 @@ export const createService = (baseURL) => {
 }
 
 // 导出各服务的实例
-export const UPMS_SERVICE = createService(process.env.VUE_APP_ETL_UPMS)
-export const DATABASE_SERVICE = createService(process.env.VUE_APP_ETL_DATABASE)
-export const COLLECT_SERVICE = createService(process.env.VUE_APP_ETL_DATA_COLLECT)
+export const PUFFERFISH_SERVICE = createService(process.env.VUE_APP_PUFFERFISH_SCHEDULER)
 
 // 文件底部添加
 export default {
-  UPMS_SERVICE,
-  DATABASE_SERVICE,
-  COLLECT_SERVICE,
+  PUFFERFISH_SERVICE,
   createService
 }
 

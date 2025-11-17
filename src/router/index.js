@@ -97,7 +97,7 @@ export const asyncRoutes = [
     children: [
       {
         path: 'access',
-        component: () => import('@/views/etl-database/database/database'),
+        component: () => import('@/views/database/database/database'),
         name: 'DatabaseAccess',
         meta: {
           title: '数据源接入',
@@ -107,13 +107,13 @@ export const asyncRoutes = [
       },
       {
         path: 'collect',
-        component: () => import('@/views/etl-database/metadata/metadatasync'),
+        component: () => import('@/views/database/metadata/metadatasync'),
         name: 'DatabaseSync',
         meta: { title: '元数据采集', icon: 'metadata-collect' }
       },
       {
         path: 'resource',
-        component: () => import('@/views/etl-database/resource/resource'),
+        component: () => import('@/views/database/resource/resource'),
         name: 'Resource',
         meta: {
           title: '资源管理',

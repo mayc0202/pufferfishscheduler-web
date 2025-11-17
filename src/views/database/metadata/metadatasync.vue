@@ -254,7 +254,7 @@ export default {
      */
     queryAll() {
       tree('').then((res) => {
-        this.group = res.data.result
+        this.group = res.data.data
       })
     },
 
@@ -263,7 +263,7 @@ export default {
      */
     selectDbList() {
       getDbList(this.queryData).then((res) => {
-        var result = res.data.result
+        var result = res.data.data
         this.pageNo = result.current
         this.pageSize = result.size
         this.total = result.total

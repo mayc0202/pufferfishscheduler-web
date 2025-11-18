@@ -95,7 +95,6 @@ export default {
       capsTooltip: false,
       loading: false,
       showDialog: false,
-      scheduleDialogVisible: false,
       redirect: undefined,
       otherQuery: {}
     }
@@ -188,30 +187,6 @@ export default {
         }
         return acc
       }, {})
-    },
-
-    /**
-     * 打开定时任务设置弹框
-     */
-    openScheduleDialog() {
-      this.scheduleDialogVisible = true
-    },
-
-    /**
-     * 关闭定时任务设置弹框
-     */
-    handleScheduleClose() {
-      this.scheduleDialogVisible = false
-    },
-
-    /**
-     * 处理定时任务表单提交
-     */
-    handleScheduleSubmit(formData) {
-      console.log('定时任务设置:', formData)
-      this.$message.success('定时任务设置成功')
-      this.scheduleDialogVisible = false
-      // 这里可以添加提交到后端的逻辑
     }
   }
 }
@@ -368,21 +343,6 @@ $login_form_bg: rgba(255, 255, 255);
 
   .login:hover {
     background-color: #4fc7ff;
-  }
-
-  .schedule-button-container {
-    text-align: center;
-    margin-top: -20px;
-    margin-bottom: 10px;
-  }
-
-  .schedule-button-container .el-button {
-    color: #606266;
-    font-size: 12px;
-  }
-
-  .schedule-button-container .el-button:hover {
-    color: #409EFF;
   }
 
   .thirdparty-button {

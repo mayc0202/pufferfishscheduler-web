@@ -107,7 +107,7 @@ export const asyncRoutes = [
       },
       {
         path: 'collect',
-        component: () => import('@/views/database/metadata/metadatasync'),
+        component: () => import('@/views/database/metadata/metadata'),
         name: 'DatabaseSync',
         meta: { title: '元数据采集', icon: 'metadata-collect' }
       },

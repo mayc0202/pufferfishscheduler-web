@@ -145,6 +145,14 @@
                           <el-button
                             type="text"
                             size="mini"
+                            :disabled="scope.row.type != 'FILE'"
+                            @click.native.prevent=""
+                          >
+                            下载
+                          </el-button>
+                          <el-button
+                            type="text"
+                            size="mini"
                             @click.native.prevent="remove(scope.row)"
                           >
                             删除
@@ -551,7 +559,6 @@ export default {
           total: data.total
         }
       } catch (error) {
-        console.log(error)
         this.$message.error('获取资源列表失败')
       } finally {
         this.loading = false
@@ -953,32 +960,37 @@ export default {
 <style lang="scss" scoped>
 @import "@/styles/variables.scss";
 
+// 修改el-container的样式
+.container {
+  flex: 1;
+  background-color: #f8f8fc;
+}
+
 // 主内容区域样式调整
 ::v-deep .el-container > .el-container {
   flex: 1;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 ::v-deep .el-aside {
-  background-color: rgb(255, 255, 255);
-  padding: 10px;
-  color: #696969;
-  box-shadow: $shadow;
-  margin-bottom: 0;
   font-size: 16px;
   font-weight: 600;
-  user-select: none;
+  padding: 10px;
   min-width: 200px;
+  margin-left: 10px;
+  box-shadow: $shadow;
+  user-select: none;
+  background-color: #fff;
 }
 
 // 侧边栏样式调整
 ::v-deep .page-aside {
-  height: 100%;
-  overflow-y: auto; // 允许侧边栏单独滚动
-  background-color: rgb(255, 255, 255);
-  box-shadow: $shadow;
+  height: 87.5vh;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
 }
 
 /* 弹窗内的 el-aside */
@@ -991,18 +1003,16 @@ export default {
 // 表格区域样式调整
 ::v-deep .el-main {
   flex: 1;
-  padding: 0 !important;
-  margin-left: 10px;
   overflow-y: auto; // 改为垂直滚动
   display: flex;
   flex-direction: column;
+  padding: 0 10px 10px 10px !important;
+
   .list {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 10px 20px 20px 20px;
     background: #fff;
-    box-shadow: $shadow;
     border-radius: 4px;
     .search {
       flex-shrink: 0;
@@ -1015,12 +1025,6 @@ export default {
       margin-top: 20px;
     }
   }
-}
-
-/* 页面主区域 */
-::v-deep .page-aside + .el-container > .el-main {
-  margin-left: 10px;
-  box-shadow: $shadow;
 }
 
 ::v-deep .el-table {
@@ -1045,7 +1049,7 @@ export default {
   width: 100%;
   font-size: 14px;
   color: #606266;
-  background-color: #ffffff;
+  background-color: #fff;
   background-image: none;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
@@ -1089,6 +1093,7 @@ export default {
   margin: 0;
   padding: 0;
   overflow: hidden; // 隐藏溢出内容
+  background-color: #f8f8fc; /* 背景颜色 */
 }
 
 /* 确保内部容器高度正确 */

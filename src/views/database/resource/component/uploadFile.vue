@@ -203,12 +203,12 @@ export default {
 
 ::v-deep .el-dialog {
   border-radius: 7px !important;
-  z-index: 9999;
+  z-index: 99999;
 
   .el-dialog__header {
     border-top-left-radius: 7px !important;
     border-top-right-radius: 7px !important;
-    background-color: $light-blue;
+    background-color: $headerTxtHover;
 
     .el-dialog__title,
     .el-dialog__headerbtn .el-dialog__close {

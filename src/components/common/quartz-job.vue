@@ -141,7 +141,7 @@
 
 <script>
 export default {
-  name: 'TaskScheduleForm',
+  name: 'QuartzJob',
   data() {
     return {
       formData: {

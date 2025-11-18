@@ -102,20 +102,40 @@ const actions = {
   // user logout
   logout({ commit, state, dispatch }) {
     return new Promise((resolve, reject) => {
-      logout().then(() => {
+      logout().then((response) => {
+        // 清理本地状态
         commit('SET_TOKEN', '')
         commit('SET_NAME', '')
         commit('SET_ROLES', [])
         removeToken()
         resetRouter()
-
-        // reset visited views and cached views
-        // to fixed https://github.com/PanJiaChen/vue-element-admin/issues/2485
         dispatch('tagsView/delAllViews', null, { root: true })
 
-        resolve()
+        resolve(response.data) // 返回业务数据
       }).catch(error => {
-        reject(error)
+        // 获取服务器返回的具体业务错误信息
+        const serverError = error.response?.data
+
+        // 无论如何都要清理本地状态
+        commit('SET_TOKEN', '')
+        commit('SET_NAME', '')
+        commit('SET_ROLES', [])
+        removeToken()
+        resetRouter()
+        dispatch('tagsView/delAllViews', null, { root: true })
+
+        if (serverError) {
+        // 返回具体的业务错误信息
+          reject(serverError)
+        } else {
+        // 返回网络错误信息
+          reject({
+            code: 'NETWORK_ERROR',
+            message: error.message || '网络请求失败',
+            data: null,
+            status: 'ERROR'
+          })
+        }
       })
     })
   },

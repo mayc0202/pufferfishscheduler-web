@@ -59,9 +59,26 @@ export default {
     toggleSideBar() {
       this.$store.dispatch('app/toggleSideBar')
     },
+    /**
+     * 注销用户
+     */
     async logout() {
-      await this.$store.dispatch('user/logout')
-      this.$router.push(`/login?redirect=${this.$route.fullPath}`)
+      try {
+        await this.$store.dispatch('user/logout')
+        // 登出成功处理
+        this.$message.success('登出成功!')
+        this.$router.push(`/login?redirect=${this.$route.fullPath}`)
+      } catch (error) {
+        // 现在这里能拿到完整的错误信息了
+        if (error.code === '999999') {
+          this.$message.warning(error.message) // "账号已在其他地方登录!"
+        } else {
+          this.$message.error(error.message || '登出失败!')
+        }
+
+        // 无论登出请求是否成功，都跳转到登录页
+        this.$router.push(`/login?redirect=${this.$route.fullPath}`)
+      }
     }
   }
 }

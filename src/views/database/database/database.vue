@@ -278,7 +278,8 @@ import FTPComponent from './component/FTP/index'
 import {
   tree,
   addGroup,
-  updateGroup
+  updateGroup,
+  deleteGroup
 } from '@/api/database/database/dbGroup'
 
 import {
@@ -569,11 +570,25 @@ export default {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }).then(() => {
-        this.$message({
-          type: 'success',
-          message: '删除成功!'
-        })
+      }).then(async() => {
+        try {
+          const res = await deleteGroup(group.id)
+          const data = res.data
+
+          if (data.code === '999999') {
+            this.$message.warning(data.message)
+            return
+          }
+
+          this.$message.success(data.data || '删除成功!')
+          this.selectDbList()
+        } catch (error) {
+          console.error('删除分组失败:', error)
+          this.$message.error('删除失败，请重试')
+        } finally {
+          this.queryAll()
+          this.selectDbList()
+        }
       }).catch(() => {
         this.$message({
           type: 'info',
@@ -710,7 +725,6 @@ export default {
      * 删除数据源
      */
     async handleDelete(dbId) {
-      console.log(dbId)
       this.loading = true
       try {
         await deleteDb(dbId).then((res) => {
@@ -857,28 +871,6 @@ export default {
   border: none !important;
   box-shadow: $shadow;
 }
-
-/* 全局样式或使用深度选择器 */
-.custom-detail-dialog {
-  .custom-descriptions {
-    margin: 20px;
-
-    .el-descriptions__title {
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-
-    .el-descriptions-item__label {
-      font-weight: bold;
-      background-color: #f5f7fa;
-    }
-
-    .el-descriptions-item__content {
-      padding: 12px 16px;
-    }
-  }
-}
 </style>
 
 <style lang="scss" scoped>
@@ -907,36 +899,34 @@ export default {
 // 修改el-container的样式
 ::v-deep .el-container {
   flex: 1;
-  overflow: hidden;
   background-color: #f8f8fc;
 }
 
 // 主内容区域样式调整
 ::v-deep .el-container > .el-container {
   flex: 1;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 ::v-deep .el-aside {
-  background-color: #fff;
-  padding: 10px;
-  color: #696969;
-  box-shadow: $shadow;
-  margin-bottom: 0;
   font-size: 16px;
   font-weight: 600;
+  padding: 10px;
+  margin-left: 10px;
+  margin-top: 10px;
+  box-shadow: $shadow;
   user-select: none;
   min-width: 200px;
+  background-color: #fff;
 }
 
-// 侧边栏样式调整
 ::v-deep .page-aside {
-  height: 100%;
-  overflow-y: auto; // 允许侧边栏单独滚动
-  background-color: rgb(255, 255, 255);
-  box-shadow: $shadow;
+  height: 92.5vh;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
 }
 
 // 表格区域样式调整
@@ -945,12 +935,12 @@ export default {
   overflow-y: auto; // 改为垂直滚动
   display: flex;
   flex-direction: column;
+  padding: 10px;
   .list {
     flex: 1;
     display: flex;
     flex-direction: column;
     background: #fff;
-    // box-shadow: $shadow;
     border-radius: 4px;
     .search {
       flex-shrink: 0;
@@ -963,11 +953,6 @@ export default {
       margin-top: 20px;
     }
   }
-}
-
-/* 页面主区域 */
-::v-deep .page-aside + .el-container > .el-main {
-  box-shadow: $shadow;
 }
 
 ::v-deep .el-table {
@@ -1009,36 +994,39 @@ export default {
 }
 
 .body {
-  flex: 1; // 占据剩余空间
+  flex: 1;
   display: flex;
   flex-direction: column;
   padding: 0;
-  overflow: hidden; // 隐藏溢出内容
+  overflow: hidden;
+  height: calc(100vh - 20px);
 }
 
 /* 确保内部容器高度正确 */
 .body >>> .el-container {
   height: 100%;
+  min-height: 100%;
 }
-
 .body .group {
-  background: #fff fixed;
-  box-shadow: 0 2px px 0 rgba(0, 0, 0, 0.1);
   border-radius: 4px;
-  min-width: 220px; /* 设置最小输入宽度 */
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
-
 .body .group .search {
   margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .body .group .search .add {
   margin-left: 10px;
 }
-
 .body .group .queryAll {
   width: 100%;
   margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .body .group .group_icon {
@@ -1046,6 +1034,24 @@ export default {
   height: 18px;
   margin-top: 8px;
   margin-right: 6px;
+}
+
+::v-deep .el-tree {
+  height: 100% !important;
+  overflow-y: auto;
+  max-height: 800px;
+  flex: 1 !important;
+  min-height: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.body .group .wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .body .list {

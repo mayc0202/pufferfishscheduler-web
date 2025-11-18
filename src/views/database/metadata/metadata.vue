@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/valid-template-root -->
 input<template>
   <div class="container">
     <div class="body">
@@ -42,7 +43,7 @@ input<template>
                 </div>
                 <div>
                   <el-button type="primary" icon="el-icon-search" size="mini" @click="searchDbByName()">查询</el-button>
-                  <el-button type="primary" size="mini" @click="openDatabaseDialog()">新增同步任务</el-button>
+                  <el-button type="primary" size="mini" @click="openScheduleDialog()">新增同步任务</el-button>
                 </div>
               </div>
               <template>
@@ -122,33 +123,19 @@ input<template>
         </el-container>
       </el-container>
     </div>
-    <detail-dialog
-      :title="detailDialog.title"
-      :visible="detailDialog.visible"
-      :width="detailDialog.width"
-      :height="detailDialog.height"
-      :show-bth="false"
-      @onClose="handleDetailClose"
-    >
-      <div slot="content">
-        <el-descriptions title="垂直带边框列表" direction="vertical" :column="4" border>
-          <el-descriptions-item label="用户名">kooriookami</el-descriptions-item>
-          <el-descriptions-item label="手机号">18100000000</el-descriptions-item>
-          <el-descriptions-item label="居住地" :span="2">苏州市</el-descriptions-item>
-          <el-descriptions-item label="备注">
-            <el-tag size="mini">学校</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="联系地址">江苏省苏州市吴中区吴中大道 1188 号</el-descriptions-item>
-        </el-descriptions>
-      </div>
-    </detail-dialog>
+
+    <!-- 使用定时任务组件 -->
+    <QuartzJob
+      v-if="scheduleDialogVisible"
+      @submit="handleScheduleSubmit"
+      @cancel="handleScheduleCancel"
+    />
   </div>
 </template>
 
 <script>
 import icons from '@/assets/icon/icons.js'
-
-import DynamicDialog from '@/components/common/dynamic-dialog.vue'
+import QuartzJob from '@/components/common/quartz-job.vue'
 
 import {
   tree
@@ -161,7 +148,7 @@ import {
 export default {
   name: 'PagePermission',
   components: {
-    'detail-dialog': DynamicDialog
+    QuartzJob
   },
   data() {
     return {
@@ -195,7 +182,9 @@ export default {
       databaseList: [], // 数据库列表
       dbList: [], // 数据源列表
       loading: false,
-      componentType: 0
+      componentType: 0,
+
+      scheduleDialogVisible: false
     }
   },
 
@@ -213,6 +202,31 @@ export default {
   },
 
   methods: {
+
+    openScheduleDialog() {
+      this.scheduleDialogVisible = true
+      console.log('定时任务组件：', this.scheduleDialogVisible)
+    },
+
+    handleScheduleSubmit(formData) {
+      console.log('接收到的定时任务数据:', formData)
+      // 调用API保存定时任务
+      this.saveSchedule(formData)
+      this.scheduleDialogVisible = false
+    },
+    handleScheduleCancel() {
+      this.scheduleDialogVisible = false
+      this.$message.info('已取消定时设置')
+    },
+    async saveSchedule(data) {
+      try {
+        // 调用后端API
+        // await createSchedule(data)
+        this.$message.success('定时任务创建成功')
+      } catch (error) {
+        this.$message.error('创建失败')
+      }
+    },
 
     handleChange(val) {
       console.log(`分组 ${val}`)

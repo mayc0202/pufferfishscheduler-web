@@ -6,8 +6,6 @@
         <h1 v-else class="sidebar-title">{{ title }} </h1>
       </router-link>
       <router-link v-else key="expand" class="sidebar-logo-link" to="/">
-        <!-- <img v-if="logo" :src="logo" class="sidebar-logo">
-        <h1 class="sidebar-title">{{ title }} </h1> -->
         <img :src="icons.logo" class="sidebar-logo">
         <h1 class="sidebar-title">{{ title }} </h1>
       </router-link>
@@ -28,7 +26,7 @@ export default {
   data() {
     return {
       icons,
-      title: 'ETLedge'
+      title: 'PufferfishScheduler'
     }
   }
 }
@@ -50,7 +48,6 @@ export default {
   height: 50px;
   line-height: 50px;
   background: #ffffff;
-  // background: #305680;
   text-align: center;
   overflow: hidden;
 
@@ -59,20 +56,19 @@ export default {
     width: 100%;
 
     & .sidebar-logo {
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
+      margin-right: 6px;
       vertical-align: middle;
-      margin-right: 12px;
     }
 
     & .sidebar-title {
       display: inline-block;
       margin: 0;
-      // color: #fff;
       color: #000;
       font-weight: 500;
       line-height: 50px;
-      font-size: 18px;
+      font-size: 16px;
       font-family: Avenir, Helvetica Neue, Arial, Helvetica, sans-serif;
       vertical-align: middle;
     }

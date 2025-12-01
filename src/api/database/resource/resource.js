@@ -1,4 +1,5 @@
 import { PUFFERFISH_API } from '@/api/http'
+import { exportFileFromResponse } from '@/utils/download-util'
 
 /**
  * tree
@@ -77,4 +78,19 @@ export function upload(formData, onProgress, signal, timeout) {
     signal, // 支持 AbortController
     timeout: timeout // 超时时间（毫秒）
   })
+}
+
+/**
+ * 资源下载专用方法
+ * @param {Object} downloadParams - 下载参数
+ * @param {Object} [config] - 额外配置项
+ * @returns {Promise} 下载请求Promise
+ */
+export function downloadResource(downloadParams, config = {}) {
+  return PUFFERFISH_API.downloadFile('/resource/download.do', downloadParams, config)
+    .then(response => {
+      // 自动处理文件导出
+      exportFileFromResponse(response)
+      return response
+    })
 }

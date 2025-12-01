@@ -7,6 +7,7 @@
     :width="width"
     :height="height"
     :show-bth="false"
+    :loading="loading"
     @onClose="handleDialogClose"
     @onConfirm="handleDialogConfirm"
   >

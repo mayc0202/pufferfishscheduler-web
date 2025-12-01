@@ -48,7 +48,7 @@
           </div>
         </el-aside>
         <el-container v-if="componentType == null">
-          <el-main>
+          <el-main v-loading="listLoading">
             <div class="list">
               <div class="flex between search">
                 <div class="search_input">
@@ -74,20 +74,20 @@
                     type="index"
                     label="#"
                   />
-                  <el-table-column prop="name" label="数据源名称" width="240" />
-                  <el-table-column prop="groupName" label="分组" width="220" />
-                  <el-table-column prop="labelName" label="数据源分层" width="220" />
+                  <el-table-column prop="name" label="数据源名称" width="220" />
+                  <el-table-column prop="groupName" label="分组" width="200" />
+                  <el-table-column prop="labelName" label="数据源分层" width="200" />
                   <el-table-column
                     prop="type"
                     label="数据库类型"
-                    width="240"
+                    width="200"
                   />
                   <el-table-column
                     prop="createdTimeTxt"
                     label="创建日期"
-                    width="220"
+                    width="200"
                   />
-                  <el-table-column fixed="right" label="操作" width="140">
+                  <el-table-column fixed="right" label="操作" width="160">
                     <template slot-scope="scope">
                       <div class="wrap">
                         <div>
@@ -365,7 +365,9 @@ export default {
       cacheDatabaseList: [], // 缓存所有的数据库基础信息
       databaseList: [], // 数据库列表
       dbList: [], // 数据源列表
-      loading: false,
+      loading: false, // 加载状态
+      groupLoading: false, // 分组加载状态
+      listLoading: false, // 列表加载状态
       componentType: 0,
 
       detailVisible: false, // 详情弹窗显示状态
@@ -473,12 +475,7 @@ export default {
             orderBy: Number(this.groupForm.orderBy)
           }
           addGroup(formData).then((res) => {
-            var data = res.data
-            if (data.code === '999999') {
-              this.$message.warning(data.message)
-            } else {
-              this.$message.success(data.message)
-            }
+            this.$message.success(res.data)
           })
 
           // 执行一次查询操作
@@ -502,7 +499,7 @@ export default {
      */
     queryGroupsByName() {
       tree(this.searchGroup).then((res) => {
-        this.group = res.data.data
+        this.group = res.data
       })
     },
 
@@ -511,7 +508,7 @@ export default {
      */
     queryAll() {
       tree('').then((res) => {
-        this.group = res.data.data
+        this.group = res.data
         this.group.forEach(g => {
           g.icon = ''
         })
@@ -539,10 +536,6 @@ export default {
             orderBy: Number(this.groupForm.orderBy)
           }
           updateGroup(formData).then((res) => {
-            var data = res.data
-            if (data.code === '999999') {
-              this.$message.warning(data.message)
-            }
             this.queryAll()
             this.selectDbList()
           })
@@ -573,14 +566,7 @@ export default {
       }).then(async() => {
         try {
           const res = await deleteGroup(group.id)
-          const data = res.data
-
-          if (data.code === '999999') {
-            this.$message.warning(data.message)
-            return
-          }
-
-          this.$message.success(data.data || '删除成功!')
+          this.$message.success(res.data || '删除成功!')
           this.selectDbList()
         } catch (error) {
           console.error('删除分组失败:', error)
@@ -676,21 +662,21 @@ export default {
     /**
      * 获取数据源集合
      */
-    selectDbList() {
-      getDbList(this.queryData).then((res) => {
+    async selectDbList() {
+      try {
+        this.listLoading = true
+        const res = await getDbList(this.queryData)
         var data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-          return
-        }
-        var result = data.data
-        this.pageNo = result.current
-        this.pageSize = result.size
-        this.total = result.total
-        this.dbList = result.records
-      }).catch(err => {
-        this.$message.error(err.message)
-      })
+        this.pageNo = data.current
+        this.pageSize = data.size
+        this.total = data.total
+        this.dbList = data.records
+      } catch (error) {
+        this.listLoading = false
+        this.$message.error(error.message)
+      } finally {
+        this.listLoading = false
+      }
     },
 
     /**
@@ -728,13 +714,13 @@ export default {
       this.loading = true
       try {
         await deleteDb(dbId).then((res) => {
-          const data = res.data
-          if (data.code === '999999') {
-            this.$message.warning(data.message)
-          } else {
-            this.$message.success(data.data)
-            this.selectDbList()
+          if (res.code === '999999') {
+            this.$message.warning(res.message)
+            return
           }
+
+          this.$message.success(res.data)
+          this.selectDbList()
         })
       } finally {
         this.loading = false
@@ -751,17 +737,15 @@ export default {
         this.detailLoading = true // 加载中
 
         const res = await detailDb(dbId)
-        const data = res.data || res // 适配不同响应结构
-
         // 检查业务错误码
-        if (data.code === '999999') {
-          this.$message.warning(data.message || '系统错误')
+        if (res.code === '999999') {
+          this.$message.warning(res.message)
           this.detailLoading = false // 加载完成
           return
         }
 
         // 成功处理
-        this.databaseInfo = data.data
+        this.databaseInfo = res.data
       } catch (error) {
         this.$message.error('获取详情失败')
         this.detailLoading = false // 加载完成
@@ -787,7 +771,7 @@ export default {
       this.loading = true
       try {
         getDbCategoryList().then((res) => {
-          this.databaseType = res.data.data
+          this.databaseType = res.data
           this.databaseType.forEach(d => {
             if (d.imgConfig != null && d.imgConfig !== '') {
               var config = JSON.parse(d.imgConfig)
@@ -808,15 +792,13 @@ export default {
     async getDbBasicList() {
       try {
         const res = await getDbBasicList()
-        const data = res.data || res
 
-        // 检查业务错误码
-        if (data.code === '999999') {
-          this.$message.warning(data.message || '系统错误')
+        if (res.code === '999999') {
+          this.$message.warning(res.message)
           return
         }
 
-        this.cacheDatabaseList = data.data
+        this.cacheDatabaseList = res.data
         this.cacheDatabaseList.forEach(d => {
           if (d.imgConfig != null && d.imgConfig !== '') {
             var config = JSON.parse(d.imgConfig)
@@ -839,9 +821,10 @@ export default {
       this.componentType = null // 切换回列表视图
       this.loading = true
       try {
-        await this.queryAll().catch(err => {
-          this.$message.error('分组刷新失败: ' + err.message)
-        })
+        this.queryAll()
+      } catch (error) {
+        console.error(error)
+        this.$message.error('保存失败')
       } finally {
         this.selectDbList()
         this.loading = true

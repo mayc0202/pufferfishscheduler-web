@@ -129,14 +129,9 @@ export default {
         // 清除超时定时器
         clearTimeout(timeoutId)
 
-        const { data } = res
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.$message.success(data.data)
-          this.$emit('success', true)
-          this.handleClose()
-        }
+        this.$message.success(res.data)
+        this.$emit('success', true)
+        this.handleClose()
       } catch (error) {
         console.error(error)
         this.$message.error(

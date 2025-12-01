@@ -1,5 +1,5 @@
 <!-- eslint-disable vue/valid-template-root -->
-input<template>
+<template>
   <div class="container">
     <div class="body">
       <el-container>
@@ -31,24 +31,70 @@ input<template>
           </div>
         </el-aside>
         <el-container>
-          <el-main>
+          <el-main v-loading="loading">
             <div class="list">
-              <div class="flex between search">
-                <div class="search_input">
-                  <input
-                    v-model="dbName"
-                    placeholder="请输入数据源名称"
-                    class="input"
-                  >
-                </div>
-                <div>
-                  <el-button type="primary" icon="el-icon-search" size="mini" @click="searchDbByName()">查询</el-button>
-                  <el-button type="primary" size="mini" @click="openScheduleDialog()">新增同步任务</el-button>
-                </div>
+              <div class="search">
+                <el-row>
+                  <el-col :span="5">
+                    <div class="search_input">
+                      <input
+                        v-model="queryData.dbName"
+                        placeholder="请输入数据源名称"
+                        class="input"
+                      >
+                    </div></el-col>
+                  <el-col :span="5">
+                    <div class="col">
+                      <div class="label">
+                        分组：
+                      </div>
+                      <el-select v-model="queryData.groupId" clearable placeholder="请选择数据源分组">
+                        <el-option
+                          v-for="item in groupOption"
+                          :key="item.code"
+                          :label="item.code"
+                          :value="item.value"
+                        />
+                      </el-select>
+                    </div>
+                  </el-col>
+                  <el-col :span="5">
+                    <div class="col">
+                      <div class="label">
+                        同步状态：
+                      </div>
+                      <el-select v-model="queryData.status" clearable placeholder="请选择同步任务状态">
+                        <el-option
+                          v-for="item in taskStatusOption"
+                          :key="item.code"
+                          :label="item.code"
+                          :value="item.value"
+                        />
+                      </el-select>
+                    </div>
+                  </el-col>
+                  <el-col :span="5">
+                    <div class="col">
+                      <div class="label">
+                        只显示启用：
+                      </div>
+                      <el-switch
+                        v-model="queryData.enable"
+                        active-color="#13ce66"
+                      />
+                    </div>
+                  </el-col>
+                  <el-col :span="4">
+                    <div>
+                      <el-button type="primary" icon="el-icon-search" size="mini" @click="selectTaskList()">查询</el-button>
+                      <el-button type="primary" size="mini" @click="handleAddSchedule">新增同步任务</el-button>
+                    </div>
+                  </el-col>
+                </el-row>
               </div>
               <template>
                 <el-table
-                  :data="dbList"
+                  :data="taskList"
                   style="width: 100%"
                   max-height="640"
                 >
@@ -57,32 +103,23 @@ input<template>
                     type="index"
                     label="#"
                   />
-                  <el-table-column prop="name" label="数据源名称" width="240" />
-                  <el-table-column prop="groupName" label="分组" width="220" />
-                  <el-table-column prop="labelName" label="数据源分层" width="220" />
+                  <el-table-column prop="dbName" label="数据源名称" width="220" />
+                  <el-table-column prop="dbGroupName" label="数据源分组" width="200" />
                   <el-table-column
-                    prop="type"
-                    label="数据库类型"
-                    width="240"
+                    prop="cron"
+                    label="同步策略"
+                    width="200"
                   />
                   <el-table-column
-                    prop="createdTimeTxt"
-                    label="创建日期"
+                    prop="executeTimeTxt"
+                    label="最近执行时间"
                     width="220"
                   />
-                  <el-table-column fixed="right" label="操作" width="140">
+                  <el-table-column prop="statusTxt" label="执行状态" width="100" />
+                  <el-table-column fixed="right" label="操作" width="220">
                     <template slot-scope="scope">
                       <div class="wrap">
                         <div>
-                          <el-button
-                            type="text"
-                            size="mini"
-                            @click.native.prevent="
-                              handleDetail(scope.row.id)
-                            "
-                          >
-                            查看
-                          </el-button>
                           <el-button
                             type="text"
                             size="mini"
@@ -91,6 +128,21 @@ input<template>
                             "
                           >
                             编辑
+                          </el-button>
+                          <el-button
+                            type="text"
+                            size="mini"
+                          >
+                            立即执行
+                          </el-button>
+                          <el-button
+                            type="text"
+                            size="mini"
+                            @click.native.prevent="
+                              toggleEnableStatus(scope.row.id)
+                            "
+                          >
+                            {{ scope.row.enable ? '禁用' : '启用' }}
                           </el-button>
                           <el-button
                             type="text"
@@ -127,6 +179,12 @@ input<template>
     <!-- 使用定时任务组件 -->
     <QuartzJob
       v-if="scheduleDialogVisible"
+      ref="quartzJob"
+      :visible="scheduleDialogVisible"
+      :width="460"
+      :height="520"
+      :title="isEditMode ? '编辑同步任务' : '新增同步任务'"
+      :edit-data="isEditMode ? { id: editingTaskId } : null"
       @submit="handleScheduleSubmit"
       @cancel="handleScheduleCancel"
     />
@@ -137,13 +195,17 @@ input<template>
 import icons from '@/assets/icon/icons.js'
 import QuartzJob from '@/components/common/quartz-job.vue'
 
-import {
-  tree
-} from '@/api/database/database/dbGroup'
+import dictCode from '@/api/dict/dictCode.js'
+import { getDict } from '@/api/dict/dict'
 
 import {
-  getDbList
-} from '@/api/database/database/database'
+  tree,
+  list,
+  add,
+  update,
+  deleted,
+  toggleEnableStatus
+} from '@/api/database/metadata/metadata'
 
 export default {
   name: 'PagePermission',
@@ -153,79 +215,66 @@ export default {
   data() {
     return {
       icons,
-      groupForm: {
-        id: null,
-        name: '',
-        orderBy: 0
-      },
-      detailDialog: {
-        title: '数据源详情',
-        visible: false,
-        width: 640,
-        height: 460
-      },
-      searchGroup: '', // 查询分组
+      // 分组
       group: [],
+      // 分组下拉列表
+      groupOption: [],
+      // 任务状态下拉列表
+      taskStatusOption: [],
+      searchGroup: '', // 查询分组
+      // 查询数据
       queryData: {
         groupId: '',
         dbId: '',
-        name: '',
-        pageNo: '',
-        pageSize: ''
+        dbName: '',
+        status: '',
+        enable: true,
+        pageNo: 1,
+        pageSize: 10
       },
-      pageNo: 0,
-      pageSize: 0,
+      pageNo: 1,
+      pageSize: 10,
       total: 0,
-      dbName: '', // 数据源名称
-      databaseType: [], // 数据库类型
-      cacheDatabaseList: [], // 缓存所有的数据库基础信息
-      databaseList: [], // 数据库列表
-      dbList: [], // 数据源列表
+      taskList: [], // 任务列表
       loading: false,
-      componentType: 0,
-
-      scheduleDialogVisible: false
+      // 展示定时任务组件
+      scheduleDialogVisible: false,
+      isEditMode: false, // 是否为编辑模式
+      editingTaskId: null // 当前编辑的任务ID
     }
   },
 
   created() {
-    this.componentType = null
     this.pageNo = 1
     this.pageSize = 10
-    this.databaseList = []
-    this.cacheDatabaseList = []
   },
 
   mounted() {
+    this.initDict()
     this.queryAll()
-    this.selectDbList()
+    this.selectTaskList()
   },
 
   methods: {
 
-    openScheduleDialog() {
-      this.scheduleDialogVisible = true
-      console.log('定时任务组件：', this.scheduleDialogVisible)
+    // 加载字典数据
+    initDict() {
+      getDict(dictCode.TASK_STATUS).then((res) => {
+        this.taskStatusOption = res.data
+      })
+      getDict(dictCode.DB_GROUP).then((res) => {
+        this.groupOption = res.data
+      })
     },
 
-    handleScheduleSubmit(formData) {
-      console.log('接收到的定时任务数据:', formData)
-      // 调用API保存定时任务
-      this.saveSchedule(formData)
-      this.scheduleDialogVisible = false
-    },
-    handleScheduleCancel() {
-      this.scheduleDialogVisible = false
-      this.$message.info('已取消定时设置')
-    },
-    async saveSchedule(data) {
-      try {
-        // 调用后端API
-        // await createSchedule(data)
-        this.$message.success('定时任务创建成功')
-      } catch (error) {
-        this.$message.error('创建失败')
-      }
+    /**
+     * 添加同步任务
+     * @param form
+     */
+    async saveSchedule(form) {
+      // 调用后端API
+      const res = await add(form)
+      this.$message.success(res.data)
     },
 
     handleChange(val) {
@@ -240,7 +289,7 @@ export default {
       this.pageSize = val
       this.queryData.pageSize = this.pageSize
       this.queryData.pageNo = this.pageNo
-      this.selectDbList()
+      this.selectTaskList()
     },
 
     /**
@@ -251,48 +300,178 @@ export default {
       this.pageNo = val
       this.queryData.pageSize = this.pageSize
       this.queryData.pageNo = this.pageNo
-      this.selectDbList()
+      this.selectTaskList()
     },
 
     /**
      * 根据名称查询数据源列表
      */
-    searchDbByName() {
-      this.queryData.name = this.dbName
+    searchTaskByName() {
       this.queryData.pageNo = this.pageNo
       this.queryData.pageSize = this.pageSize
-      this.selectDbList()
+      this.selectTaskList()
     },
+
     /**
      * 获取分组数
      */
     queryAll() {
       tree('').then((res) => {
-        this.group = res.data.data
+        this.group = res.data
+      })
+    },
+
+    /**
+     * 依据分组名称查询
+     */
+    queryGroupsByName() {
+      tree(this.searchGroup).then((res) => {
+        this.group = res.data
       })
     },
 
     /**
      * 获取数据源集合
      */
-    selectDbList() {
-      getDbList(this.queryData).then((res) => {
-        var result = res.data.data
+    async selectTaskList() {
+      try {
+        this.loading = true // 加载中
+
+        const res = await list(this.queryData)
+
+        // 成功处理
+        const result = res.data
         this.pageNo = result.current
         this.pageSize = result.size
         this.total = result.total
-        this.dbList = result.records
+        this.taskList = result.records
+      } catch (error) {
+        this.$message.error('获取元数据同步任务列表失败!')
+        this.loading = false // 加载完成
+        console.error(error)
+      } finally {
+        this.loading = false // 加载完成
+      }
+    },
+
+    /**
+     * 处理编辑操作
+     * @param row
+     */
+    handleEdit(row) {
+      this.isEditMode = true
+      this.editingTaskId = row.id
+      this.scheduleDialogVisible = true
+
+      const editData = {
+        dbId: row.dbId || row.metadataId, // 根据实际字段名调整
+        cron: row.cron,
+        failurePolicy: row.failurePolicy || '0',
+        notifyPolicy: row.notifyPolicy || '0',
+        workerId: row.workerId,
+        enable: row.enable ? '0' : '1', // 转换enable状态
+        id: row.id // 添加ID用于更新
+      }
+
+      // 这里需要将数据传递给QuartzJob组件
+      // 我们可以通过ref来调用子组件的方法
+      this.$nextTick(() => {
+        if (this.$refs.quartzJob) {
+          this.$refs.quartzJob.setFormData(editData)
+        }
       })
     },
 
-    // 查看数据源信息
-    handleDetail(dbId) {
-      console.log(dbId, '数据源id')
-      this.detailDialog.visible = true
+    /**
+     * 处理新增/编辑提交
+     * @param formData
+     */
+    async handleScheduleSubmit(formData) {
+      if (this.isEditMode) {
+      // 编辑模式，调用更新API
+        await this.updateSchedule(formData)
+      } else {
+      // 新增模式，调用添加API
+        await this.saveSchedule(formData)
+      }
+      this.resetDialogState()
     },
 
-    handleDetailClose() {
-      this.detailDialog.visible = false
+    /**
+     * 更新同步任务
+     * @param formData
+     */
+    async updateSchedule(formData) {
+      try {
+      // 这里调用你的更新API，假设是 update 方法
+        const res = await update(formData)
+        this.$message.success(res.data || '更新成功')
+        this.selectTaskList() // 刷新列表
+      } catch (error) {
+        this.$message.error('更新失败')
+        console.error(error)
+      }
+    },
+
+    /**
+     * 删除同步任务
+     * @param form
+     */
+    async handleDelete(id) {
+      try {
+        // 调用后端API
+        const res = await deleted(id)
+        this.$message.success(res.data || '删除成功')
+        this.selectTaskList() // 刷新列表
+      } catch (error) {
+        this.$message.error('删除失败')
+        console.error(error)
+      }
+    },
+
+    /**
+     * 切换启用状态
+     * @param form
+     */
+    async toggleEnableStatus(id) {
+      try {
+        // 调用后端API
+        const res = await toggleEnableStatus(id)
+        this.$message.success(res.data || '切换启用状态成功')
+        this.selectTaskList() // 刷新列表
+      } catch (error) {
+        this.$message.error('切换启用状态失败')
+        console.error(error)
+      }
+    },
+
+    /**
+     * 处理取消操作
+     */
+    handleScheduleCancel() {
+      this.resetDialogState()
+      this.$message.info('已取消操作')
+    },
+
+    /**
+     * 重置弹窗状态
+     */
+    resetDialogState() {
+      this.scheduleDialogVisible = false
+      this.isEditMode = false
+      this.editingTaskId = null
+      // 重置QuartzJob组件的表单数据
+      if (this.$refs.quartzJob) {
+        this.$refs.quartzJob.resetForm()
+      }
+
+      this.selectTaskList()
+    },
+
+    // 修改添加按钮点击事件
+    handleAddSchedule() {
+      this.isEditMode = false
+      this.scheduleDialogVisible = true
     }
   }
 }
@@ -337,38 +516,36 @@ export default {
 }
 
 // 修改el-container的样式
-::v-deep .el-container {
+.container {
   flex: 1;
-  overflow: hidden;
   background-color: #f8f8fc;
 }
 
 // 主内容区域样式调整
 ::v-deep .el-container > .el-container {
   flex: 1;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 ::v-deep .el-aside {
-  background-color: rgb(255, 255, 255);
-  padding: 10px;
-  color: #696969;
-  box-shadow: $shadow;
-  margin-bottom: 0;
   font-size: 16px;
   font-weight: 600;
+  padding: 10px;
+  margin-left: 10px;
   user-select: none;
   min-width: 200px;
+  box-shadow: $shadow;
+  background-color: #fff;
 }
 
 // 侧边栏样式调整
 ::v-deep .page-aside {
-  height: 100%;
-  overflow-y: auto; // 允许侧边栏单独滚动
-  background-color: rgb(255, 255, 255);
-  box-shadow: $shadow;
+  height: 92.5vh;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
 }
 
 /* 弹窗内的 el-aside */
@@ -381,18 +558,17 @@ export default {
 // 表格区域样式调整
 ::v-deep .el-main {
   flex: 1;
-  padding: 0 !important;
-  // margin-left: 10px;
   overflow-y: auto; // 改为垂直滚动
   display: flex;
   flex-direction: column;
+  padding: 10px;
+  margin-left: 0 !important;
+  margin-top: -10px !important;
   .list {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 10px 20px 20px 20px;
     background: #fff;
-    box-shadow: $shadow;
     border-radius: 4px;
     .search {
       flex-shrink: 0;
@@ -431,30 +607,61 @@ export default {
   font-size: 14px;
 }
 
-::v-deep .el-textarea__inner {
-  display: block;
-  resize: vertical;
-  padding: 5px 15px;
-  line-height: 1.5;
-  -webkit-box-sizing: border-box;
-  box-sizing: border-box;
-  width: 100%;
-  font-size: 14px;
-  color: #606266;
-  background-color: #ffffff;
-  background-image: none;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  -webkit-transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
-  transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
-}
-
 ::v-deep .el-pagination__sizes {
   margin-top: -5px;
 }
 
 ::v-deep .el-form-item__label {
   font-size: 13px;
+}
+
+::v-deep .el-tree {
+  height: 100% !important;
+  overflow-y: auto;
+  max-height: 800px;
+  flex: 1 !important;
+  min-height: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/** 列表头部标签 */
+.list .label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.list .col {
+  display: flex;
+  line-height: 32px;
+}
+
+/** 开关 */
+::v-deep .el-switch {
+    display: -webkit-inline-box;
+    display: -ms-inline-flexbox;
+    display: inline-flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    position: relative;
+    font-size: 14px;
+    line-height: 32px;
+    height: 32px;
+    vertical-align: middle;
+}
+
+/** 分组 */
+::v-deep .group .search .el-input__inner {
+  width: 240px;
+  height: 32px
+}
+
+/** 列表头部下拉框 */
+::v-deep .search .el-input__inner {
+  width: 180px;
+  height: 32px
 }
 
 .body {
@@ -469,13 +676,16 @@ export default {
 /* 确保内部容器高度正确 */
 .body >>> .el-container {
   height: 100%;
+  min-height: 100%;
 }
 
 .body .group {
-  background: #fff fixed;
-  box-shadow: 0 2px px 0 rgba(0, 0, 0, 0.1);
   border-radius: 4px;
-  min-width: 220px; /* 设置最小输入宽度 */
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .body .group .search {
@@ -489,6 +699,7 @@ export default {
 .body .group .queryAll {
   width: 100%;
   margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .body .group .group_icon {
@@ -501,10 +712,10 @@ export default {
 .body .list {
   padding: 10px 20px 20px 20px;
   background: #fff fixed;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: $shadow;
   border-radius: 4px;
   height: 100%;
-  min-width: 504px;
+  min-width: 1267px;
 }
 
 .body .list .search {
@@ -513,11 +724,11 @@ export default {
 }
 
 .body .list .search .search_input {
-  border-bottom: 1px rgb(167, 167, 167) inset;
   width: 220px;
   min-width: 220px;
   height: 30px;
   margin-right: 10px;
+  border-bottom: 1px rgb(167, 167, 167) inset;
 }
 
 .body .list .search .search_input .input {
@@ -540,41 +751,11 @@ export default {
 }
 
 .item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: $shadow;
 }
 
 .item .item-name {
   margin-left: 10px;
-}
-
-.database-icon {
-  margin-right: 8px;
-  margin-top: 8px;
-}
-
-.database-block {
-  width: 100%;
-  height: 120px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border: 1px solid #eee;
-  border-radius: 6px;
-  background-color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  margin-bottom: 10px;
-  transition: box-shadow 0.3s;
-}
-
-.database-block:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.database-block img {
-  max-width: 80px;
-  max-height: 60px;
-  object-fit: contain;
-  user-select: none;
 }
 
 .custom-node {

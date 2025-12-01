@@ -291,7 +291,7 @@ export default {
         name: '',
         type: 'MySQL',
         label: '',
-        category: 1,
+        category: '1',
         dbHost: '',
         dbPort: '',
         dbName: '',
@@ -327,7 +327,7 @@ export default {
         name: '',
         type: 'MySQL',
         label: '',
-        category: 1,
+        category: '1',
         dbHost: '',
         dbPort: '',
         dbName: '',
@@ -341,14 +341,14 @@ export default {
     // 获取数据源分组
     getDbGroup() {
       tree('').then((res) => {
-        this.dbGroup = res.data.data
+        this.dbGroup = res.data
       })
     },
 
     // 获取数据源分层
     getDict() {
       getDict(dictCode.DATA_SOURCE_LAYERING).then((res) => {
-        this.dbLabering = res.data.data
+        this.dbLabering = res.data
       })
     },
 
@@ -372,12 +372,7 @@ export default {
       database.password = await encrypt(database.password)
 
       connect(database).then((res) => {
-        const data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.$message.success(data.data)
-        }
+        this.$message.success(res.data)
       })
     },
 
@@ -388,31 +383,21 @@ export default {
       database.password = await encrypt(database.password)
 
       saveDb(database).then((res) => {
-        var data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.$message.success(data.data)
-          // 保存成功后
-          this.reset()
-          this.$emit('save-to-list')
-        }
+        this.$message.success(res.data)
+        // 保存成功后
+        this.reset()
+        this.$emit('save-to-list')
       })
     },
 
     // 加载数据源详情
     loadDetail(dbId) {
       detailDb(dbId).then((res) => {
-        var data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.databaseInfo = data.data
-          this.databaseInfo.password = decode(this.databaseInfo.password)
-          // 处理扩展属性
-          if (!isEmpty(this.databaseInfo.properties)) {
-            this.attributes = this.databaseInfo.properties
-          }
+        this.databaseInfo = res.data
+        this.databaseInfo.password = decode(this.databaseInfo.password)
+        // 处理扩展属性
+        if (!isEmpty(this.databaseInfo.properties)) {
+          this.attributes = this.databaseInfo.properties
         }
       })
     },

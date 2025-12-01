@@ -135,6 +135,28 @@ class HttpServiceFactory {
             'X-File-Type': 'avatar'
           }
         })
+      },
+
+      /**
+       * 文件下载（通用方法）
+       * @param {string} url - 下载地址
+       * @param {Object} [params] - 查询参数
+       * @param {Object} [config] - 额外配置项
+       * @returns {Promise} 下载请求Promise
+       */
+      downloadFile(url, params, config = {}) {
+        return this._request({
+          method: 'get',
+          url,
+          params,
+          responseType: 'blob', // 关键：指定响应类型为 blob
+          timeout: config.timeout || 60000, // 下载超时时间默认60秒
+          onDownloadProgress: config.onDownloadProgress, // 下载进度回调
+          headers: {
+            ...config.headers
+          },
+          ...config
+        })
       }
     }
   }

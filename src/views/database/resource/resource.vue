@@ -42,7 +42,9 @@
                   <i slot="prefix" class="el-input__icon el-icon-search" />
                 </el-input>
               </div>
-              <el-tree :data="group">
+              <el-tree
+                :data="group"
+              >
                 <div slot-scope="{ data }" class="custom-node flex between">
                   <div class="flex node-label" @click="selectFtpDb(data)">
                     <img
@@ -101,7 +103,7 @@
                   max-height="640"
                 >
                   <el-table-column fixed type="index" label="#" />
-                  <el-table-column prop="name" label="数据源名称" width="320">
+                  <el-table-column prop="name" label="数据源名称" width="220">
                     <template slot-scope="scope">
                       <div class="flex node-label" :class="scope.row.type === 'FILE' ? '': 'hand'" @click="queryResourceChildren(scope.row)">
                         <img :src="scope.row.icon" class="icon">
@@ -109,14 +111,14 @@
                       </div>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="typeTxt" label="文件类型" width="140" />
+                  <el-table-column prop="typeTxt" label="文件类型" width="200" />
                   <el-table-column prop="size" label="文件大小" width="200" />
                   <el-table-column
                     prop="createdTimeTxt"
                     label="创建日期"
-                    width="200"
+                    width="220"
                   />
-                  <el-table-column fixed="right" label="操作" width="240">
+                  <el-table-column fixed="right" label="操作" width="260">
                     <template slot-scope="scope">
                       <div class="wrap">
                         <div>
@@ -138,6 +140,7 @@
                           <el-button
                             type="text"
                             size="mini"
+                            :disabled="scope.row.type != 'FILE'"
                             @click.native.prevent="move(scope.row)"
                           >
                             移动
@@ -146,10 +149,12 @@
                             type="text"
                             size="mini"
                             :disabled="scope.row.type != 'FILE'"
-                            @click.native.prevent=""
+                            :loading="downloadingWithProgress"
+                            @click="handleDownloadWithProgress(scope.row)"
                           >
                             下载
                           </el-button>
+
                           <el-button
                             type="text"
                             size="mini"
@@ -307,7 +312,8 @@ import icons from '@/assets/icon/icons.js'
 import DynamicDialog from '@/components/common/dynamic-dialog.vue'
 import Upload from './component/uploadFile.vue'
 
-import { tree, directoryTree, list, mkdir, rename, remove, move } from '@/api/database/resource/resource.js'
+import { directoryTree, list, mkdir, rename, remove, move, downloadResource } from '@/api/database/resource/resource.js'
+import { ftpDbTree } from '@/api/database/database/dbGroup'
 
 export default {
   name: 'Resource',
@@ -345,11 +351,13 @@ export default {
       pageSize: 0,
       total: 0,
       loading: false,
+      // 当前数据库信息
       currentDb: {
         id: null,
         name: ''
       },
-      currentPath: '/',
+      currentPath: '/', // 当前路径，默认为根目录'/'
+      // 资源操作表单数据
       resource: {
         dbId: '',
         name: '',
@@ -360,24 +368,28 @@ export default {
         newName: '',
         oldName: ''
       },
+      // 创建文件夹弹窗数据
       mkdirDialog: {
         title: '新增目录',
         visible: false,
         width: 360,
         height: 160
       },
+      // 重命名弹窗数据
       renameDialog: {
         title: '资源重命名',
         visible: false,
         width: 360,
         height: 160
       },
+      // 移动弹窗数据
       moveDialog: {
         title: '资源移动',
         visible: false,
         width: 530,
         height: 120
       },
+      // 表单验证规则
       resourceRule: {
         name: [
           { required: true, trigger: 'blur', message: '请输入目录名称!' }
@@ -390,13 +402,16 @@ export default {
       directory: [],
       directoryLoading: false,
       directoryList: [],
+      // 上传文件弹窗数据
       uploadDialog: {
         title: '上传文件',
         prompt: '注意：文件大小不能超过900MB！',
         visible: false,
         width: 460,
         height: 320
-      }
+      },
+      // 下载进度条
+      downloadingWithProgress: false
     }
   },
 
@@ -460,7 +475,7 @@ export default {
      */
     async queryGroupsByName() {
       try {
-        const res = await tree(this.dbName)
+        const res = await ftpDbTree(this.dbName)
         this.handleGroupResponse(res)
       } catch (error) {
         this.$message.error('获取资源分组失败!')
@@ -486,7 +501,7 @@ export default {
      */
     async queryGroupAll() {
       try {
-        const res = await tree(this.dbName)
+        const res = await ftpDbTree(this.dbName)
         this.handleGroupResponse(res, true)
       } catch (error) {
         this.$message.error('获取资源分组失败!')
@@ -497,13 +512,12 @@ export default {
      * 处理分组响应数据
      */
     handleGroupResponse(res, isInitial = false) {
-      const { data } = res
-      if (data.code === '999999') {
-        this.$message.warning(data.message)
+      if (res.code === '999999') {
+        this.$message.warning(res.message)
         return
       }
 
-      this.group = isInitial ? data.data : data.datadata
+      this.group = isInitial ? res.data : res.datadata
 
       if (isInitial && this.group.length) {
         const [firstGroup] = this.group
@@ -549,7 +563,7 @@ export default {
           return
         }
 
-        const { data } = res.data
+        const data = res.data
         this.resourceList = data.records.map(this.processFile)
 
         // 更新分页信息
@@ -594,7 +608,9 @@ export default {
         jpg: icons.img,
         jpeg: icons.img,
         sql: icons.sql,
-        json: icons.json
+        json: icons.json,
+        jar: icons.jar
+
       }
       return iconMap[extension] || icons.file
     },
@@ -678,7 +694,7 @@ export default {
      */
     mkdirClose() {
       // 重置表单和校验状态
-      this.$refs.resource.resetFields()
+      // this.$refs.resource.resetFields()
       this.resource.name = ''
       this.mkdirDialog.visible = false
     },
@@ -746,7 +762,7 @@ export default {
           throw new Error('请求成功，但返回数据异常')
         }
 
-        const { code, message, result } = res.data
+        const { code, message, data } = res
 
         if (code === '999999') {
           this.$message.warning(message || '操作失败，请重试')
@@ -754,8 +770,8 @@ export default {
         }
 
         // 成功处理
-        this.directoryList = result
-        return result
+        this.directoryList = data
+        return data
       } catch (error) {
         if (error.message.includes('timeout')) {
           this.$message.error('网络请求超时...')
@@ -772,7 +788,7 @@ export default {
      */
     async submitMove() {
       var type = this.moveData.type === 'FILE' ? '文件' : '目录'
-      this.moveData.fromPath = this.currentPath + this.joinPaths(this.moveData.name)
+      this.moveData.fromPath = this.joinPaths(this.currentPath, this.moveData.name)
       if (this.directory.length > 0) {
         const path = this.directory[this.directory.length - 1]
         this.moveData.toPath = path
@@ -825,7 +841,7 @@ export default {
      */
     renameClose() {
       // 重置表单和校验状态
-      this.$refs.resource.resetFields()
+      // this.$refs.resource.resetFields()
       this.resetResource()
       this.renameDialog.visible = false
     },
@@ -848,9 +864,8 @@ export default {
      * 处理操作响应
      */
     handleOperationResponse(res, successMessage) {
-      const { data } = res
-      if (data.code === '999999') {
-        this.$message.warning(data.message)
+      if (res.code === '999999') {
+        this.$message.warning(res.message)
       } else {
         this.$message.success(successMessage)
         this.queryResource()
@@ -887,8 +902,8 @@ export default {
 
         const res = await remove(this.resource)
 
-        if (res.data.code === '999999') {
-          this.$message.warning(res.data.message)
+        if (res.code === '999999') {
+          this.$message.warning(res.message)
         } else {
           this.$message.success('删除成功!')
           await this.queryResource()
@@ -909,7 +924,7 @@ export default {
      */
     closeDialog(type) {
       this[`${type}Dialog`].visible = false
-      this.$refs.resource.resetFields()
+      // this.$refs.resource.resetFields()
       this.resetResource()
     },
 
@@ -937,6 +952,30 @@ export default {
         const cleanPath = path.replace(/^\/+|\/+$/g, '')
         return acc === '/' ? `/${cleanPath}` : `${acc}/${cleanPath}`
       }, '/').replace(/\/+/g, '/')
+    },
+
+    /**
+     * 处理带进度显示的下载
+     */
+    async handleDownloadWithProgress(data) {
+      const formData = {
+        dbId: data.dbId,
+        name: data.name,
+        path: this.currentPath,
+        type: data.type
+      }
+
+      this.downloadingWithProgress = true
+
+      try {
+        await downloadResource(formData)
+        this.$message.success('下载完成')
+      } catch (error) {
+        console.log(error)
+        this.$message.error('下载失败: ' + (error.message || '未知错误'))
+      } finally {
+        this.downloadingWithProgress = false
+      }
     }
   }
 }
@@ -944,6 +983,26 @@ export default {
 
 <style lang="scss">
 @import "@/styles/variables.scss";
+
+.custom-tooltip .custom-menu {
+  border: none;
+}
+
+.custom-tooltip .menu-item {
+  color: $label;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ebeef5;
+  cursor: pointer;
+}
+
+.custom-tooltip .menu-item:last-child {
+  border-bottom: none;
+}
+
+.custom-tooltip .menu-item:hover {
+  background-color: #fff;
+  color: #409eff;
+}
 
 .custom-tooltip {
   border: none !important;
@@ -1064,26 +1123,6 @@ export default {
 
 ::v-deep .el-form-item__label {
   font-size: 13px;
-}
-
-.custom-tooltip .custom-menu {
-  border: none;
-}
-
-.custom-tooltip .menu-item {
-  color: $label;
-  padding: 8px 12px;
-  border-bottom: 1px solid #ebeef5;
-  cursor: pointer;
-}
-
-.custom-tooltip .menu-item:last-child {
-  border-bottom: none;
-}
-
-.custom-tooltip .menu-item:hover {
-  background-color: #fff;
-  color: #409eff;
 }
 
 .body {
@@ -1255,7 +1294,6 @@ export default {
 */
 .icon {
   margin-right: 5px;
-  margin-top: 2px;
   width: 16px;
   height: 16px;
 }

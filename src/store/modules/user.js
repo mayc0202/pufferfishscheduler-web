@@ -1,4 +1,4 @@
-import { login, logout, getUserInfo } from '@/api/upms/auth'
+import { login, logout, getUserInfo, refreshToken } from '@/api/upms/auth'
 import { encrypt } from '@/utils/encrypt/RsaUtil'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import router, { resetRouter } from '@/router'
@@ -35,7 +35,12 @@ const mutations = {
 
 const actions = {
 
-  // user login
+  /**
+   * 用户登录
+   * @param {*} param
+   * @param {*} userInfo
+   * @returns
+   */
   login({ commit }, userInfo) {
     const { username, password } = userInfo
     // eslint-disable-next-line no-async-promise-executor
@@ -53,7 +58,7 @@ const actions = {
           encryptedPassword
         )
 
-        const token = loginResponse.data.data
+        const token = loginResponse.data
 
         // Store token in Vuex and Cookie
         commit('SET_TOKEN', token)
@@ -61,13 +66,18 @@ const actions = {
 
         resolve()
       } catch (error) {
-      // Reject with error message or error object
+        console.log(error)
+        // Reject with error message or error object
         reject(error.message || error)
       }
     })
   },
 
-  // get user info
+  /**
+   * 获取用户信息
+   * @param {*} param
+   * @returns
+   */
   getUserInfo({ commit, state }) {
     return new Promise((resolve, reject) => {
       // 添加缓存检查
@@ -75,7 +85,7 @@ const actions = {
         return resolve({ name: state.name, roles: state.roles })
       }
       getUserInfo().then(response => {
-        const data = response.data.data
+        const data = response.data
         if (!data) {
           reject('验证失败，请重新登录!')
         }
@@ -99,11 +109,15 @@ const actions = {
     })
   },
 
-  // user logout
+  /**
+   * 注销用户
+   * @param {*} param
+   * @returns
+   */
   logout({ commit, state, dispatch }) {
     return new Promise((resolve, reject) => {
       logout().then((response) => {
-        // 清理本地状态
+      // 清理本地状态
         commit('SET_TOKEN', '')
         commit('SET_NAME', '')
         commit('SET_ROLES', [])
@@ -111,12 +125,12 @@ const actions = {
         resetRouter()
         dispatch('tagsView/delAllViews', null, { root: true })
 
-        resolve(response.data) // 返回业务数据
+        // 强制跳转到登录页面
+        router.push('/login')
+
+        resolve(response.data)
       }).catch(error => {
-        // 获取服务器返回的具体业务错误信息
-        const serverError = error.response?.data
-
-        // 无论如何都要清理本地状态
+      // 无论请求成功与否，都清理本地状态并跳转
         commit('SET_TOKEN', '')
         commit('SET_NAME', '')
         commit('SET_ROLES', [])
@@ -124,18 +138,42 @@ const actions = {
         resetRouter()
         dispatch('tagsView/delAllViews', null, { root: true })
 
-        if (serverError) {
-        // 返回具体的业务错误信息
-          reject(serverError)
-        } else {
-        // 返回网络错误信息
-          reject({
-            code: 'NETWORK_ERROR',
-            message: error.message || '网络请求失败',
-            data: null,
-            status: 'ERROR'
-          })
-        }
+        // 强制跳转到登录页面
+        router.push('/login')
+
+        reject(error)
+      })
+    })
+  },
+
+  /**
+   * 刷新token
+   * @param {*} param
+   * @returns
+   */
+  refreshToken({ commit, state }) {
+    return new Promise((resolve, reject) => {
+    // 调用刷新token的API
+      refreshToken(state.token).then(response => {
+        const newToken = response.data.token
+
+        // 更新token
+        commit('SET_TOKEN', newToken)
+        setToken(newToken)
+
+        resolve(newToken)
+      }).catch(error => {
+      // 刷新token失败，执行退出登录
+        commit('SET_TOKEN', '')
+        commit('SET_NAME', '')
+        commit('SET_ROLES', [])
+        removeToken()
+        resetRouter()
+
+        // 跳转到登录页面
+        router.push('/login')
+
+        reject(error)
       })
     })
   },

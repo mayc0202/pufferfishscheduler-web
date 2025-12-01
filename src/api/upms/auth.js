@@ -39,3 +39,12 @@ export function getUserInfo() {
 export function logout() {
   return PUFFERFISH_API.post('/auth/logout.do')
 }
+
+/**
+ * 刷新token
+ * @param {*} token
+ * @returns
+ */
+export function refreshToken(token) {
+  return PUFFERFISH_API.get('/auth/refreshToken.do?token=' + token)
+}

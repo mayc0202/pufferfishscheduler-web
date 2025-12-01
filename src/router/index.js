@@ -137,31 +137,19 @@ export const asyncRoutes = [
         path: '/realtime/collection',
         component: () => import('@/views/error-page/401'),
         name: 'COLLECTION',
-        meta: { title: '实时归集管理', icon: 'real-sync' }
-      },
-      {
-        path: '/mttask',
-        component: () => import('@/views/error-page/401'),
-        name: 'MT_TASK',
-        meta: {
-          title: '多表归集管理',
-          icon: 'multiple-tables',
-          noCache: true,
-          activeMenu: '/example/list'
-        },
-        hidden: false
+        meta: { title: 'CDC实时归集', icon: 'real-sync' }
       },
       {
         path: '/clean/flow',
         component: () => import('@/views/flow/flow'),
         name: 'FLOW',
-        meta: { title: '清洗流程开发', icon: 'clean-flow' }
+        meta: { title: 'ETL流程开发', icon: 'clean-flow' }
       },
       {
         path: '/clean/task',
         component: () => import('@/views/error-page/401'),
         name: 'TASK',
-        meta: { title: '清洗任务管理', icon: 'clean-task' },
+        meta: { title: 'ETL任务管理', icon: 'clean-task' },
         hidden: false
       }
     ]
@@ -238,18 +226,18 @@ export const asyncRoutes = [
     ]
   },
 
-  // {
-  //   path: '/theme',
-  //   component: Layout,
-  //   children: [
-  //     {
-  //       path: 'index',
-  //       component: () => import('@/views/theme/index'),
-  //       name: 'Theme',
-  //       meta: { title: '主题设置', icon: 'theme' }
-  //     }
-  //   ]
-  // },
+  {
+    path: '/theme',
+    component: Layout,
+    children: [
+      {
+        path: 'index',
+        component: () => import('@/views/theme/index'),
+        name: 'Theme',
+        meta: { title: '主题设置', icon: 'theme' }
+      }
+    ]
+  },
 
   // 404 page must be placed at the end !!!
   { path: '*', redirect: '/404', hidden: true },

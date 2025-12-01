@@ -28,7 +28,7 @@ async function getPublicKey() {
 
   try {
     const res = await getAuth()
-    const data = res.data.data
+    const data = res.data
 
     if (isEmpty(data?.publicKey)) {
       throw new Error('获取认证信息失败: 公钥为空')
@@ -39,7 +39,7 @@ async function getPublicKey() {
     return publicKeyCache
   } catch (error) {
     console.error('获取公钥失败:', error)
-    throw new Error(`获取公钥失败: ${error.message}`)
+    throw new Error(`${error.message}`)
   }
 }
 
@@ -67,7 +67,7 @@ export async function encrypt(text) {
     return encryptedText
   } catch (error) {
     console.error('加密过程出错:', error)
-    throw new Error(`加密失败: ${error.message}`)
+    throw new Error(`${error.message}`)
   }
 }
 

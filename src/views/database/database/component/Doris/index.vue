@@ -314,7 +314,7 @@ export default {
         name: '',
         type: 'Doris',
         label: '',
-        category: 1,
+        category: '1',
         dbHost: '',
         dbPort: '',
         dbName: '',
@@ -354,7 +354,7 @@ export default {
         name: '',
         type: 'Doris',
         label: '',
-        category: 1,
+        category: '1',
         dbHost: '',
         dbPort: '',
         dbName: '',
@@ -372,14 +372,14 @@ export default {
     // 获取数据源分组
     getDbGroup() {
       tree('').then((res) => {
-        this.dbGroup = res.data.data
+        this.dbGroup = res.data
       })
     },
 
     // 获取数据源分层
     getDict() {
       getDict(dictCode.DATA_SOURCE_LAYERING).then((res) => {
-        this.dbLabering = res.data.data
+        this.dbLabering = res.data
       })
     },
 
@@ -403,12 +403,7 @@ export default {
       database.password = await encrypt(database.password)
 
       connect(database).then((res) => {
-        const data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.$message.success(data.data)
-        }
+        this.$message.success(res.data)
       })
     },
 
@@ -419,35 +414,25 @@ export default {
       database.password = await encrypt(database.password)
 
       saveDb(database).then((res) => {
-        var data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.$message.success(data.data)
-          // 保存成功后
-          this.reset()
-          this.$emit('save-to-list')
-        }
+        this.$message.success(res.data)
+        // 保存成功后
+        this.reset()
+        this.$emit('save-to-list')
       })
     },
 
     // 加载数据源详情
     loadDetail(dbId) {
       detailDb(dbId).then((res) => {
-        var data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.databaseInfo = data.data
-          // RSA解密密码
-          this.databaseInfo.password = decode(this.databaseInfo.password)
+        this.databaseInfo = res.data
+        // RSA解密密码
+        this.databaseInfo.password = decode(this.databaseInfo.password)
 
-          // 处理扩展属性
-          if (!isEmpty(this.databaseInfo.extConfig)) {
-            var extConfig = JSON.parse(this.databaseInfo.extConfig)
-            this.databaseInfo.feAddress = extConfig.feAddress
-            this.databaseInfo.beAddress = extConfig.beAddress
-          }
+        // 处理扩展属性
+        if (!isEmpty(this.databaseInfo.extConfig)) {
+          var extConfig = JSON.parse(this.databaseInfo.extConfig)
+          this.databaseInfo.feAddress = extConfig.feAddress
+          this.databaseInfo.beAddress = extConfig.beAddress
         }
       })
     },

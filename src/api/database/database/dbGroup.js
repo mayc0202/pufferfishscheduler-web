@@ -1,11 +1,27 @@
 import { PUFFERFISH_API } from '@/api/http'
 
 /**
- * list
+ * 获取数据源树形结构
  * @returns
  */
 export function tree(name) {
   return PUFFERFISH_API.get('/dbGroup/tree.do?name=' + String(name))
+}
+
+/**
+ * 获取FTP数据源树形结构
+ * @returns
+ */
+export function ftpDbTree(name) {
+  return PUFFERFISH_API.get('/dbGroup/ftpDbTree.do?name=' + String(name))
+}
+
+/**
+ * 获取关系型数据源树形结构
+ * @returns
+ */
+export function relationalDbTree() {
+  return PUFFERFISH_API.get('/dbGroup/relationalDbTree.do')
 }
 
 /**

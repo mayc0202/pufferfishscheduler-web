@@ -262,7 +262,7 @@ export default {
         type: 'FTP',
         mode: '',
         controlEncoding: '',
-        category: 1,
+        category: '4',
         dbHost: '',
         dbPort: '',
         dbName: '',
@@ -283,7 +283,8 @@ export default {
   created() {
     this.reset()
     this.getDbGroup()
-    this.getDict()
+    // 加载字典数据
+    this.initDict()
     this.addOrUpdate = true
   },
 
@@ -299,7 +300,7 @@ export default {
         type: '',
         mode: '',
         controlEncoding: '',
-        category: 1,
+        category: '4',
         dbHost: '',
         dbPort: '',
         dbName: '',
@@ -318,7 +319,7 @@ export default {
     },
 
     // 获取数据源分层
-    getDict() {
+    initDict() {
       getDict(dictCode.DATA_SOURCE_LAYERING).then((res) => {
         this.dbLabering = res.data.data
       })
@@ -353,12 +354,7 @@ export default {
       database.password = await encrypt(database.password)
 
       connect(database).then((res) => {
-        const data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.$message.success(data.data)
-        }
+        this.$message.success(res.data)
       })
     },
 
@@ -366,36 +362,27 @@ export default {
     async save() {
       // 深拷贝 databaseInfo，避免修改原始对象
       const database = JSON.parse(JSON.stringify(this.databaseInfo))
+      database.category = '4'
       database.password = await encrypt(database.password)
 
       saveDb(database).then((res) => {
-        var data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.$message.success(data.data)
-          // 保存成功后
-          this.reset()
-          this.$emit('save-to-list')
-        }
+        this.$message.success(res.data)
+        // 保存成功后
+        this.reset()
+        this.$emit('save-to-list')
       })
     },
 
     // 加载数据源详情
     loadDetail(dbId) {
       detailDb(dbId).then((res) => {
-        var data = res.data
-        if (data.code === '999999') {
-          this.$message.warning(data.message)
-        } else {
-          this.databaseInfo = data.data
-          this.databaseInfo.password = decode(this.databaseInfo.password)
-          // 处理配置属性
-          if (!isEmpty(this.databaseInfo.properties)) {
-            var properties = JSON.parse(this.databaseInfo.properties)
-            this.databaseInfo.controlEncoding = properties.controlEncoding
-            this.databaseInfo.mode = properties.mode
-          }
+        this.databaseInfo = res.data
+        this.databaseInfo.password = decode(this.databaseInfo.password)
+        // 处理配置属性
+        if (!isEmpty(this.databaseInfo.properties)) {
+          var properties = JSON.parse(this.databaseInfo.properties)
+          this.databaseInfo.controlEncoding = properties.controlEncoding
+          this.databaseInfo.mode = properties.mode
         }
       })
     },

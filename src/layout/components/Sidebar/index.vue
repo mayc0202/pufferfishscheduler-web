@@ -16,6 +16,9 @@
         <sidebar-item v-for="route in permission_routes" :key="route.path" :item="route" :base-path="route.path" />
       </el-menu>
     </el-scrollbar>
+
+    <!-- 添加悬浮小助手 -->
+    <assistant-button :is-collapsed="isCollapse" />
   </div>
 </template>
 
@@ -24,16 +27,19 @@ import { mapGetters } from 'vuex'
 import Logo from './Logo'
 import SidebarItem from './SidebarItem'
 import variables from '@/styles/variables.scss'
+import AssistantButton from '@/components/AIAgentAssistant/index.vue'
 
 export default {
   components: {
     SidebarItem,
-    Logo
+    Logo,
+    AssistantButton
   },
   computed: {
     ...mapGetters([
       'permission_routes',
-      'sidebar'
+      'sidebar',
+      'assistant'
     ]),
     activeMenu() {
       const route = this.$route

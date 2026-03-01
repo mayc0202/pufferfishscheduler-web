@@ -143,13 +143,13 @@ export const asyncRoutes = [
         path: '/clean/flow',
         component: () => import('@/views/flow/flow'),
         name: 'FLOW',
-        meta: { title: 'ETL流程开发', icon: 'clean-flow' }
+        meta: { title: '清洗流程设计', icon: 'clean-flow' }
       },
       {
         path: '/clean/task',
         component: () => import('@/views/error-page/401'),
         name: 'TASK',
-        meta: { title: 'ETL任务管理', icon: 'clean-task' },
+        meta: { title: '清洗任务管理', icon: 'clean-task' },
         hidden: false
       }
     ]
@@ -212,19 +212,19 @@ export const asyncRoutes = [
     ]
   },
 
-  {
-    path: '/pdf',
-    component: Layout,
-    redirect: '/pdf/index',
-    children: [
-      {
-        path: 'index',
-        component: () => import('@/views/pdf/index'),
-        name: 'PDF',
-        meta: { title: '基础配置', icon: 'el-icon-setting' }
-      }
-    ]
-  },
+  // {
+  //   path: '/pdf',
+  //   component: Layout,
+  //   redirect: '/pdf/index',
+  //   children: [
+  //     {
+  //       path: 'index',
+  //       component: () => import('@/views/pdf/index'),
+  //       name: 'PDF',
+  //       meta: { title: '基础配置', icon: 'el-icon-setting' }
+  //     }
+  //   ]
+  // },
 
   {
     path: '/theme',
@@ -237,6 +237,18 @@ export const asyncRoutes = [
         meta: { title: '主题设置', icon: 'theme' }
       }
     ]
+  },
+
+  {
+    path: '/agent-assistant',
+    component: () => import('@/views/agentService/index.vue'),
+    name: 'AIAgentAssistant',
+    meta: {
+      title: '智能小助手',
+      icon: 'el-icon-service',
+      roles: ['admin', 'editor']
+    },
+    hidden: true // 隐藏左侧菜单栏显示
   },
 
   // 404 page must be placed at the end !!!

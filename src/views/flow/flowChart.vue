@@ -2,7 +2,7 @@
   <el-container>
     <el-header style="height: 20px">
       <div class="flex between">
-        <div>流程名称...</div>
+        <div>流程名称</div>
         <div class="flex">
           <img :src="icons.return" class="icon">
           <div class="return">返回</div>

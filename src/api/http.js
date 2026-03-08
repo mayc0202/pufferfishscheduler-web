@@ -37,6 +37,7 @@ class HttpServiceFactory {
       get(url, params) {
         return this._request({
           method: 'get',
+          timeout: DEFAULT_TIMEOUT,
           url,
           params
         })
@@ -51,6 +52,7 @@ class HttpServiceFactory {
       post(url, data) {
         return this._request({
           method: 'post',
+          timeout: DEFAULT_TIMEOUT,
           url,
           data
         })
@@ -65,6 +67,7 @@ class HttpServiceFactory {
       put(url, data) {
         return this._request({
           method: 'put',
+          timeout: DEFAULT_TIMEOUT,
           url,
           data
         })
@@ -81,6 +84,7 @@ class HttpServiceFactory {
         const { params = undefined, data = undefined } = config
         return this._request({
           method: 'delete',
+          timeout: DEFAULT_TIMEOUT,
           url,
           params,
           data
@@ -112,6 +116,7 @@ class HttpServiceFactory {
       uploadFile(url, formData, config = {}) {
         return this._request({
           method: 'post',
+          timeout: DEFAULT_TIMEOUT,
           url,
           data: formData,
           upload: true,
@@ -150,7 +155,7 @@ class HttpServiceFactory {
           url,
           params,
           responseType: 'blob', // 关键：指定响应类型为 blob
-          timeout: config.timeout || 60000, // 下载超时时间默认60秒
+          timeout: config.timeout || DEFAULT_TIMEOUT, // 下载超时时间默认60秒
           onDownloadProgress: config.onDownloadProgress, // 下载进度回调
           headers: {
             ...config.headers

@@ -1,5 +1,4 @@
 import { PUFFERFISH_API } from '@/api/http'
-import { exportFileFromResponse } from '@/utils/download-util'
 
 /**
  * tree
@@ -87,10 +86,13 @@ export function upload(formData, onProgress, signal, timeout) {
  * @returns {Promise} 下载请求Promise
  */
 export function downloadResource(downloadParams, config = {}) {
-  return PUFFERFISH_API.downloadFile('/resource/download.do', downloadParams, config)
-    .then(response => {
-      // 自动处理文件导出
-      exportFileFromResponse(response)
-      return response
-    })
+  return PUFFERFISH_API.downloadFile(
+    '/resource/download.do',
+    downloadParams,
+    {
+      ...config,
+      responseType: 'blob',
+      timeout: 60000
+    }
+  )
 }

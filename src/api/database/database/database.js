@@ -53,3 +53,12 @@ export function detailDb(id) {
 export function connect(database) {
   return PUFFERFISH_API.post('/dbDatabase/connect.do', database)
 }
+
+/**
+ * 获取数据库表列表
+ * @param {*} dbId
+ * @returns
+ */
+export function dbTableList(dbId) {
+  return PUFFERFISH_API.get('/dbDatabase/dbTableList.do?dbId=' + dbId)
+}

@@ -1,6 +1,7 @@
 import store from '@/store'
 import axios from 'axios'
 import { Message, MessageBox } from 'element-ui'
+import router from '@/router'
 
 // 全局默认超时时间（10秒）
 const DEFAULT_TIMEOUT = 10000
@@ -31,8 +32,8 @@ function handleSessionExpired() {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    store.dispatch('asyncResetToken').then(() => {
-      location.reload()
+    store.dispatch('user/resetToken').then(() => {
+      router.push('/login')
     })
   })
 }
@@ -50,64 +51,59 @@ function handleUnauthorized() {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    store.dispatch('asyncResetToken').then(() => {
-      location.reload()
+    store.dispatch('user/resetToken').then(() => {
+      router.push('/login')
     })
   })
 }
 
 // 创建统一的拦截器配置函数
 const setupInterceptors = (instance) => {
-  // 请求拦截器
+  // 请求拦截器（保持不变）
   instance.interceptors.request.use(config => {
     // 区分文件上传和普通请求
     if (config.upload) {
-      // 文件上传请求保留 FormData 格式
       config.headers['Content-Type'] = 'multipart/form-data'
     } else {
-      // 普通请求使用 JSON 格式
       config.headers['Content-Type'] = 'application/json;charset=UTF-8'
-
-      // 只有当数据存在且是对象时进行序列化
       if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
         config.data = JSON.stringify(config.data)
       }
     }
-
     return config
   }, error => {
     return Promise.reject(error)
   })
 
-  // 响应拦截器
+  // 响应拦截器（核心修改：添加Blob判断）
   instance.interceptors.response.use(
     response => {
+      // 关键：如果是文件下载请求（responseType为blob），直接返回完整response对象
+      if (response.request.responseType === 'blob') {
+        return response // 不做任何处理，返回完整响应（包含headers、data(Blob)）
+      }
+
+      // 普通请求的原有逻辑（保持不变）
       const res = response.data
-      // 精准拦截 "999999" 系统错误
       if (res.code !== undefined && String(res.code) === SYSTEM_ERROR) {
         const errorMsg = res.message || '系统错误，请联系管理员'
         Message.warning(errorMsg)
-
-        // 特殊处理令牌过期
         if (res.message && res.message.includes('令牌')) {
           handleSessionExpired()
         }
-
-        // 仍然返回数据，让业务方法也能处理
         return res
       }
 
-      // 处理会话过期等其他业务错误
       const resCode = Number(res.code)
       if ([50008, 50012, 50014].includes(resCode)) {
         handleSessionExpired()
-        return res // 仍然返回数据
+        return res
       }
 
       return res
     },
     error => {
-      // 网络错误处理
+      // 错误处理逻辑（保持不变）
       if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
         handleNetworkError(error)
       } else if (!error.response) {

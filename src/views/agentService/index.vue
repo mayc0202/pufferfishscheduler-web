@@ -15,6 +15,7 @@
         </div>
       </div>
       <div class="header-right">
+        <button class="header-btn el-icon-coin" title="知识库" @click="goToKnowledgeBase" />
         <button
           class="header-btn el-icon-time"
           title="历史记录"
@@ -558,6 +559,11 @@ export default {
         this.myChart = echarts.init(this.$refs.chartRef)
         this.myChart.setOption(config)
       })
+    },
+
+    // 跳转到知识库管理页面
+    goToKnowledgeBase() {
+      this.$router.push('/knowledge-base')
     }
   }
 }

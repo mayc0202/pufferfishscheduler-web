@@ -277,10 +277,6 @@ export default {
       this.$message.success(res.data)
     },
 
-    handleChange(val) {
-      console.log(`分组 ${val}`)
-    },
-
     /**
      * 每页多少条记录
      * @param val

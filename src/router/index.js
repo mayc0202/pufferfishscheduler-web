@@ -192,25 +192,49 @@ export const asyncRoutes = [
   },
 
   {
-    path: '/usercenter',
+    path: '/knowledge-base',
     component: Layout,
-    // redirect: '/zip/download',
-    alwaysShow: true,
-    name: 'usercenter',
-    meta: { title: '用户中心', icon: 'el-icon-user' },
+    redirect: '/knowledge-base/index',
+    name: 'KnowledgeBase',
+    meta: {
+      title: '知识库管理',
+      icon: 'el-icon-coin',
+      roles: ['admin', 'editor']
+    },
     children: [
       {
-        path: 'role',
-        component: () => import('@/views/permission/role'),
-        name: 'RolePermission',
+        path: 'index',
+        component: () => import('@/views/knowledgeBase/index.vue'),
+        name: 'KnowledgeBaseIndex',
         meta: {
-          title: '角色管理',
-          icon: 'peoples',
-          roles: ['admin']
+          title: '知识库管理',
+          icon: 'el-icon-coin'
         }
       }
-    ]
+    ],
+    hidden: false // 隐藏左侧菜单栏显示
   },
+
+  // {
+  //   path: '/usercenter',
+  //   component: Layout,
+  //   // redirect: '/zip/download',
+  //   alwaysShow: true,
+  //   name: 'usercenter',
+  //   meta: { title: '用户中心', icon: 'el-icon-user' },
+  //   children: [
+  //     {
+  //       path: 'role',
+  //       component: () => import('@/views/permission/role'),
+  //       name: 'RolePermission',
+  //       meta: {
+  //         title: '角色管理',
+  //         icon: 'peoples',
+  //         roles: ['admin']
+  //       }
+  //     }
+  //   ]
+  // },
 
   // {
   //   path: '/pdf',
@@ -227,6 +251,18 @@ export const asyncRoutes = [
   // },
 
   {
+    path: '/agent-assistant',
+    component: () => import('@/views/agentService/index.vue'),
+    name: 'AIAgentAssistant',
+    meta: {
+      title: '智能小助手',
+      icon: 'el-icon-service',
+      roles: ['admin', 'editor']
+    },
+    hidden: true // 隐藏左侧菜单栏显示
+  },
+
+  {
     path: '/theme',
     component: Layout,
     children: [
@@ -237,18 +273,6 @@ export const asyncRoutes = [
         meta: { title: '主题设置', icon: 'theme' }
       }
     ]
-  },
-
-  {
-    path: '/agent-assistant',
-    component: () => import('@/views/agentService/index.vue'),
-    name: 'AIAgentAssistant',
-    meta: {
-      title: '智能小助手',
-      icon: 'el-icon-service',
-      roles: ['admin', 'editor']
-    },
-    hidden: true // 隐藏左侧菜单栏显示
   },
 
   // 404 page must be placed at the end !!!

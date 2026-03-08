@@ -17,6 +17,7 @@
   "dependencies": {
     "@antv/x6": "^2.18.1",
     "@antv/x6-vue-shape": "^2.1.2",
+    "@babel/runtime": "^7.28.6",
     "axios": "0.18.1",
     "clipboard": "2.0.4",
     "codemirror": "5.45.0",

@@ -311,6 +311,7 @@
 import icons from '@/assets/icon/icons.js'
 import DynamicDialog from '@/components/common/dynamic-dialog.vue'
 import Upload from './component/uploadFile.vue'
+import { exportFileFromResponse } from '@/utils/download-util'
 
 import { directoryTree, list, mkdir, rename, remove, move, downloadResource } from '@/api/database/resource/resource.js'
 import { ftpDbTree } from '@/api/database/database/dbGroup'
@@ -958,21 +959,26 @@ export default {
      * 处理带进度显示的下载
      */
     async handleDownloadWithProgress(data) {
-      const formData = {
-        dbId: data.dbId,
-        name: data.name,
-        path: this.currentPath,
-        type: data.type
-      }
-
+      let response = null
       this.downloadingWithProgress = true
 
       try {
-        await downloadResource(formData)
+        // 1. 构造参数
+        const downloadParams = {
+          dbId: data.dbId,
+          name: data.name,
+          path: this.currentPath,
+          type: data.type
+        }
+
+        // 2. 调用封装的下载方法（此时能拿到完整response对象）
+        response = await downloadResource(downloadParams)
+
+        // 3. 调用导出函数
+        exportFileFromResponse(response, data.name)
         this.$message.success('下载完成')
       } catch (error) {
-        console.log(error)
-        this.$message.error('下载失败: ' + (error.message || '未知错误'))
+        this.$message.error(`下载失败：${error.message || '未获取到文件数据'}`)
       } finally {
         this.downloadingWithProgress = false
       }

@@ -2,15 +2,15 @@
   <el-container>
     <el-header style="height: 20px">
       <div class="flex between">
-        <div>流程名称</div>
-        <div class="flex">
+        <div class="flow-title">{{ flowName || '流程设计' }}</div>
+        <div class="flex" @click="handleReturn">
           <img :src="icons.return" class="icon">
           <div class="return">返回</div>
         </div>
       </div>
     </el-header>
     <el-main>
-      <flow-chart :flow-id="flowId" />
+      <flow-chart :flow-id="flowId" :flow-name="flowName" />
     </el-main>
   </el-container>
 </template>
@@ -26,26 +26,36 @@ export default {
   data() {
     return {
       icons,
-      flowId: 0 // 流程id
+      flowId: null,
+      flowName: ''
     }
   },
 
   created() {
-    this.getFlowId()
+    this.getFlowInfo()
   },
 
-  mounted() {},
-
-  beforeDestroy() {},
-
   methods: {
-    /**
-     * 获取流程id
-     */
-    getFlowId() {
-      // 获取路径参数
-      this.flowId = this.$route.query.id
-      console.log('流程id：' + this.flowId) // 正确输出123
+    getFlowInfo() {
+      this.flowId = this.$route.query.id || null
+      this.flowName = this.$route.query.name || ''
+    },
+
+    handleReturn() {
+      this.$confirm(
+        '当前流程设计内容尚未保存，是否确认离开此页面？',
+        '提示',
+        {
+          confirmButtonText: '确认离开',
+          cancelButtonText: '取消',
+          type: 'warning',
+          distinguishCancelAndClose: true
+        }
+      ).then(() => {
+        this.$router.back()
+      }).catch(() => {
+        this.$message.info('已取消离开，继续编辑流程')
+      })
     }
   }
 }
@@ -79,6 +89,12 @@ export default {
   display: flex;
 }
 
+.flow-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
 .icon {
   width: 26px;
   height: 26px;
@@ -95,5 +111,8 @@ export default {
 .return:hover {
   transform: translate(0, -2px);
 }
-</style>
 
+.flex.between > div:last-child {
+  cursor: pointer;
+}
+</style>

@@ -25,36 +25,39 @@ const httpErrorMap = {
   505: 'HTTP版本不受支持'
 }
 
-// 处理会话过期
+// 避免会话过期弹窗重复弹出
+let isSessionDialogVisible = false
+
+// 处理会话过期（统一入口）
 function handleSessionExpired() {
+  if (isSessionDialogVisible) return
+  isSessionDialogVisible = true
+
   MessageBox.confirm('当前会话已过期，请重新登录！', '系统提示', {
     confirmButtonText: '重新登录',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    store.dispatch('user/resetToken').then(() => {
-      router.push('/login')
-    })
   })
+    .then(() => {
+      return store.dispatch('user/resetToken').then(() => {
+        router.push('/login')
+      })
+    })
+    .finally(() => {
+      // 无论用户点击确定/取消，关闭弹窗后允许后续再次弹出
+      isSessionDialogVisible = false
+    })
 }
 
 // 处理网络异常
 function handleNetworkError(error) {
-  const timeout = error.config?.timeout || DEFAULT_TIMEOUT
+  const timeout = error.config && error.config.timeout || DEFAULT_TIMEOUT
   Message.error(`请求超时（${timeout / 1000}秒），请检查网络或稍后重试`)
 }
 
-// 处理未授权
+// 处理未授权（复用会话过期逻辑，避免出现两种弹窗）
 function handleUnauthorized() {
-  MessageBox.confirm('当前会话已过期，请重新登录！', '提示', {
-    confirmButtonText: '重新登录',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    store.dispatch('user/resetToken').then(() => {
-      router.push('/login')
-    })
-  })
+  handleSessionExpired()
 }
 
 // 创建统一的拦截器配置函数
@@ -69,6 +72,14 @@ const setupInterceptors = (instance) => {
       if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
         config.data = JSON.stringify(config.data)
       }
+    }
+
+    // 统一携带 token：后端需要 Pufferfish-Token
+    // 兼容写入 X-Token，避免项目中历史接口出现不一致
+    const token = store.getters.token
+    if (token) {
+      config.headers['Pufferfish-Token'] = token
+      config.headers['X-Token'] = token
     }
     return config
   }, error => {

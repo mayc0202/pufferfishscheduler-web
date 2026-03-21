@@ -62,3 +62,14 @@ export function deleted(id) {
 export function toggleEnableStatus(id) {
   return PUFFERFISH_API.get('/metadata/toggleEnableStatus.do?id=' + id)
 }
+
+/**
+ * 立即同步数据（后端接口：immediatelySync.do，使用 @RequestParam dbId）
+ * 注意：本项目的 POST 默认以 application/json 发送 body。
+ * 为了兼容 @RequestParam，这里把 dbId 放在 URL 查询参数里。
+ * @param {number|string} dbId
+ * @returns
+ */
+export function immediatelySync(dbId) {
+  return PUFFERFISH_API.post(`/metadata/immediatelySync.do?dbId=${encodeURIComponent(String(dbId))}`, null)
+}

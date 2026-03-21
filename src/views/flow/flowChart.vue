@@ -3,14 +3,14 @@
     <el-header style="height: 20px">
       <div class="flex between">
         <div class="flow-title">{{ flowName || '流程设计' }}</div>
-        <div class="flex" @click="handleReturn">
-          <img :src="icons.return" class="icon">
-          <div class="return">返回</div>
+        <div class="return" @click="handleReturn">
+          <i class="el-icon-back" />
+          <div class="return-txt">返回</div>
         </div>
       </div>
     </el-header>
     <el-main>
-      <flow-chart :flow-id="flowId" :flow-name="flowName" />
+      <flow-chart ref="flowEditor" :flow-id="flowId" :flow-name="flowName" />
     </el-main>
   </el-container>
 </template>
@@ -27,7 +27,8 @@ export default {
     return {
       icons,
       flowId: null,
-      flowName: ''
+      flowName: '',
+      isLeaving: false
     }
   },
 
@@ -35,13 +36,9 @@ export default {
     this.getFlowInfo()
   },
 
-  methods: {
-    getFlowInfo() {
-      this.flowId = this.$route.query.id || null
-      this.flowName = this.$route.query.name || ''
-    },
-
-    handleReturn() {
+  beforeRouteLeave(to, from, next) {
+    // 检查是否有未保存的更改，且不是通过handleReturn方法触发的
+    if (!this.isLeaving && this.$refs.flowEditor && this.$refs.flowEditor.hasUnsavedChanges()) {
       this.$confirm(
         '当前流程设计内容尚未保存，是否确认离开此页面？',
         '提示',
@@ -52,10 +49,50 @@ export default {
           distinguishCancelAndClose: true
         }
       ).then(() => {
-        this.$router.back()
+        next()
       }).catch(() => {
         this.$message.info('已取消离开，继续编辑流程')
+        next(false)
       })
+    } else {
+      next()
+    }
+  },
+
+  methods: {
+    getFlowInfo() {
+      this.flowId = this.$route.query.id || null
+      this.flowName = this.$route.query.name || ''
+    },
+
+    handleReturn() {
+      // 如果日志弹窗打开，先关闭，避免遮挡后续弹窗/路由行为
+      if (this.$refs.flowEditor && this.$refs.flowEditor.logVisible) {
+        this.$refs.flowEditor.closeLogDialog()
+      }
+      // 检查是否有未保存的更改
+      if (this.$refs.flowEditor && this.$refs.flowEditor.hasUnsavedChanges()) {
+        this.$confirm(
+          '当前流程设计内容尚未保存，是否确认离开此页面？',
+          '提示',
+          {
+            confirmButtonText: '确认离开',
+            cancelButtonText: '取消',
+            type: 'warning',
+            distinguishCancelAndClose: true
+          }
+        ).then(() => {
+          // 设置离开标志，避免触发beforeRouteLeave的确认
+          this.isLeaving = true
+          // 明确跳转到流程列表页面
+          this.$router.push('/dataclean/flow')
+        }).catch(() => {
+          this.$message.info('已取消离开，继续编辑流程')
+        })
+      } else {
+        // 没有未保存的更改，直接跳转到流程列表页面
+        this.$router.push('/dataclean/flow')
+      }
     }
   }
 }
@@ -104,12 +141,22 @@ export default {
 }
 
 .return {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   user-select: none;
+  font-size: 14px;
+  transition: all 0.3s ease;
 }
 
 .return:hover {
+  color: #1890ff;
   transform: translate(0, -2px);
+}
+
+.return-txt {
+  margin-left: 5px;
 }
 
 .flex.between > div:last-child {

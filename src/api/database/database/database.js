@@ -62,3 +62,12 @@ export function connect(database) {
 export function dbTableList(dbId) {
   return PUFFERFISH_API.get('/dbDatabase/dbTableList.do?dbId=' + dbId)
 }
+
+/**
+ * 获取数据库字段列表
+ * @param {*} tableId
+ * @returns
+ */
+export function fieldList(tableId) {
+  return PUFFERFISH_API.get('/dbDatabase/fieldList.do?tableId=' + tableId)
+}

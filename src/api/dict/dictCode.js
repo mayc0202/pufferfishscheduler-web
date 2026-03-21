@@ -17,8 +17,11 @@ export default {
   // 启用状态: 0-禁用,1-启用
   ENABLE: 'enable',
   // 任务状态
-  TASK_STATUS: 'task_status',
-
+  TASK_STATUS: 'job_manage_status',
   // 业务层字典
-  DB_GROUP: 'db_group'
+  DB_GROUP: 'db_group',
+  // CDC引擎类型
+  CDC_ENGINE_TYPE: 'cdc_engine_type',
+  // 调度方式 / 执行类型（清洗任务等）
+  SCHEDULE_TYPE: 'schedule_type'
 }

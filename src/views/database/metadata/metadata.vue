@@ -51,9 +51,9 @@
                       <el-select v-model="queryData.groupId" clearable placeholder="请选择数据源分组">
                         <el-option
                           v-for="item in groupOption"
-                          :key="item.code"
-                          :label="item.code"
-                          :value="item.value"
+                          :key="String(item.code)"
+                          :label="item.value"
+                          :value="String(item.code)"
                         />
                       </el-select>
                     </div>
@@ -65,10 +65,10 @@
                       </div>
                       <el-select v-model="queryData.status" clearable placeholder="请选择同步任务状态">
                         <el-option
-                          v-for="item in taskStatusOption"
-                          :key="item.code"
-                          :label="item.code"
-                          :value="item.value"
+                          v-for="opt in taskStatusSelectOptions"
+                          :key="opt.value"
+                          :label="opt.label"
+                          :value="opt.value"
                         />
                       </el-select>
                     </div>
@@ -111,11 +111,21 @@
                     width="200"
                   />
                   <el-table-column
-                    prop="executeTimeTxt"
-                    label="最近执行时间"
-                    width="220"
-                  />
-                  <el-table-column prop="statusTxt" label="执行状态" width="100" />
+                    label="执行状态"
+                    width="180"
+                  >
+                    <template slot-scope="scope">
+                      <span
+                        class="rt-status"
+                        :class="rtStatusClass(scope.row)"
+                        @click="isFailureStatus(scope.row) && openReason(scope.row)"
+                      >
+                        <i v-if="rtStatusShowDot(scope.row)" class="rt-status-dot" />
+                        <span class="rt-status-text">{{ taskStatusLabel(scope.row) }}</span>
+                      </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="executeTimeTxt" label="最近执行时间" width="220" />
                   <el-table-column fixed="right" label="操作" width="220">
                     <template slot-scope="scope">
                       <div class="wrap">
@@ -132,6 +142,9 @@
                           <el-button
                             type="text"
                             size="mini"
+                            @click.native.prevent="
+                              handleImmediatelySync(scope.row)
+                            "
                           >
                             立即执行
                           </el-button>
@@ -142,7 +155,7 @@
                               toggleEnableStatus(scope.row.id)
                             "
                           >
-                            {{ scope.row.enable ? '禁用' : '启用' }}
+                            {{ isEnabled(scope.row.enable) ? '禁用' : '启用' }}
                           </el-button>
                           <el-button
                             type="text"
@@ -188,6 +201,24 @@
       @submit="handleScheduleSubmit"
       @cancel="handleScheduleCancel"
     />
+
+    <!-- 异常详情 -->
+    <el-dialog
+      :visible.sync="reasonDialogVisible"
+      title="异常详情"
+      width="900px"
+      class="reason-dialog"
+      :close-on-click-modal="false"
+      :modal-append-to-body="true"
+      :append-to-body="true"
+    >
+      <div class="reason-body">
+        <pre class="reason-pre">{{ reasonText || '暂无异常信息' }}</pre>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="reasonDialogVisible = false">关闭</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -203,8 +234,10 @@ import {
   list,
   add,
   update,
+  detail,
   deleted,
-  toggleEnableStatus
+  toggleEnableStatus,
+  immediatelySync
 } from '@/api/database/metadata/metadata'
 
 export default {
@@ -237,10 +270,37 @@ export default {
       total: 0,
       taskList: [], // 任务列表
       loading: false,
+      // 页面定时刷新
+      listTimer: null,
+      // 异常详情弹窗
+      reasonDialogVisible: false,
+      reasonText: '',
       // 展示定时任务组件
       scheduleDialogVisible: false,
       isEditMode: false, // 是否为编辑模式
       editingTaskId: null // 当前编辑的任务ID
+    }
+  },
+
+  computed: {
+    taskStatusSelectOptions() {
+      return (this.taskStatusOption || []).map(item => ({
+        label: item.value != null ? String(item.value) : String(item.code || ''),
+        value: item.code != null ? String(item.code) : String(item.value || '')
+      }))
+    },
+    taskStatusMap() {
+      const map = {}
+      ;(this.taskStatusOption || []).forEach(item => {
+        const code = item.code != null ? String(item.code) : ''
+        if (!code) return
+        const label = item.value || code
+        let type = 'info'
+        if (code === 'R' || code === 'RUNNING' || code === 'S' || code === 'SUCCESS') type = 'success'
+        else if (code === 'F' || code === 'FAILURE') type = 'danger'
+        map[code] = { label, type }
+      })
+      return map
     }
   },
 
@@ -253,9 +313,39 @@ export default {
     this.initDict()
     this.queryAll()
     this.selectTaskList()
+    this.startListTimer()
+  },
+
+  beforeDestroy() {
+    this.stopListTimer()
   },
 
   methods: {
+    startListTimer() {
+      this.stopListTimer()
+      // 与 CDC 页面一致：10s 刷新一次
+      this.listTimer = setInterval(() => {
+        this.selectTaskList(false)
+      }, 10000)
+    },
+    stopListTimer() {
+      if (this.listTimer) {
+        clearInterval(this.listTimer)
+        this.listTimer = null
+      }
+    },
+
+    // 后端 enable 字段可能是 boolean / 0|1 / '0'|'1' 等多种类型
+    // 统一归一化：返回 true 表示“启用”
+    isEnabled(val) {
+      if (val === true) return true
+      if (val === false) return false
+      if (val === 1 || val === '1') return true
+      if (val === 0 || val === '0') return false
+      if (val === 'true' || val === 'TRUE') return true
+      if (val === 'false' || val === 'FALSE') return false
+      return Boolean(val)
+    },
 
     // 加载字典数据
     initDict() {
@@ -329,9 +419,11 @@ export default {
     /**
      * 获取数据源集合
      */
-    async selectTaskList() {
+    async selectTaskList(showLoading = true) {
       try {
-        this.loading = true // 加载中
+        if (showLoading) {
+          this.loading = true // 加载中
+        }
 
         const res = await list(this.queryData)
 
@@ -343,10 +435,11 @@ export default {
         this.taskList = result.records
       } catch (error) {
         this.$message.error('获取元数据同步任务列表失败!')
-        this.loading = false // 加载完成
         console.error(error)
       } finally {
-        this.loading = false // 加载完成
+        if (showLoading) {
+          this.loading = false // 加载完成
+        }
       }
     },
 
@@ -365,7 +458,7 @@ export default {
         failurePolicy: row.failurePolicy || '0',
         notifyPolicy: row.notifyPolicy || '0',
         workerId: row.workerId,
-        enable: row.enable ? '0' : '1', // 转换enable状态
+        enable: this.isEnabled(row.enable) ? '0' : '1', // 转换 enable 状态
         id: row.id // 添加ID用于更新
       }
 
@@ -442,6 +535,27 @@ export default {
     },
 
     /**
+     * 立即执行同步任务（对接后端：immediatelySync.do）
+     * @param row
+     */
+    async handleImmediatelySync(row) {
+      try {
+        const dbId = row && (row.dbId || row.metadataId)
+        if (!dbId) {
+          this.$message.error('无法立即同步：缺少 dbId')
+          return
+        }
+
+        const res = await immediatelySync(dbId)
+        this.$message.success(res.data || '开始同步!')
+        this.selectTaskList() // 刷新列表，让状态尽快可见
+      } catch (error) {
+        this.$message.error('立即同步失败')
+        console.error(error)
+      }
+    },
+
+    /**
      * 处理取消操作
      */
     handleScheduleCancel() {
@@ -468,6 +582,70 @@ export default {
     handleAddSchedule() {
       this.isEditMode = false
       this.scheduleDialogVisible = true
+    },
+    // ===== 执行状态展示（对齐 CDC 实时归集）=====
+    getTaskStatusCode(row) {
+      const raw = row && (row.status != null ? row.status : (row.taskStatus != null ? row.taskStatus : undefined))
+      let code = raw != null ? String(raw).toUpperCase() : ''
+      // 兜底：后端如果只返回中文 statusTxt（不含 code），用字典反查 code
+      if (!code && row && row.statusTxt) {
+        const match = (this.taskStatusOption || []).find(item => String(item.value || '') === String(row.statusTxt || ''))
+        code = match && match.code != null ? String(match.code).toUpperCase() : ''
+      }
+      return code
+    },
+    isFailureStatus(row) {
+      const code = this.getTaskStatusCode(row)
+      return code === 'FAILURE' || code === 'F'
+    },
+    rtStatusClass(row) {
+      const code = this.getTaskStatusCode(row)
+      if (code === 'RUNNING' || code === 'R' || code === 'S' || code === 'SUCCESS') return 'is-running'
+      if (code === 'FAILURE' || code === 'F') return 'is-failure is-clickable'
+      if (code === 'STARTING') return 'is-starting'
+      if (code === 'STOPPING') return 'is-stopping'
+      if (code === 'STOP' || code === 'T') return 'is-stopped'
+      if (code === 'INIT') return 'is-init'
+      return 'is-init'
+    },
+    rtStatusShowDot(row) {
+      const code = this.getTaskStatusCode(row)
+      return code === 'RUNNING' || code === 'R' || code === 'FAILURE' || code === 'F'
+    },
+    taskStatusLabel(row) {
+      const code = this.getTaskStatusCode(row)
+      const meta = this.taskStatusMap[code]
+      if (meta && meta.label) return meta.label
+      // 后端若直接返回中文展示文本，兜底使用 statusTxt
+      return row && row.statusTxt ? row.statusTxt : '未知'
+    },
+    async openReason(row) {
+      // 优先使用列表里的 reason 字段
+      const localReason = row && (row.reason || row.taskReason)
+      if (localReason) {
+        this.reasonText = String(localReason)
+        this.reasonDialogVisible = true
+        return
+      }
+
+      // 兜底读取详情（兼容 id / taskId）
+      const id = row && (row.id || row.taskId)
+      if (!id) {
+        this.reasonText = ''
+        this.reasonDialogVisible = true
+        return
+      }
+
+      try {
+        const res = await detail(id)
+        const data = res && res.data
+        this.reasonText = (data && (data.reason || data.taskReason)) ? String(data.reason || data.taskReason) : ''
+      } catch (error) {
+        console.error(error)
+        this.reasonText = error?.message || ''
+      } finally {
+        this.reasonDialogVisible = true
+      }
     }
   }
 }
@@ -796,5 +974,80 @@ export default {
 .menu-item:hover {
   background-color: #606266;
 }
+
+  .rt-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    line-height: 28px;
+    border: 1px solid transparent;
+    user-select: none;
+  }
+
+  .rt-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+
+  .rt-status.is-running {
+    color: #19be6b;
+    background: rgba(25, 190, 107, 0.08);
+    border-color: rgba(25, 190, 107, 0.25);
+  }
+  .rt-status.is-running .rt-status-dot {
+    background: #19be6b;
+  }
+
+  .rt-status.is-failure {
+    color: #f56c6c;
+    background: rgba(245, 108, 108, 0.08);
+    border-color: rgba(245, 108, 108, 0.25);
+  }
+  .rt-status.is-failure .rt-status-dot {
+    background: #f56c6c;
+  }
+
+  .rt-status.is-init,
+  .rt-status.is-stopped,
+  .rt-status.is-starting,
+  .rt-status.is-stopping {
+    color: #606266;
+    background: #f5f7fa;
+    border-color: #e4e7ed;
+  }
+
+  .rt-status.is-clickable {
+    cursor: pointer;
+  }
+  .rt-status.is-clickable:hover {
+    border-color: rgba(245, 108, 108, 0.6);
+    background: rgba(245, 108, 108, 0.12);
+  }
+
+  .reason-dialog {
+    ::v-deep .el-dialog__body {
+      padding: 12px 20px 10px;
+    }
+  }
+
+  .reason-body {
+    max-height: 60vh;
+    overflow: auto;
+  }
+
+  .reason-pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #f56c6c;
+    font-size: 12px;
+    line-height: 18px;
+  }
 </style>
 

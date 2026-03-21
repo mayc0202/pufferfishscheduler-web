@@ -2,184 +2,132 @@
   <div class="table-output-config">
     <!-- 标签页 -->
     <div class="config-tabs">
-      <div
-        class="tab-item"
-        :class="{ active: currentTab === 'basic' }"
-        @click="currentTab = 'basic'"
-      >
+      <div class="tab-item" :class="{ active: currentTab === 'basic' }" @click="currentTab = 'basic'">
         基础配置
       </div>
-      <div
-        class="tab-item"
-        :class="{ active: currentTab === 'advanced' }"
-        @click="currentTab = 'advanced'"
-      >
-        高级配置
-      </div>
-      <div
-        class="tab-item"
-        :class="{ active: currentTab === 'step' }"
-        @click="currentTab = 'step'"
-      >
-        步骤错误处理设置
-      </div>
+
     </div>
 
     <!-- 配置内容 -->
     <div class="config-content">
       <!-- 基础配置 -->
-      <div v-show="currentTab === 'basic'" class="tab-content">
-        <h3 class="section-title">关系库表输出</h3>
+      <div class="form-title">关系库表输出</div>
 
+      <div class="form-item">
+        <label class="form-label required">节点名称：</label>
+        <input v-model="formData.name" type="text" class="form-input" placeholder="输出到治理库">
+      </div>
+
+      <div class="form-item">
+        <label class="form-label">节点说明：</label>
+        <textarea v-model="formData.description" type="text" class="form-textarea" placeholder="请输入说明" />
+      </div>
+
+      <div class="section-header">
+        <h4>通用配置</h4>
+        <div class="section-toggle" @click="toggleSection('general')">
+          <i :class="sectionOpen.general ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+        </div>
+      </div>
+      <div v-show="sectionOpen.general" class="section-content">
         <div class="form-item">
-          <label class="form-label required">步骤名称：</label>
-          <input
-            v-model="formData.name"
-            type="text"
-            class="form-input"
-            placeholder="输出到治理库"
-          >
-        </div>
-
-        <div class="form-item">
-          <label class="form-label">说明：</label>
-          <input
-            v-model="formData.description"
-            type="text"
-            class="form-input"
-            placeholder="请输入说明"
-          >
-        </div>
-
-        <div class="section-header">
-          <h4>通用配置</h4>
-          <div class="section-toggle" @click="toggleSection('general')">
-            {{ sectionOpen.general ? '▼' : '▶' }}
-          </div>
-        </div>
-        <div v-show="sectionOpen.general" class="section-content">
-          <div class="form-item">
-            <label class="form-label required">数据源：</label>
-            <div v-click-outside="closeDbDropdown" class="custom-select">
-              <div class="select-input" @click="dbDropdownOpen = !dbDropdownOpen">
-                <span v-if="selectedLabel">{{ selectedLabel }}</span>
-                <span v-else class="placeholder">请选择数据源</span>
-                <span class="arrow" :class="{ open: dbDropdownOpen }">▼</span>
-              </div>
-              <div v-show="dbDropdownOpen" class="select-dropdown">
-                <div
-                  v-for="group in processedDbOptions"
-                  :key="group.label"
-                  class="select-group"
-                >
-                  <div class="select-group-title">{{ group.label }}</div>
-                  <div
-                    v-for="item in group.children"
-                    :key="item.value"
-                    class="select-option"
-                    :class="{ selected: selectedValue === item.value }"
-                    @click="selectDbItem(item)"
-                  >
-                    {{ item.label }}
-                  </div>
-                </div>
-                <div v-if="processedDbOptions.length === 0" class="select-empty">暂无数据</div>
-              </div>
+          <label class="form-label required">数据源连接：</label>
+          <div v-click-outside="closeDbDropdown" class="custom-select">
+            <div class="select-input" @click="dbDropdownOpen = !dbDropdownOpen">
+              <span v-if="selectedLabel">{{ selectedLabel }}</span>
+              <span v-else class="placeholder">请选择数据源</span>
+              <i class="el-icon-arrow-down arrow" :class="{ open: dbDropdownOpen }" />
             </div>
-          </div>
-
-          <div class="form-item">
-            <label class="form-label">模式名称 (schema)：</label>
-            <input
-              v-model="formData.schemaName"
-              type="text"
-              class="form-input"
-              placeholder="请输入模式名称 (schema)"
-            >
-          </div>
-
-          <div class="form-item">
-            <label class="form-label required">表名称：</label>
-            <div v-click-outside="closeTableDropdown" class="custom-select">
-              <div class="select-input" @click="tableDropdownOpen = !tableDropdownOpen">
-                <span v-if="formData.tableName">{{ formData.tableName }}</span>
-                <span v-else class="placeholder">请选择表名称</span>
-                <span class="arrow" :class="{ open: tableDropdownOpen }">▼</span>
-              </div>
-              <div v-show="tableDropdownOpen" class="select-dropdown">
+            <div v-show="dbDropdownOpen" class="select-dropdown">
+              <div v-for="group in processedDbOptions" :key="group.label" class="select-group">
+                <div class="select-group-title">{{ group.label }}</div>
                 <div
-                  v-for="table in tableList"
-                  :key="table.id || table"
+                  v-for="item in group.children"
+                  :key="item.value"
                   class="select-option"
-                  :class="{ selected: formData.tableName === (table.name || table) }"
-                  @click="selectTableItem(table)"
+                  :class="{ selected: selectedValue === item.value }"
+                  @click="selectDbItem(item)"
                 >
-                  {{ table.name || table }}
+                  {{ item.label }}
                 </div>
-                <div v-if="tableList.length === 0" class="select-empty">{{ selectedValue ? '暂无数据' : '请先选择数据源' }}</div>
               </div>
+              <div v-if="processedDbOptions.length === 0" class="select-empty">暂无数据</div>
             </div>
-          </div>
-
-          <div class="form-item">
-            <label class="form-label">提交记录数量：</label>
-            <input
-              v-model="formData.commitSize"
-              type="number"
-              class="form-input"
-              placeholder="1000"
-              min="1"
-            >
-          </div>
-
-          <div class="form-item checkbox-item">
-            <el-checkbox v-model="formData.truncateTable">写入之前清空表</el-checkbox>
           </div>
         </div>
 
-        <div class="section-header">
-          <h4>数据库字段</h4>
-          <div class="section-toggle" @click="toggleSection('fields')">
-            {{ sectionOpen.fields ? '▼' : '▶' }}
+        <div class="form-item">
+          <label class="form-label">目标模式：</label>
+          <input v-model="formData.schemaName" type="text" class="form-input" placeholder="请输入模式名称 (schema)">
+        </div>
+
+        <div class="form-item">
+          <label class="form-label required">目标表：</label>
+          <div v-click-outside="closeTableDropdown" class="custom-select">
+            <div class="select-input" @click="tableDropdownOpen = !tableDropdownOpen">
+              <span v-if="formData.tableName">{{ formData.tableName }}</span>
+              <span v-else class="placeholder">请选择表名称</span>
+              <i class="el-icon-arrow-down arrow" :class="{ open: tableDropdownOpen }" />
+            </div>
+            <div v-show="tableDropdownOpen" class="select-dropdown">
+              <div
+                v-for="table in tableList"
+                :key="table.id || table"
+                class="select-option"
+                :class="{ selected: formData.tableName === (table.name || table) }"
+                @click="selectTableItem(table)"
+              >
+                {{ table.name || table }}
+              </div>
+              <div v-if="tableList.length === 0" class="select-empty">{{ selectedValue ? '暂无数据' : '请先选择数据源' }}</div>
+            </div>
           </div>
         </div>
-        <div v-show="sectionOpen.fields" class="section-content">
-          <div class="form-item checkbox-item">
-            <el-checkbox v-model="formData.specifyFields">指定数据库字段</el-checkbox>
-          </div>
 
-          <div v-if="formData.specifyFields" class="field-mapping">
-            <table class="field-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>流字段</th>
-                  <th>表字段</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(field, index) in formData.fieldList" :key="index">
-                  <td>{{ index + 1 }}</td>
-                  <td>
-                    <input
-                      v-model="field.fieldStream"
-                      type="text"
-                      class="field-input"
-                    >
-                  </td>
-                  <td>
-                    <input
-                      v-model="field.fieldDatabase"
-                      type="text"
-                      class="field-input"
-                    >
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="field-actions">
-              <a href="#" @click.prevent="editFields">编辑字段</a>
-            </div>
+        <div class="form-item">
+          <label class="form-label">提交记录数量：</label>
+          <input v-model="formData.commitSize" type="number" class="form-input" placeholder="1000" min="1">
+        </div>
+
+        <div class="form-item checkbox-item">
+          <el-checkbox v-model="formData.truncateTable">写入之前清空表</el-checkbox>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h4>数据库字段</h4>
+        <div class="section-toggle" @click="toggleSection('fields')">
+          <i :class="sectionOpen.fields ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+        </div>
+      </div>
+      <div v-show="sectionOpen.fields" class="section-content">
+        <div class="form-item checkbox-item">
+          <el-checkbox v-model="formData.specifyFields">指定数据库字段</el-checkbox>
+        </div>
+
+        <div v-if="formData.specifyFields" class="field-mapping">
+          <table class="field-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>流字段</th>
+                <th>表字段</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(field, index) in formData.fieldList" :key="index">
+                <td>{{ index + 1 }}</td>
+                <td>
+                  <input v-model="field.fieldStream" type="text" class="field-input">
+                </td>
+                <td>
+                  <input v-model="field.fieldDatabase" type="text" class="field-input">
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="field-actions">
+            <a href="#" @click.prevent="editFields">编辑字段</a>
           </div>
         </div>
       </div>
@@ -206,22 +154,12 @@
 
         <div v-if="formData.partitioningType === 'field'" class="form-item">
           <label class="form-label">分区字段：</label>
-          <input
-            v-model="formData.partitioningField"
-            type="text"
-            class="form-input"
-            placeholder="请输入分区字段"
-          >
+          <input v-model="formData.partitioningField" type="text" class="form-input" placeholder="请输入分区字段">
         </div>
 
         <div v-if="formData.partitioningType === 'time'" class="form-item">
           <label class="form-label">分区字段：</label>
-          <input
-            v-model="formData.partitioningField"
-            type="text"
-            class="form-input"
-            placeholder="请输入分区字段"
-          >
+          <input v-model="formData.partitioningField" type="text" class="form-input" placeholder="请输入分区字段">
         </div>
 
         <div v-if="formData.partitioningType === 'time'" class="form-item">
@@ -235,12 +173,7 @@
 
         <div class="form-item">
           <label class="form-label">包含表名的字段：</label>
-          <input
-            v-model="formData.tableNameField"
-            type="text"
-            class="form-input"
-            placeholder="请输入包含表名的字段"
-          >
+          <input v-model="formData.tableNameField" type="text" class="form-input" placeholder="请输入包含表名的字段">
         </div>
 
         <div class="form-item checkbox-item">
@@ -253,12 +186,7 @@
 
         <div v-if="formData.returningGeneratedKeys" class="form-item">
           <label class="form-label">自动产生的关键字的字段名称：</label>
-          <input
-            v-model="formData.generatedKeyField"
-            type="text"
-            class="form-input"
-            placeholder="请输入字段名称"
-          >
+          <input v-model="formData.generatedKeyField" type="text" class="form-input" placeholder="请输入字段名称">
         </div>
 
         <div class="form-item checkbox-item">
@@ -279,7 +207,7 @@
     </div>
 
     <!-- 编辑字段对话框 -->
-    <div v-if="editFieldsVisible" class="dialog-mask" @click="editFieldsVisible = false">
+    <div v-if="editFieldsVisible" class="dialog-mask">
       <div class="dialog" @click.stop>
         <div class="dialog-header">
           <h3>编辑数据库字段</h3>
@@ -299,18 +227,10 @@
               <tr v-for="(field, index) in editFieldList" :key="index">
                 <td>{{ index + 1 }}</td>
                 <td>
-                  <input
-                    v-model="field.fieldStream"
-                    type="text"
-                    class="field-input"
-                  >
+                  <input v-model="field.fieldStream" type="text" class="field-input">
                 </td>
                 <td>
-                  <input
-                    v-model="field.fieldDatabase"
-                    type="text"
-                    class="field-input"
-                  >
+                  <input v-model="field.fieldDatabase" type="text" class="field-input">
                 </td>
                 <td>
                   <button type="button" class="btn remove-btn" @click="removeField(index)">
@@ -335,6 +255,7 @@
 <script>
 import { relationalDbTree } from '@/api/database/database/dbGroup'
 import { dbTableList } from '@/api/database/database/database'
+import { getFieldStream } from '@/api/collect/plugin/tableoutput'
 
 export default {
   name: 'TableOutputConfig',
@@ -361,6 +282,10 @@ export default {
     flowId: {
       type: [Number, String],
       default: null
+    },
+    flowConfig: {
+      type: Object,
+      default: null
     }
   },
   data() {
@@ -381,39 +306,90 @@ export default {
       editFieldList: []
     }
   },
+  computed: {
+    cascaderDbOptions() {
+      return this.transformToCascader(this.dbList)
+    },
+    dbCascaderProps() {
+      return {
+        value: 'value',
+        label: 'label',
+        children: 'children',
+        expandTrigger: 'hover'
+      }
+    }
+  },
   watch: {
     'formData.dataSourceId': {
       handler(val) {
-        this.selectedValue = val
         if (val) {
+          this.selectedValue = String(val)
+          this.updateSelectedLabel(val)
           this.loadTableList(val)
         }
       },
       immediate: true
     },
-    selectedValue: {
+    formData: {
       handler(val) {
-        this.formData.dataSourceId = val
-      }
+        if (val && val.dataSourceId) {
+          this.selectedValue = String(val.dataSourceId)
+          this.updateSelectedLabel(val.dataSourceId)
+        }
+        // 确保 fieldList 是数组
+        if (val && !Array.isArray(val.fieldList)) {
+          this.$set(this.formData, 'fieldList', [])
+        }
+      },
+      deep: true,
+      immediate: true
     }
   },
   created() {
     this.loadDbList()
+  },
+  mounted() {
     this.initFormData()
   },
   methods: {
+    /**
+     * 初始化表单数据
+     */
     initFormData() {
-      // 初始化默认值
-      if (!this.formData.commitSize) {
+      // 初始化默认值，但不覆盖已有值
+      if (this.formData.commitSize === undefined || this.formData.commitSize === '') {
         this.formData.commitSize = '1000'
       }
       if (!this.formData.fieldList) {
         this.formData.fieldList = []
       }
+      // 确保 truncateTable 有默认值
+      if (this.formData.truncateTable === undefined) {
+        this.formData.truncateTable = false
+      }
+      // 确保 specifyFields 有默认值
+      if (this.formData.specifyFields === undefined) {
+        this.formData.specifyFields = false
+      }
+      // 确保 ignoreErrors 有默认值
+      if (this.formData.ignoreErrors === undefined) {
+        this.formData.ignoreErrors = false
+      }
+      // 确保 useBatchUpdate 有默认值
+      if (this.formData.useBatchUpdate === undefined) {
+        this.formData.useBatchUpdate = false
+      }
     },
+    /**
+     * 切换段落展开状态
+     * @param section 段落名称
+     */
     toggleSection(section) {
       this.sectionOpen[section] = !this.sectionOpen[section]
     },
+    /**
+     * 加载数据库列表
+     */
     async loadDbList() {
       try {
         const res = await relationalDbTree()
@@ -421,16 +397,22 @@ export default {
           this.$set(this, 'dbList', res.data)
           this.processDbOptions()
         } else {
+          console.error('加载数据库列表失败，返回数据异常：', res)
           this.$set(this, 'dbList', [])
+          this.$set(this, 'processedDbOptions', [])
         }
       } catch (error) {
         console.error('加载数据库列表失败:', error)
         this.$set(this, 'dbList', [])
+        this.$set(this, 'processedDbOptions', [])
       }
     },
+    /**
+     * 处理数据库选项，生成自定义下拉所需结构
+     */
     processDbOptions() {
-      if (!this.dbList || this.dbList.length === 0) {
-        this.$set(this, 'processedDbOptions', [])
+      if (!this.dbList || !this.dbList.length) {
+        this.processedDbOptions = []
         return
       }
 
@@ -452,32 +434,55 @@ export default {
         if (children.length > 0) {
           result.push({
             label: group.name || '未知分组',
-            children: children
+            children
           })
         }
       }
 
-      this.$set(this, 'processedDbOptions', result)
+      this.processedDbOptions = result
+
+      // 回显已选
+      if (this.selectedValue) {
+        this.updateSelectedLabel(this.selectedValue)
+      }
     },
+    /**
+     * 选择数据库项
+     */
     selectDbItem(item) {
       this.selectedValue = item.value
       this.selectedLabel = item.label
       this.formData.dataSourceId = item.value
+      // 重置表相关
       this.formData.tableName = ''
+      this.formData.tableId = null
       this.tableList = []
       this.dbDropdownOpen = false
       this.loadTableList(item.value)
     },
-    selectTableItem(table) {
-      this.formData.tableName = table.name || table
-      this.tableDropdownOpen = false
-    },
+    /**
+     * 关闭数据库下拉菜单
+     */
     closeDbDropdown() {
       this.dbDropdownOpen = false
     },
+    /**
+     * 选择表项
+     * @param table 表项
+     */
+    selectTableItem(table) {
+      this.formData.tableName = table.name || table
+      this.formData.tableId = table.id
+      this.tableDropdownOpen = false
+    },
+
     closeTableDropdown() {
       this.tableDropdownOpen = false
     },
+    /**
+     * 加载表列表
+     * @param {*} dataSourceId 数据源ID
+     */
     async loadTableList(dataSourceId) {
       try {
         const res = await dbTableList(dataSourceId)
@@ -491,11 +496,36 @@ export default {
         this.$set(this, 'tableList', [])
       }
     },
+    /**
+     * 根据 dataSourceId 更新已选标签
+     */
+    updateSelectedLabel(dataSourceId) {
+      if (!dataSourceId || !this.processedDbOptions || !this.processedDbOptions.length) {
+        this.selectedLabel = ''
+        return
+      }
+      const target = String(dataSourceId)
+      for (const group of this.processedDbOptions) {
+        if (!group.children) continue
+        const item = group.children.find(opt => opt.value === target)
+        if (item) {
+          this.selectedLabel = `${group.label} / ${item.label}`
+          return
+        }
+      }
+      this.selectedLabel = ''
+    },
+    /**
+     * 编辑字段
+     */
     editFields() {
       // 复制当前字段列表用于编辑
       this.editFieldList = JSON.parse(JSON.stringify(this.formData.fieldList))
       this.editFieldsVisible = true
     },
+    /**
+     * 添加字段
+     */
     addField() {
       this.editFieldList.push({
         fieldStream: '',
@@ -504,17 +534,108 @@ export default {
         coordinateSystem: ''
       })
     },
+    /**
+     * 删除字段
+     * @param {*} index 字段索引
+     */
     removeField(index) {
       this.editFieldList.splice(index, 1)
     },
-    getFields() {
-      // 这里可以添加从数据源获取字段的逻辑
-      this.$message.info('获取字段功能待实现')
+    /**
+     * 获取字段列表
+     */
+    async getFields() {
+      // 验证必填字段
+      if (!this.flowId) {
+        this.$message.warning('流程ID不存在')
+        return
+      }
+      if (!this.formData.name) {
+        this.$message.warning('步骤名称不能为空')
+        return
+      }
+      if (!this.formData.dataSourceId) {
+        this.$message.warning('请选择数据源')
+        return
+      }
+      if (!this.formData.tableName) {
+        this.$message.warning('请选择表名称')
+        return
+      }
+
+      try {
+        // 使用父组件传入的完整流程配置
+        let flowData = this.flowConfig
+
+        // 如果没有传入配置，构建临时配置
+        if (!flowData) {
+          // 构建临时的流程配置
+          flowData = {
+            cells: [
+              {
+                id: 'temp-output-step',
+                shape: 'rect',
+                data: {
+                  name: this.formData.name,
+                  code: 'TableOutput',
+                  data: {
+                    name: this.formData.name,
+                    description: this.formData.description,
+                    dataSourceId: this.formData.dataSourceId,
+                    tableId: this.formData.tableId,
+                    tableName: this.formData.tableName,
+                    commitSize: this.formData.commitSize || '1000',
+                    preSql: this.formData.preSql,
+                    postSql: this.formData.postSql,
+                    fieldList: this.editFieldList,
+                    updateField: this.formData.updateField,
+                    updatePolicy: this.formData.updatePolicy,
+                    skipHeader: this.formData.skipHeader,
+                    ignoreError: this.formData.ignoreError,
+                    retryTimes: this.formData.retryTimes,
+                    retryInterval: this.formData.retryInterval
+                  }
+                }
+              }
+            ]
+          }
+        }
+
+        var data = {
+          flowId: Number(this.flowId),
+          stepName: this.formData.name,
+          config: JSON.stringify(flowData),
+          type: 1,
+          dbId: Number(this.formData.dataSourceId),
+          tableId: this.formData.tableId ? Number(this.formData.tableId) : null
+        }
+
+        const res = await getFieldStream(data)
+
+        if (res.code === '000000' && res.data) {
+          this.editFieldList = res.data.map(field => ({
+            fieldStream: field.fieldStream,
+            fieldDatabase: field.fieldDatabase
+          }))
+          this.$message.success('获取字段成功')
+        } else {
+          this.$message.error(res.message || '获取字段失败')
+        }
+      } catch (error) {
+        console.error('获取字段失败:', error)
+        this.$message.error('获取字段失败')
+      }
     },
+    /**
+     * 保存字段
+     */
     saveFields() {
       this.formData.fieldList = this.editFieldList
       this.editFieldsVisible = false
     },
+    /**
+     * 提交配置
+     */
     handleSubmit() {
       // 验证必填字段
       if (!this.formData.name) {
@@ -537,6 +658,7 @@ export default {
 
       // 调整字段名称以匹配后端期望的JSON结构，与表输入保持一致
       this.formData.dataSourceId = this.formData.dataSourceId
+      this.formData.tableId = this.formData.tableId
       this.formData.tableName = this.formData.tableName
       this.formData.commitSize = this.formData.commitSize
       this.formData.preSql = this.formData.preSql
@@ -603,7 +725,6 @@ export default {
   flex: 1;
   padding: 20px;
   overflow-y: auto;
-  background: #F5F7FA;
 }
 
 .tab-content {
@@ -685,7 +806,8 @@ export default {
   margin-right: 4px;
 }
 
-.form-input, .form-select {
+.form-input,
+.form-select {
   flex: 1;
   padding: 0 15px;
   height: 40px;
@@ -699,11 +821,13 @@ export default {
   transition: border-color 0.2s;
 }
 
-.form-input:hover, .form-select:hover {
+.form-input:hover,
+.form-select:hover {
   border-color: #C0C4CC;
 }
 
-.form-input:focus, .form-select:focus {
+.form-input:focus,
+.form-select:focus {
   border-color: #409EFF;
   outline: none;
 }
@@ -941,6 +1065,7 @@ export default {
 
 .field-table th {
   background: #F5F7FA;
+  font-size: 14px;
   font-weight: 600;
   color: #303133;
 }
@@ -1108,6 +1233,7 @@ export default {
 .dialog {
   background: #FFF;
   border-radius: 4px;
+  font-size: 14px;
   width: 90%;
   max-width: 800px;
   max-height: 80vh;
@@ -1126,7 +1252,7 @@ export default {
 
 .dialog-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #303133;
 }

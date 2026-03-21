@@ -132,64 +132,50 @@ export const asyncRoutes = [
       title: '数据集成',
       icon: 'collect'
     },
+    roles: ['admin', 'editor'],
     children: [
       {
         path: '/realtime/collection',
-        component: () => import('@/views/error-page/401'),
+        component: () => import('@/views/dataclean/realtime/realtime.vue'),
         name: 'COLLECTION',
-        meta: { title: 'CDC实时归集', icon: 'real-sync' }
+        meta: { title: 'CDC实时归集', icon: 'real-sync' },
+        roles: ['admin', 'editor']
       },
       {
-        path: '/clean/flow',
+        path: '/dataclean/flow',
         component: () => import('@/views/flow/flow'),
         name: 'FLOW',
-        meta: { title: '清洗流程设计', icon: 'clean-flow' }
+        meta: { title: '清洗流程设计', icon: 'clean-flow' },
+        roles: ['admin', 'editor']
       },
       {
-        path: '/clean/task',
-        component: () => import('@/views/error-page/401'),
+        path: '/dataclean/task',
+        component: () => import('@/views/dataclean/task/task'),
         name: 'TASK',
         meta: { title: '清洗任务管理', icon: 'clean-task' },
-        hidden: false
+        hidden: false,
+        roles: ['admin', 'editor']
       }
     ]
   },
-  {
-    path: '/excel',
-    component: Layout,
-    redirect: '/excel/export-excel',
-    name: 'Excel',
-    meta: {
-      title: '监控预警',
-      icon: 'monitor'
-    },
-    children: [
-      {
-        path: 'export-excel',
-        component: () => import('@/views/excel/export-excel'),
-        name: 'ExportExcel',
-        meta: { title: 'Export Excel' }
-      },
-      {
-        path: 'export-selected-excel',
-        component: () => import('@/views/excel/select-excel'),
-        name: 'SelectExcel',
-        meta: { title: 'Export Selected' }
-      },
-      {
-        path: 'export-merge-header',
-        component: () => import('@/views/excel/merge-header'),
-        name: 'MergeHeader',
-        meta: { title: 'Merge Header' }
-      },
-      {
-        path: 'upload-excel',
-        component: () => import('@/views/excel/upload-excel'),
-        name: 'UploadExcel',
-        meta: { title: 'Upload Excel' }
-      }
-    ]
-  },
+  // {
+  //   path: '/excel',
+  //   component: Layout,
+  //   redirect: '/excel/export-excel',
+  //   name: 'Excel',
+  //   meta: {
+  //     title: '监控预警',
+  //     icon: 'monitor'
+  //   },
+  //   children: [
+  //     {
+  //       path: 'export-excel',
+  //       component: () => import('@/views/excel/export-excel'),
+  //       name: 'ExportExcel',
+  //       meta: { title: 'Export Excel' }
+  //     }
+  //   ]
+  // },
 
   {
     path: '/knowledge-base',
@@ -204,51 +190,81 @@ export const asyncRoutes = [
     children: [
       {
         path: 'index',
-        component: () => import('@/views/knowledgeBase/index.vue'),
+        component: () => import('@/views/knowledgebase/index.vue'),
         name: 'KnowledgeBaseIndex',
         meta: {
           title: '知识库管理',
           icon: 'el-icon-coin'
-        }
+        },
+        roles: ['admin', 'editor']
       }
     ],
     hidden: false // 隐藏左侧菜单栏显示
   },
 
-  // {
-  //   path: '/usercenter',
-  //   component: Layout,
-  //   // redirect: '/zip/download',
-  //   alwaysShow: true,
-  //   name: 'usercenter',
-  //   meta: { title: '用户中心', icon: 'el-icon-user' },
-  //   children: [
-  //     {
-  //       path: 'role',
-  //       component: () => import('@/views/permission/role'),
-  //       name: 'RolePermission',
-  //       meta: {
-  //         title: '角色管理',
-  //         icon: 'peoples',
-  //         roles: ['admin']
-  //       }
-  //     }
-  //   ]
-  // },
+  {
+    path: '/usercenter',
+    component: Layout,
+    redirect: '/usercenter/user-manage',
+    alwaysShow: true,
+    name: 'UserCenter',
+    meta: { title: '用户中心', icon: 'el-icon-user', roles: ['admin'] },
+    children: [
+      {
+        path: 'user-manage',
+        component: () => import('@/views/usercenter/user-manage.vue'),
+        name: 'UserManage',
+        meta: {
+          title: '用户管理',
+          icon: 'el-icon-user',
+          roles: ['admin']
+        }
+      }
+    ]
+  },
 
-  // {
-  //   path: '/pdf',
-  //   component: Layout,
-  //   redirect: '/pdf/index',
-  //   children: [
-  //     {
-  //       path: 'index',
-  //       component: () => import('@/views/pdf/index'),
-  //       name: 'PDF',
-  //       meta: { title: '基础配置', icon: 'el-icon-setting' }
-  //     }
-  //   ]
-  // },
+  {
+    path: '/basic-config',
+    component: Layout,
+    redirect: '/basic-config/dataclean',
+    alwaysShow: true,
+    name: 'BasicConfig',
+    meta: {
+      title: '基础配置',
+      icon: 'el-icon-setting',
+      roles: ['admin', 'editor']
+    },
+    children: [
+      {
+        path: 'dataclean',
+        component: () => import('@/views/dataclean/rule/rule-list'),
+        name: 'DataCleanRuleList',
+        meta: {
+          title: '清洗转换规则',
+          icon: 'el-icon-collection',
+          roles: ['admin', 'editor']
+        }
+      }
+    ]
+  },
+
+  {
+    path: '/basic-config/dataclean/edit',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/dataclean/rule/rule-edit'),
+        name: 'DataCleanRuleEdit',
+        meta: {
+          title: '清洗转换规则配置',
+          noCache: true,
+          roles: ['admin', 'editor']
+        }
+      }
+    ]
+  },
 
   {
     path: '/agent-assistant',
@@ -260,19 +276,6 @@ export const asyncRoutes = [
       roles: ['admin', 'editor']
     },
     hidden: true // 隐藏左侧菜单栏显示
-  },
-
-  {
-    path: '/theme',
-    component: Layout,
-    children: [
-      {
-        path: 'index',
-        component: () => import('@/views/theme/index'),
-        name: 'Theme',
-        meta: { title: '主题设置', icon: 'theme' }
-      }
-    ]
   },
 
   // 404 page must be placed at the end !!!

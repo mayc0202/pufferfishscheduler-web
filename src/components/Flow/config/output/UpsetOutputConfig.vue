@@ -68,15 +68,15 @@ export default {
   methods: {
     handleSubmit() {
       if (!this.formData.name) {
-        this.$message?.error('请输入组件名称') || alert('请输入组件名称')
+        this.$message.error('请输入组件名称')
         return
       }
       if (!this.formData.targetTable) {
-        this.$message?.error('请输入目标表名') || alert('请输入目标表名')
+        this.$message.error('请输入目标表名')
         return
       }
       if (!this.formData.updateField) {
-        this.$message?.error('请输入更新字段') || alert('请输入更新字段')
+        this.$message.error('请输入更新字段')
         return
       }
       this.$emit('save')

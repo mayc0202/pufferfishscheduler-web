@@ -1,18 +1,5 @@
 <template>
   <div class="table-input-config">
-    <div class="config-tabs">
-      <div
-        class="tab-item"
-        :class="{ active: currentTab === 'basic' }"
-        @click="currentTab = 'basic'"
-      >基础配置</div>
-      <div
-        class="tab-item"
-        :class="{ active: currentTab === 'advanced' }"
-        @click="currentTab = 'advanced'"
-      >高级配置</div>
-    </div>
-
     <div class="config-content">
       <div class="form-title">关系表表输入</div>
 
@@ -42,7 +29,7 @@
           <div class="select-input" @click="dbDropdownOpen = !dbDropdownOpen">
             <span v-if="selectedLabel">{{ selectedLabel }}</span>
             <span v-else class="placeholder">请选择数据源</span>
-            <span class="arrow" :class="{ open: dbDropdownOpen }">▼</span>
+            <i class="el-icon-arrow-down arrow" :class="{ open: dbDropdownOpen }" />
           </div>
           <div v-show="dbDropdownOpen" class="select-dropdown">
             <div
@@ -67,28 +54,6 @@
       </div>
 
       <div class="form-item">
-        <label class="form-label required">配置方式：</label>
-        <div class="custom-select">
-          <div class="select-input" @click="configModeOpen = !configModeOpen">
-            <span>{{ configMode === 'default' ? '默认' : '自定义SQL' }}</span>
-            <span class="arrow" :class="{ open: configModeOpen }">▼</span>
-          </div>
-          <div v-show="configModeOpen" class="select-dropdown">
-            <div
-              class="select-option"
-              :class="{ selected: configMode === 'default' }"
-              @click="selectConfigMode('default')"
-            >默认</div>
-            <div
-              class="select-option"
-              :class="{ selected: configMode === 'custom' }"
-              @click="selectConfigMode('custom')"
-            >自定义SQL</div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="configMode === 'custom'" class="form-item">
         <label class="form-label required">自定义sql：</label>
         <div class="sql-editor-wrapper">
           <textarea
@@ -97,29 +62,6 @@
             placeholder="请输入SQL语句"
             rows="8"
           />
-        </div>
-      </div>
-
-      <div v-if="configMode === 'default'" class="form-item">
-        <label class="form-label required">关系表名：</label>
-        <div v-click-outside="closeTableDropdown" class="custom-select">
-          <div class="select-input" @click="tableDropdownOpen = !tableDropdownOpen">
-            <span v-if="formData.tableName">{{ formData.tableName }}</span>
-            <span v-else class="placeholder">请选择关系表</span>
-            <span class="arrow" :class="{ open: tableDropdownOpen }">▼</span>
-          </div>
-          <div v-show="tableDropdownOpen" class="select-dropdown">
-            <div
-              v-for="item in tableList"
-              :key="item.id"
-              class="select-option"
-              :class="{ selected: formData.tableName === item.name }"
-              @click="selectTableItem(item)"
-            >
-              {{ item.name }}<span v-if="item.description" class="table-desc">{{ item.description }}</span>
-            </div>
-            <div v-if="tableList.length === 0" class="select-empty">{{ selectedValue ? '暂无数据' : '请先选择数据源' }}</div>
-          </div>
         </div>
       </div>
 
@@ -133,28 +75,14 @@
       </div>
 
       <div class="form-item">
-        <label class="form-label">行限制：</label>
+        <label class="form-label">记录数量限制：</label>
         <input
           v-model="formData.rowLimit"
           type="number"
           class="form-input"
-          placeholder="默认1000"
+          placeholder="默认0（不限制）"
           min="1"
         >
-      </div>
-
-      <div class="form-item">
-        <label class="form-label">步骤插入变量：</label>
-        <input
-          v-model="formData.stepInsertVariable"
-          type="text"
-          class="form-input"
-          placeholder="可选"
-        >
-      </div>
-
-      <div class="form-item checkbox-item">
-        <el-checkbox v-model="formData.implementEveryOne">是否每个实例都执行</el-checkbox>
       </div>
 
       <div class="form-actions">
@@ -173,7 +101,7 @@
         <div class="preview-body">
           <el-table
             v-loading="previewLoading"
-            :data="previewData"
+            :data="previewTableData"
             border
             style="width: 100%"
             max-height="500"
@@ -200,7 +128,6 @@
 
 <script>
 import { relationalDbTree } from '@/api/database/database/dbGroup'
-import { dbTableList } from '@/api/database/database/database'
 import { previewData as previewDataApi } from '@/api/collect/trans/transFlow'
 
 export default {
@@ -232,18 +159,13 @@ export default {
   },
   data() {
     return {
-      currentTab: 'basic',
-      configMode: 'default',
       dbList: [],
       selectedValue: null,
       processedOptions: [],
       dbDropdownOpen: false,
-      tableDropdownOpen: false,
-      configModeOpen: false,
-      tableList: [],
       previewVisible: false,
       previewLoading: false,
-      previewData: [],
+      previewTableData: [],
       previewColumns: []
     }
   },
@@ -265,9 +187,6 @@ export default {
     'formData.dataSourceId': {
       handler(val) {
         this.selectedValue = val
-        if (val) {
-          this.loadTableList(val)
-        }
       },
       immediate: true
     }
@@ -279,38 +198,11 @@ export default {
     closeDbDropdown() {
       this.dbDropdownOpen = false
     },
-    closeTableDropdown() {
-      this.tableDropdownOpen = false
-    },
     selectDbItem(item) {
       this.selectedValue = item.value
       this.formData.dataSourceId = item.value
       this.formData.dbConnection = item.value
-      this.formData.tableName = ''
-      this.tableList = []
       this.dbDropdownOpen = false
-      this.loadTableList(item.value)
-    },
-    selectTableItem(item) {
-      this.formData.tableName = item.name
-      this.tableDropdownOpen = false
-    },
-    selectConfigMode(mode) {
-      this.configMode = mode
-      this.configModeOpen = false
-    },
-    async loadTableList(dataSourceId) {
-      try {
-        const res = await dbTableList(dataSourceId)
-        if (res && res.code === '000000' && res.data) {
-          this.tableList = res.data
-        } else {
-          this.tableList = []
-        }
-      } catch (error) {
-        console.error('获取表列表失败:', error)
-        this.tableList = []
-      }
     },
     async loadDbData() {
       try {
@@ -329,6 +221,9 @@ export default {
         this.$set(this, 'processedOptions', [])
       }
     },
+    /**
+     * 处理数据源数据，转换为树状结构
+     */
     processData() {
       if (!this.dbList || this.dbList.length === 0) {
         this.processedOptions = []
@@ -360,7 +255,34 @@ export default {
       }
 
       this.$set(this, 'processedOptions', result)
+
+      // 如果已有选中的数据源，更新 selectedLabel
+      if (this.selectedValue) {
+        this.updateSelectedLabel(this.selectedValue)
+      }
     },
+    /**
+     * 更新选中的标签
+     * @param dataSourceId 数据源ID
+     */
+    updateSelectedLabel(dataSourceId) {
+      // 根据 dataSourceId 更新 selectedLabel
+      if (!dataSourceId || !this.processedOptions || this.processedOptions.length === 0) {
+        return
+      }
+      for (const group of this.processedOptions) {
+        if (group.children) {
+          const item = group.children.find(opt => opt.value === String(dataSourceId))
+          if (item) {
+            // selectedLabel 是一个计算属性，会自动更新
+            return
+          }
+        }
+      }
+    },
+    /**
+     * 预览数据
+     */
     async previewData() {
       if (!this.flowId) {
         this.$message.warning('流程ID不存在')
@@ -374,29 +296,59 @@ export default {
         this.$message.warning('请先选择数据源')
         return
       }
-      if (this.configMode === 'default' && !this.formData.tableName) {
-        this.$message.warning('请先选择关系表')
-        return
-      }
-      if (this.configMode === 'custom' && !this.formData.sql) {
+      if (!this.formData.sql) {
         this.$message.warning('请先输入自定义SQL')
         return
       }
 
       this.previewVisible = true
       this.previewLoading = true
-      this.previewData = []
+      this.previewTableData = []
       this.previewColumns = []
 
       try {
-        const res = await previewDataApi(this.flowId, this.formData.name)
-        if (res.code === '000000' && res.data) {
-          if (res.data.columns && res.data.columns.length > 0) {
-            this.previewColumns = res.data.columns
-          } else if (res.data.list && res.data.list.length > 0) {
-            this.previewColumns = Object.keys(res.data.list[0])
+        // 构建组件配置数据
+        const config = {
+          name: this.formData.name,
+          code: 'TableInput',
+          data: {
+            name: this.formData.name,
+            description: this.formData.description,
+            dataSourceId: this.formData.dataSourceId,
+            dbConnection: this.formData.dbConnection,
+            sql: this.formData.sql,
+            replaceVariable: this.formData.replaceVariables,
+            increment: this.formData.isIncrement,
+            rowLimit: this.formData.rowLimit || '0',
+            configMode: 'custom'
           }
-          this.previewData = res.data.list || res.data.rows || []
+        }
+
+        var data = {
+          id: this.flowId,
+          config: JSON.stringify(config)
+        }
+        const res = await previewDataApi(data)
+        if (res.code === '000000' && res.data) {
+          // 适配新的接口返回格式：fieldList（字段列表）和 dataList（数据列表）
+          if (res.data.fieldList && res.data.fieldList.length > 0) {
+            this.previewColumns = res.data.fieldList
+            // 将数组的数组转换为对象数组，方便 el-table 展示
+            if (res.data.dataList && res.data.dataList.length > 0) {
+              this.previewTableData = res.data.dataList.map(row => {
+                const obj = {}
+                res.data.fieldList.forEach((field, index) => {
+                  obj[field] = row[index]
+                })
+                return obj
+              })
+            } else {
+              this.previewTableData = []
+            }
+          } else {
+            this.previewColumns = []
+            this.previewTableData = []
+          }
         } else {
           this.$message.error(res.message || '获取预览数据失败')
         }
@@ -416,24 +368,17 @@ export default {
         this.$message.warning('请选择数据源')
         return
       }
-      if (this.configMode === 'default' && !this.formData.tableName) {
-        this.$message.warning('请选择关系表')
-        return
-      }
-      if (this.configMode === 'custom' && !this.formData.sql) {
+      if (!this.formData.sql) {
         this.$message.warning('请输入自定义SQL')
         return
       }
 
-      // 调整字段名称以匹配后端期望的JSON结构
       this.formData.dataSourceId = this.formData.dataSourceId
       this.formData.sql = this.formData.sql
       this.formData.replaceVariable = this.formData.replaceVariables
       this.formData.increment = this.formData.isIncrement
-      this.formData.rowLimit = this.formData.rowLimit || '1000' // 默认1000行
-      this.formData.stepInsertVariable = this.formData.stepInsertVariable
-      this.formData.implementEveryOne = this.formData.implementEveryOne
-      this.formData.configMode = this.configMode
+      this.formData.rowLimit = this.formData.rowLimit || '0'
+      this.formData.configMode = 'custom'
 
       this.$emit('save')
     }
@@ -444,35 +389,6 @@ export default {
 <style scoped>
 .table-input-config {
   width: 100%;
-}
-
-.config-tabs {
-  display: flex;
-  border-bottom: 1px solid #EBEEF5;
-  background: #FFF;
-}
-
-.tab-item {
-  padding: 12px 20px;
-  font-size: 14px;
-  color: #606266;
-  cursor: pointer;
-  position: relative;
-}
-
-.tab-item.active {
-  color: #409EFF;
-  font-weight: 500;
-}
-
-.tab-item.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #409EFF;
 }
 
 .config-content {
@@ -842,5 +758,12 @@ export default {
   flex: 1;
   padding: 20px;
   overflow: auto;
+  max-height: calc(80vh - 60px);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.preview-body .el-table {
+  max-width: none;
 }
 </style>

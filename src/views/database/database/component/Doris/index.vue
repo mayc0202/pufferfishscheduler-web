@@ -85,9 +85,9 @@
               >
                 <el-option
                   v-for="item in dbLabering"
-                  :key="item.value"
-                  :label="item.code"
-                  :value="item.value"
+                  :key="String(item.code)"
+                  :label="item.value"
+                  :value="String(item.code)"
                 />
               </el-select>
             </div>

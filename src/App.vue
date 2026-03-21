@@ -140,4 +140,27 @@ body {
   width: 100%; /* 确保容器占满父级宽度 */
   margin-top: 20px;
 }
+
+/* 全局提升 Element 弹窗层级，确保始终覆盖左侧菜单和页面内容 */
+.el-dialog__wrapper {
+  z-index: 3000 !important;
+}
+
+.v-modal {
+  z-index: 2999 !important;
+}
+
+/* 提升 MessageBox 的层级，避免被流程画布或自定义遮罩覆盖 */
+.el-message-box__wrapper {
+  z-index: 11000 !important;
+}
+
+.el-message-box {
+  z-index: 11001 !important;
+}
+
+/* 统一提升下拉类弹层的层级，避免被对话框遮挡导致“看起来没有选项” */
+.el-popper {
+  z-index: 3005 !important;
+}
 </style>

@@ -6,8 +6,30 @@
         <div>清洗流程设计</div>
       </div>
       <div class="toolbar-right">
-        <button class="toolbar-btn" @click="saveFlow">保存</button>
-        <button class="toolbar-btn" @click="executeFlowHandler">运行</button>
+        <div class="toolbar-btn" @click="saveFlow">
+          <i class="el-icon-finished" />
+          <div class="toolbar-btn-txt">保存</div>
+        </div>
+        <div
+          class="toolbar-btn"
+          :class="{ 'is-disabled': isRunning }"
+          @click="handleRunClick"
+        >
+          <i class="el-icon-video-play" />
+          <div class="toolbar-btn-txt">{{ isRunning ? '运行中' : '运行' }}</div>
+        </div>
+        <div
+          class="toolbar-btn"
+          :class="{ 'is-disabled': isStopping }"
+          @click="!isStopping && stopFlowHandler()"
+        >
+          <i class="el-icon-video-pause" />
+          <div class="toolbar-btn-txt">{{ isStopping ? '停止中' : '停止' }}</div>
+        </div>
+        <div class="toolbar-btn" @click="toggleLogDialog">
+          <i class="el-icon-view" />
+          <div class="toolbar-btn-txt">查看日志</div>
+        </div>
       </div>
     </div>
 
@@ -21,10 +43,10 @@
           >{{ menu.icon }}</span>
           <img v-else class="menu-icon-img" :src="menu.icon" alt="">
           <span>{{ menu.label }}</span>
-          <span
-            class="toggle-icon"
+          <i
+            class="el-icon-arrow-down toggle-icon"
             :class="{ rotate: menuState[menu.id] }"
-          >▼</span>
+          />
         </div>
         <div v-show="menuState[menu.id]" class="menu-items">
           <div
@@ -92,16 +114,39 @@
       :component-type="configDrawer.componentType"
       :initial-form="configDrawer.form"
       :flow-id="flowId"
+      :flow-config="configDrawer.flowConfig"
       @close="handleConfigDrawerClose"
       @save="handleConfigDrawerSave"
     />
+
+    <!-- 日志弹窗 -->
+    <div v-if="logVisible" class="log-dialog-mask">
+      <div
+        class="log-dialog"
+        :class="{ 'is-movable': logDialogPosition.top !== null }"
+        :style="logDialogPosition.top !== null ? { top: logDialogPosition.top + 'px', left: logDialogPosition.left + 'px' } : {}"
+        @click.stop
+      >
+        <div
+          class="log-header"
+          :class="{ dragging: logDragging }"
+          @mousedown.stop.prevent="onLogMouseDown"
+        >
+          <span class="log-title">流程运行日志</span>
+          <button class="close-log" @click="closeLogDialog">×</button>
+        </div>
+        <div class="log-body">
+          <pre class="log-content">{{ logContent }}</pre>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import { Graph } from '@antv/x6'
 import { getTransComponentTree } from '@/api/collect/trans/transComponent'
-import { setConfig, getFlowDetail, executeFlow } from '@/api/collect/trans/transFlow'
+import { setConfig, getFlowDetail, executeFlow, stopFlow, checkTransStatus, getProcessLog } from '@/api/collect/trans/transFlow'
 import ConfigDrawer from './ConfigDrawer.vue'
 
 export default {
@@ -122,6 +167,7 @@ export default {
   data() {
     return {
       graph: null,
+      hasChange: false,
       contextMenu: {
         visible: false,
         x: 0,
@@ -155,11 +201,28 @@ export default {
           updateField: '',
           outputPath: '',
           fileFormat: ''
-        }
-      }
+        },
+        flowConfig: null
+      },
+      // 运行状态相关
+      isRunning: false,
+      statusCheckTimer: null,
+      // 日志相关
+      logVisible: false,
+      logContent: '',
+      logTimer: null,
+      // 日志弹窗拖拽相关
+      logDragging: false,
+      logDragOffset: { x: 0, y: 0 },
+      logDialogPosition: { top: null, left: null },
+      // 停止按钮状态
+      isStopping: false
     }
   },
   mounted() {
+    // 进入页面时置空日志
+    this.logContent = ''
+
     this.loadComponentTree()
     this.$nextTick(() => {
       this.initGraph()
@@ -168,12 +231,14 @@ export default {
       }
     })
     document.addEventListener('keydown', this.handleKeyDown)
+    window.addEventListener('beforeunload', this.handleBeforeUnload)
   },
   beforeDestroy() {
     if (this.graph) {
       this.graph.dispose()
     }
     document.removeEventListener('keydown', this.handleKeyDown)
+    window.removeEventListener('beforeunload', this.handleBeforeUnload)
   },
   methods: {
     async loadComponentTree() {
@@ -246,26 +311,33 @@ export default {
       this.distributionDialog.currentEdge = null
     },
 
+    // 保存流程配置，返回是否保存成功
     async saveFlow() {
       if (!this.flowId) {
         this.$message.warning('流程ID不存在，无法保存')
-        return
+        return false
       }
       try {
         const flowData = this.graph.toJSON()
+        // 检查画布上是否有组件
+        const hasComponents = flowData.cells && flowData.cells.length > 0
         const configData = {
           id: this.flowId,
-          config: JSON.stringify(flowData)
+          config: hasComponents ? JSON.stringify(flowData) : null
         }
         const res = await setConfig(configData)
         if (res.code === '000000') {
           this.$message.success('流程保存成功')
+          this.hasChange = false
+          return true
         } else {
           this.$message.error(res.message || '保存失败')
+          return false
         }
       } catch (error) {
         console.error('保存流程失败:', error)
         this.$message.error('保存流程失败')
+        return false
       }
     },
 
@@ -275,13 +347,30 @@ export default {
         const res = await getFlowDetail(this.flowId)
         if (res.code === '000000' && res.data && res.data.config) {
           const flowData = JSON.parse(res.data.config)
+          console.log('flowData', flowData)
           this.graph.clearCells()
           this.graph.fromJSON(flowData)
           this.$message.success('流程加载成功')
+          this.hasChange = false
         }
       } catch (error) {
         console.error('加载流程失败:', error)
       }
+    },
+
+    // 运行按钮点击：如有未保存改动，先保存再执行
+    async handleRunClick() {
+      if (this.isRunning) {
+        return
+      }
+      if (this.hasChange) {
+        const ok = await this.saveFlow()
+        if (!ok) {
+          // 保存失败则不继续运行
+          return
+        }
+      }
+      this.executeFlowHandler()
     },
 
     async executeFlowHandler() {
@@ -289,16 +378,195 @@ export default {
         this.$message.warning('流程ID不存在，无法运行')
         return
       }
+      // 防止“停止中”状态残留
+      this.isStopping = false
       try {
         const res = await executeFlow(this.flowId)
         if (res.code === '000000') {
           this.$message.success('转换流程启动成功！')
+          // 开始检查流程状态
+          this.isRunning = true
+          this.startStatusCheck()
+          // 自动打开日志弹窗
+          this.toggleLogDialog()
         } else {
           this.$message.error(res.message || '流程启动失败')
         }
       } catch (error) {
         console.error('执行流程失败:', error)
         this.$message.error('流程启动失败')
+      }
+    },
+
+    // 开始检查流程状态
+    startStatusCheck() {
+      // 清除之前的定时器
+      if (this.statusCheckTimer) {
+        clearInterval(this.statusCheckTimer)
+      }
+
+      // 每3秒检查一次状态
+      this.statusCheckTimer = setInterval(async() => {
+        try {
+          const res = await checkTransStatus(this.flowId)
+          if (res.code === '000000') {
+            // 只有当之前状态为true，现在变为false时，才显示执行完成的提示
+            const wasRunning = this.isRunning
+            this.isRunning = res.data
+            if (wasRunning && !res.data) {
+              // 流程执行结束，清除定时器
+              clearInterval(this.statusCheckTimer)
+              this.statusCheckTimer = null
+              this.$message.success('流程执行完成！')
+            }
+          }
+        } catch (error) {
+          console.error('检查流程状态失败:', error)
+        }
+      }, 3000)
+    },
+
+    // 切换日志弹窗
+    toggleLogDialog() {
+      this.logVisible = !this.logVisible
+      if (this.logVisible) {
+        // 重置位置状态
+        this.logDialogPosition = { top: null, left: null }
+        this.$nextTick(() => {
+          const dialog = this.$el.querySelector('.log-dialog')
+          if (dialog) {
+            const rect = dialog.getBoundingClientRect()
+            // 初始化为当前居中的位置，防止第一次拖动时弹窗“跳动”
+            this.logDialogPosition = {
+              top: rect.top,
+              left: rect.left
+            }
+          }
+        })
+        // 开始获取日志
+        this.startLogUpdate()
+      } else {
+        // 停止获取日志
+        this.stopLogUpdate()
+      }
+    },
+
+    // 关闭日志弹窗
+    closeLogDialog() {
+      this.logVisible = false
+      this.stopLogUpdate()
+      this.logDragging = false
+      this.logDialogPosition = { top: null, left: null }
+    },
+
+    // 开始更新日志
+    startLogUpdate() {
+      // 清除之前的定时器
+      if (this.logTimer) {
+        clearInterval(this.logTimer)
+      }
+
+      // 只有在流程运行中才获取日志
+      if (this.isRunning) {
+        // 立即获取一次日志
+        this.getProcessLog()
+
+        // 每2秒获取一次日志
+        this.logTimer = setInterval(() => {
+          // 再次检查流程状态，确保只有运行中才继续获取日志
+          if (this.isRunning) {
+            this.getProcessLog()
+          } else {
+            this.stopLogUpdate()
+          }
+        }, 2000)
+      }
+    },
+
+    // 停止更新日志
+    stopLogUpdate() {
+      if (this.logTimer) {
+        clearInterval(this.logTimer)
+        this.logTimer = null
+      }
+    },
+
+    // 获取流程日志
+    async getProcessLog() {
+      if (!this.flowId) return
+
+      try {
+        const res = await getProcessLog(this.flowId)
+        if (res.code === '000000') {
+          if (res.data && res.data.logList) {
+            // 处理日志列表，提取每条记录的text并清理日期
+            const logText = res.data.logList.map(logItem => {
+              if (logItem.text) {
+                // 简单直接的方法：按空格分割文本
+                const parts = logItem.text.split(' ')
+                // 寻找最后一个日期时间（格式：YYYY-MM-DD HH:MM:SS）
+                let lastDateIndex = -1
+                for (let i = parts.length - 2; i >= 0; i--) {
+                  if (parts[i].match(/^\d{4}-\d{2}-\d{2}$/) && parts[i + 1].match(/^\d{2}:\d{2}:\d{2}$/)) {
+                    lastDateIndex = i
+                    break
+                  }
+                }
+                if (lastDateIndex >= 0) {
+                  // 提取最后一个日期时间和后面的内容
+                  const lastDate = `${parts[lastDateIndex]} ${parts[lastDateIndex + 1]}`
+                  const content = parts.slice(lastDateIndex + 2).join(' ')
+                  return `${lastDate} ${content}`
+                }
+                return logItem.text
+              }
+              return ''
+            }).join('\n')
+            this.logContent = logText || '暂无日志'
+
+            // 检查日志中是否包含停止成功或流程结束的标志
+            const stopKeywords = ['流程执行结束', '流程停止成功', '停止成功']
+            const hasStopFlag = stopKeywords.some(keyword => logText.includes(keyword))
+
+            // 如果流程已停止，停止日志定时器
+            if (hasStopFlag) {
+              this.stopLogUpdate()
+            }
+          } else {
+            this.logContent = res.data || '暂无日志'
+          }
+        }
+      } catch (error) {
+        console.error('获取日志失败:', error)
+      }
+    },
+
+    async stopFlowHandler() {
+      if (!this.flowId) {
+        this.$message.warning('流程ID不存在，无法停止')
+        return
+      }
+      if (this.isStopping) return
+      this.isStopping = true
+      try {
+        const res = await stopFlow(this.flowId)
+        if (res.code === '000000') {
+          this.$message.success('转换流程停止成功！')
+          // 停止流程后更新状态
+          this.isRunning = false
+          // 清除状态检查定时器
+          if (this.statusCheckTimer) {
+            clearInterval(this.statusCheckTimer)
+            this.statusCheckTimer = null
+          }
+        } else {
+          this.$message.error(res.message || '流程停止失败')
+        }
+      } catch (error) {
+        console.error('停止流程失败:', error)
+        this.$message.error('流程停止失败')
+      } finally {
+        this.isStopping = false
       }
     },
 
@@ -411,8 +679,14 @@ export default {
           maxScale: 2
         },
         connecting: {
-          allowMulti: false,
+          // 不允许连到空白区域，防止出现“悬空”的无意义连线
+          allowBlank: false,
+          // 不允许同一条边自环
           allowLoop: false,
+          // 不允许同一方向多条边重复连接
+          allowMulti: false,
+          // 只允许从节点连接到节点，禁止边接边等复杂情况
+          allowEdge: false,
           snap: true,
           highlight: true,
           connectionPoint: 'anchor',
@@ -459,33 +733,95 @@ export default {
       this.graph.on('node:dblclick', ({ node }) => {
         const nodeData = node.getData() || {}
         const label = node.attr('label/text')
-        // 从 data 对象中读取表输入和表输出的配置数据
-        const componentData = nodeData.data || nodeData
+        // 从 nodeData.data 中读取配置数据，后端返回的数据结构是 { name, type, data: {...} }
+        const configData = nodeData.data || nodeData
+        const componentType = nodeData.code
+
+        // 基础字段
+        const baseForm = {
+          name: configData.name || label || '',
+          code: nodeData.code || '',
+          description: configData.description || ''
+        }
+
+        // 表输入专用字段
+        const tableInputFields = {
+          dbId: configData.dbId || '',
+          dataSourceId: configData.dataSourceId || '',
+          dbConnection: configData.dbConnection || '',
+          tableName: configData.tableName || '',
+          commitSize: configData.commitSize || '',
+          preSql: configData.preSql || '',
+          postSql: configData.postSql || '',
+          fieldList: configData.fieldList || [],
+          updatePolicy: configData.updatePolicy || '',
+          skipHeader: configData.skipHeader || false,
+          ignoreError: configData.ignoreError || false,
+          retryTimes: configData.retryTimes || '',
+          retryInterval: configData.retryInterval || '',
+          sql: configData.sql || '',
+          replaceVariables: configData.replaceVariables || false,
+          isIncrement: configData.isIncrement || false,
+          rowLimit: configData.rowLimit || '',
+          stepInsertVariable: configData.stepInsertVariable || '',
+          implementEveryOne: configData.implementEveryOne || false,
+          configMode: configData.configMode || 'custom'
+        }
+
+        // 表输出专用字段
+        const tableOutputFields = {
+          dbId: configData.dbId || '',
+          dataSourceId: configData.dataSourceId || '',
+          dbConnection: configData.dbConnection || '',
+          tableId: configData.tableId || '',
+          tableName: configData.tableName || '',
+          targetTable: configData.targetTable || '',
+          updateField: configData.updateField || '',
+          outputPath: configData.outputPath || '',
+          fileFormat: configData.fileFormat || '',
+          commitSize: configData.commitSize || '',
+          preSql: configData.preSql || '',
+          postSql: configData.postSql || '',
+          fieldList: configData.fieldList || [],
+          updatePolicy: configData.updatePolicy || '',
+          skipHeader: configData.skipHeader || false,
+          ignoreError: configData.ignoreError || false,
+          retryTimes: configData.retryTimes || '',
+          retryInterval: configData.retryInterval || '',
+          truncateTable: configData.truncateTable || false,
+          specifyFields: configData.specifyFields || false,
+          schemaName: configData.schemaName || '',
+          ignoreErrors: configData.ignoreErrors || false,
+          useBatchUpdate: configData.useBatchUpdate || false,
+          partitioningType: configData.partitioningType || '',
+          partitioningField: configData.partitioningField || '',
+          partitioningTimeRadio: configData.partitioningTimeRadio || '',
+          tableNameField: configData.tableNameField || '',
+          tableNameInTable: configData.tableNameInTable || false,
+          returningGeneratedKeys: configData.returningGeneratedKeys || false,
+          generatedKeyField: configData.generatedKeyField || '',
+          distributeType: configData.distributeType || false
+        }
+
+        // 根据组件类型构建表单数据
+        let formData
+        if (componentType === 'TableInput') {
+          formData = { ...baseForm, ...tableInputFields }
+        } else if (componentType === 'TableOutput') {
+          formData = { ...baseForm, ...tableOutputFields }
+        } else {
+          formData = baseForm
+        }
+
+        // 获取完整的流程配置
+        const flowConfig = this.graph ? this.graph.toJSON() : null
+
         this.configDrawer = {
           visible: true,
           currentNode: node,
-          componentType: nodeData.code,
-          form: {
-            name: componentData.name || label || '',
-            type: componentData.code || '',
-            dbId: componentData.dbId || '',
-            dataSourceId: componentData.dataSourceId || '',
-            dbConnection: componentData.dbConnection || '',
-            tableName: componentData.tableName || '',
-            targetTable: componentData.targetTable || '',
-            updateField: componentData.updateField || '',
-            outputPath: componentData.outputPath || '',
-            fileFormat: componentData.fileFormat || '',
-            commitSize: componentData.commitSize || '',
-            preSql: componentData.preSql || '',
-            postSql: componentData.postSql || '',
-            fieldList: componentData.fieldList || [],
-            updatePolicy: componentData.updatePolicy || '',
-            skipHeader: componentData.skipHeader || false,
-            ignoreError: componentData.ignoreError || false,
-            retryTimes: componentData.retryTimes || '',
-            retryInterval: componentData.retryInterval || ''
-          }
+          componentType: componentType,
+          form: formData,
+          flowConfig: flowConfig
         }
       })
 
@@ -542,32 +878,60 @@ export default {
           }, 100)
         }
       })
-    },
 
-    handleConfigDrawerClose() {
-      this.configDrawer.visible = false
+      // 监听画布编辑操作，标记为已修改
+      this.graph.on('cell:added', () => {
+        this.hasChange = true
+      })
+
+      this.graph.on('cell:removed', () => {
+        this.hasChange = true
+      })
+
+      this.graph.on('cell:change:*', () => {
+        this.hasChange = true
+      })
     },
 
     handleConfigDrawerSave(formData) {
       const node = this.configDrawer.currentNode
       if (node) {
         const nodeData = node.getData() || {}
-        // 为表输入和表输出组件添加 data 包装，与后端期望的JSON结构保持一致
-        if (this.configDrawer.componentType === 'TableInput' || this.configDrawer.componentType === 'TableOutput') {
-          // 确保 data 对象存在
-          if (!nodeData.data) {
-            nodeData.data = {}
+        // 保存数据时，保持与后端返回的数据结构一致：{ name, code, data: {...} }
+        const newData = {
+          ...nodeData,
+          name: formData.name,
+          code: formData.code,
+          data: {
+            ...formData
           }
-          // 将所有表单数据放入 data 对象中
-          nodeData.data = { ...formData }
-        } else {
-          // 其他组件保持原有结构
-          nodeData = { ...nodeData, ...formData }
         }
-        node.setData({ ...nodeData })
+        console.log(newData)
+        node.setData(newData)
         node.attr('label/text', formData.name)
         this.configDrawer.visible = false
-        this.$message?.success('配置保存成功') || alert('配置保存成功')
+        this.$message.success('配置保存成功')
+        // 此处仅保存到画布内存，并未持久化到后端，因此应视为“有未保存更改”
+        this.hasChange = true
+      }
+    },
+
+    // 当配置抽屉关闭时，标记为已修改
+    handleConfigDrawerClose() {
+      this.configDrawer.visible = false
+      // 当用户打开配置抽屉并可能修改了配置时，标记为已修改
+      this.hasChange = true
+    },
+
+    hasUnsavedChanges() {
+      return this.hasChange
+    },
+
+    handleBeforeUnload(e) {
+      if (this.hasChange) {
+        const confirmationMessage = '当前流程设计内容尚未保存，是否确认离开此页面？'
+        e.returnValue = confirmationMessage
+        return confirmationMessage
       }
     },
 
@@ -668,7 +1032,7 @@ export default {
         node.setData({ ...nodeData, ...this.configDrawer.form })
         node.attr('label/text', this.configDrawer.form.name)
         this.configDrawer.visible = false
-        this.$message?.success('配置保存成功') || alert('配置保存成功')
+        this.$message.success('配置保存成功')
       }
     },
 
@@ -678,6 +1042,44 @@ export default {
         this.contextMenu.visible = false
         e.preventDefault()
       }
+    },
+
+    // 日志弹窗拖拽 - 开始拖动
+    onLogMouseDown(e) {
+      // 只响应左键
+      if (e.button !== 0) return
+      const dialog = this.$el.querySelector('.log-dialog')
+      if (!dialog) return
+
+      const rect = dialog.getBoundingClientRect()
+      this.logDragging = true
+      this.logDragOffset = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      }
+
+      document.addEventListener('mousemove', this.onLogMouseMove)
+      document.addEventListener('mouseup', this.onLogMouseUp)
+    },
+
+    // 日志弹窗拖拽 - 拖动中
+    onLogMouseMove(e) {
+      if (!this.logDragging) return
+      const newLeft = e.clientX - this.logDragOffset.x
+      const newTop = e.clientY - this.logDragOffset.y
+
+      this.logDialogPosition = {
+        top: newTop,
+        left: newLeft
+      }
+    },
+
+    // 日志弹窗拖拽 - 结束拖动
+    onLogMouseUp() {
+      if (!this.logDragging) return
+      this.logDragging = false
+      document.removeEventListener('mousemove', this.onLogMouseMove)
+      document.removeEventListener('mouseup', this.onLogMouseUp)
     }
   }
 }
@@ -698,16 +1100,15 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: #f5f5f5;
+  padding: 8px 16px;
+  background: #ffffff;
   border-bottom: 1px solid #e8e8e8;
   z-index: 10;
 }
 
-.toolbar-left h2 {
+.toolbar-left {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 14px;
   color: #333;
 }
 
@@ -723,22 +1124,29 @@ export default {
 }
 
 .toolbar-btn {
-  padding: 6px 16px;
-  background: #5f95ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s ease;
 }
 
 .toolbar-btn:hover {
-  background: #40a9ff;
+  color: #1890ff;
 }
 
-.toolbar-btn:active {
-  background: #1890ff;
+.toolbar-btn.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.toolbar-btn.is-disabled:hover {
+  color: inherit;
+}
+
+.toolbar-btn-txt {
+  margin-left: 5px;
 }
 
 .sidebar {
@@ -746,7 +1154,7 @@ export default {
   top: 60px;
   left: 10px;
   width: 200px;
-  background: rgba(245, 245, 245, 0.95);
+  background: #f0f7ff;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -756,7 +1164,8 @@ export default {
 }
 
 .menu-section {
-  margin-bottom: 8px;
+  background: #fff;
+  border-bottom: 1px dashed #d1d1d1;
 }
 
 .menu-title {
@@ -764,7 +1173,7 @@ export default {
   font-weight: 600;
   color: #333;
   padding: 10px 16px;
-  background: #f0f0f0;
+  background: #f0f7ff;
   border-bottom: 1px solid #e8e8e8;
   display: flex;
   align-items: center;
@@ -774,7 +1183,7 @@ export default {
 }
 
 .menu-title:hover {
-  background: #e8f0ff;
+  background: #f0f7ff;
 }
 
 .menu-icon {
@@ -812,15 +1221,27 @@ export default {
 .component-item {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
+  padding: 8px 12px;
+  margin: 4px 8px;
   cursor: pointer;
   font-size: 14px;
-  color: #333;
-  transition: all 0.3s ease;
+  color: #555;
+  transition: all 0.2s ease;
+  background: #fff;
+  border: 1px solid #fff;
+  border-radius: 2%;
+  box-shadow: 0 -1px 0 0 rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .component-item:hover {
-  background: #e8f0ff;
+  background: #f0f7ff;
+  border-color: #5F95FF;
+  box-shadow: 0 -1px 0 0 rgba(0, 0, 0, 0.05), 0 3px 8px rgba(95, 149, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.component-item:active {
+  transform: translateY(0);
 }
 
 .icon {
@@ -972,7 +1393,7 @@ export default {
   position: fixed;
   top: 0;
   right: 0;
-  width: 50%;
+  width: 30%;
   height: 100%;
   background: white;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
@@ -1082,5 +1503,85 @@ export default {
 .secondary-btn:hover {
   border-color: #5f95ff;
   color: #5f95ff;
+}
+
+/* 日志弹窗样式 */
+.log-dialog-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+}
+
+.log-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #FFF;
+  border-radius: 4px;
+  width: 90%;
+  max-width: 1000px;
+  min-height: 50vh;
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.log-dialog.is-movable {
+  transform: none;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid #EBEEF5;
+  cursor: grab;
+}
+
+.log-header.dragging {
+  cursor: grabbing;
+}
+
+.log-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.close-log {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #909399;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.close-log:hover {
+  color: #606266;
+}
+
+.log-body {
+  flex: 1;
+  padding: 20px;
+  overflow: auto;
+  max-height: calc(80vh - 60px);
+}
+
+.log-content {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
 }
 </style>

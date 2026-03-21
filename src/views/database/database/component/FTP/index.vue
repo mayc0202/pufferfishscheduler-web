@@ -54,9 +54,9 @@
               >
                 <el-option
                   v-for="item in ftpStyle"
-                  :key="item.value"
-                  :label="item.code"
-                  :value="item.code"
+                  :key="String(item.code)"
+                  :label="item.value"
+                  :value="String(item.code)"
                 />
               </el-select>
             </div>
@@ -92,9 +92,9 @@
               >
                 <el-option
                   v-for="item in dbLabering"
-                  :key="item.value"
-                  :label="item.code"
-                  :value="item.value"
+                  :key="String(item.code)"
+                  :label="item.value"
+                  :value="String(item.code)"
                 />
               </el-select>
             </div>
@@ -169,9 +169,9 @@
               >
                 <el-option
                   v-for="item in controlEncoding"
-                  :key="item.value"
-                  :label="item.code"
-                  :value="item.value"
+                  :key="String(item.code)"
+                  :label="item.value"
+                  :value="String(item.code)"
                 />
               </el-select>
             </div>
@@ -187,9 +187,9 @@
               >
                 <el-option
                   v-for="item in ftpMode"
-                  :key="item.value"
-                  :label="item.code"
-                  :value="item.value"
+                  :key="String(item.code)"
+                  :label="item.value"
+                  :value="String(item.code)"
                 />
               </el-select>
             </div>

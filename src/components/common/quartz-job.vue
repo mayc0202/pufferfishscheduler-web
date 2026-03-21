@@ -55,9 +55,9 @@
         >
           <el-option
             v-for="policy in failurePolicyOptions"
-            :key="policy.code"
-            :label="policy.code"
-            :value="policy.value"
+            :key="String(policy.code)"
+            :label="policy.value"
+            :value="String(policy.code)"
           />
         </el-select>
       </div>
@@ -72,26 +72,9 @@
         >
           <el-option
             v-for="policy in notifyPolicyOptions"
-            :key="policy.code"
-            :label="policy.code"
-            :value="policy.value"
-          />
-        </el-select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Worker分组</label>
-        <el-select
-          v-model="formData.workerId"
-          placeholder="请选择Worker分组"
-          clearable
-          class="full-width"
-        >
-          <el-option
-            v-for="group in workerGroupOptions"
-            :key="group.value"
-            :label="group.label"
-            :value="group.value"
+            :key="String(policy.code)"
+            :label="policy.value"
+            :value="String(policy.code)"
           />
         </el-select>
       </div>
@@ -166,6 +149,7 @@ export default {
         cron: '0 0 * * ? *', // cron表达式
         failurePolicy: '0', // 失败策略
         notifyPolicy: '0', // 通知策略
+        // workerId：新增时不展示下拉框，交给后端策略推断；编辑时通过回填携带
         workerId: null, // 工作组id
         enable: '0' // 是否启用
       },
@@ -180,12 +164,8 @@ export default {
       // 失败策略
       failurePolicyOptions: [],
       // 通知策略
-      notifyPolicyOptions: [],
-      workerGroupOptions: [
-        { value: 0, label: 'node1' },
-        { value: 1, label: 'node2' },
-        { value: 2, label: 'node3' }
-      ]
+      notifyPolicyOptions: []
+      // 旧版 worker 分组下拉框已移除
     }
   },
   computed: {
@@ -279,6 +259,19 @@ export default {
       this.formData.cron = cron
       this.$message.success('Cron表达式已应用')
     },
+
+    // 后端 enable 字段可能是 boolean / 0|1 / '0'|'1' 等多种类型
+    // 统一归一化：返回 true 表示“启用”
+    isEnabled(val) {
+      if (val === true) return true
+      if (val === false) return false
+      if (val === 1 || val === '1') return true
+      if (val === 0 || val === '0') return false
+      if (val === 'true' || val === 'TRUE') return true
+      if (val === 'false' || val === 'FALSE') return false
+      return Boolean(val)
+    },
+
     handleCancel() {
       this.$emit('cancel')
     },
@@ -308,7 +301,7 @@ export default {
           failurePolicy: taskData.failurePolicy || '0',
           notifyPolicy: taskData.notifyPolicy || '0',
           workerId: taskData.workerId,
-          enable: taskData.enable ? '0' : '1'
+          enable: this.isEnabled(taskData.enable) ? '0' : '1'
         }
 
         // 设置级联选择器选中的值
@@ -349,9 +342,9 @@ export default {
 
     // 修改handleSubmit方法
     handleSubmit() {
-      const formData = {
-        ...this.formData
-      }
+      const formData = { ...this.formData }
+      // 新增场景不传 workerId，让后端按默认策略处理
+      if (formData.workerId == null) delete formData.workerId
 
       // 如果是编辑模式，确保包含ID
       if (this.formData.id) {

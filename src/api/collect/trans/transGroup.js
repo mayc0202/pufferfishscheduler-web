@@ -9,6 +9,19 @@ export function tree(name) {
 }
 
 /**
+ * groupTree
+ * 主要用于清洗任务管理左侧分组树
+ *
+ * @param {string} name 分组名称（接口参数）
+ */
+export function groupTree(name) {
+  const safeName = name == null ? '' : String(name)
+  return PUFFERFISH_API.get(
+    '/trans/group/groupTree.do?name=' + encodeURIComponent(safeName)
+  )
+}
+
+/**
  * add
  * @param {*} group
  * @returns

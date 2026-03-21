@@ -11,6 +11,7 @@
           :is="formComponent"
           :form-data="formData"
           :flow-id="flowId"
+          :flow-config="flowConfig"
           @save="handleSave"
           @cancel="handleClose"
         />
@@ -47,12 +48,16 @@ export default {
     flowId: {
       type: [Number, String],
       default: null
+    },
+    flowConfig: {
+      type: Object,
+      default: null
     }
   },
   data() {
     return {
       // 表单数据（双向绑定）
-      formData: { ...this.initialForm }
+      formData: {}
     }
   },
   computed: {
@@ -70,7 +75,8 @@ export default {
     // 监听初始数据变化，同步到表单
     initialForm: {
       handler(newVal) {
-        this.formData = { ...newVal }
+        // 深拷贝数据，避免引用问题
+        this.formData = JSON.parse(JSON.stringify(newVal || {}))
       },
       deep: true,
       immediate: true

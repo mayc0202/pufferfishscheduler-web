@@ -61,7 +61,7 @@
           </div>
         </el-aside>
         <el-container>
-          <el-main v-loading="loading">
+          <el-main>
             <div class="list">
               <div class="flex between search">
                 <div class="search_input">
@@ -98,6 +98,10 @@
               </div>
               <template>
                 <el-table
+                  v-loading="loading"
+                  element-loading-text="正在加载数据..."
+                  element-loading-spinner="el-icon-loading"
+                  element-loading-background="rgba(255, 255, 255, 0.8)"
                   :data="resourceList"
                   style="width: 100%"
                   max-height="640"
@@ -1051,7 +1055,7 @@ export default {
 
 // 侧边栏样式调整
 ::v-deep .page-aside {
-  height: 87.5vh;
+  height: 85.5vh;
   margin-bottom: 10px;
   display: flex;
   flex-direction: column;

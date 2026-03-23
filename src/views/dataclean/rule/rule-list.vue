@@ -104,7 +104,7 @@
             v-loading="tableLoading"
             :data="ruleList"
             style="width: 100%"
-            max-height="640"
+            max-height="574"
             element-loading-text="正在加载数据..."
             element-loading-spinner="el-icon-loading"
             element-loading-background="rgba(255, 255, 255, 0.8)"
@@ -512,7 +512,7 @@ export default {
 }
 
 .page-aside {
-  height: 92.5vh;
+  height: 90.5vh;
   margin: 10px 0 10px 10px;
   display: flex;
   flex-direction: column;
@@ -582,12 +582,12 @@ export default {
 }
 
 .rule-main {
-  margin: 10px 0 10px 10px;
+  height: 90.5vh;
+  margin: 10px 10px 10px 10px;
   padding: 10px 20px 20px 20px;
   background: #fff;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   border-radius: 4px;
-  height: 100%;
 }
 
 .search .add {

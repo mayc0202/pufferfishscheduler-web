@@ -25,20 +25,38 @@
                   />
                 </div>
               </div>
-              <el-button type="primary" class="queryAll" size="mini" @click="queryAll()">查看全部数据</el-button>
+              <el-button
+                type="primary"
+                class="queryAll"
+                size="mini"
+                @click="queryAll()"
+              >查看全部数据</el-button>
               <el-tree :data="group">
                 <div slot-scope="{ data }" class="custom-node flex between">
                   <div class="flex node-label">
-                    <img v-if="data.type === 'GROUP'" :src="icons.db_group" class="group_icon">
+                    <img
+                      v-if="data.type === 'GROUP'"
+                      :src="icons.db_group"
+                      class="group_icon"
+                    >
                     <img v-else :src="data.icon" class="group_icon">
                     {{ data.name }}
                   </div>
-                  <el-tooltip v-if="data.type === 'GROUP'" effect="light" placement="right" popper-class="custom-tooltip">
+                  <el-tooltip
+                    v-if="data.type === 'GROUP'"
+                    effect="light"
+                    placement="right"
+                    popper-class="custom-tooltip"
+                  >
                     <i class="el-icon-more node-icon" />
                     <template #content>
                       <div class="custom-menu">
-                        <div class="menu-item" @click="editGroup(data)">编辑分组</div>
-                        <div class="menu-item" @click="deleteGroup(data)">删除分组</div>
+                        <div class="menu-item" @click="editGroup(data)">
+                          编辑分组
+                        </div>
+                        <div class="menu-item" @click="deleteGroup(data)">
+                          删除分组
+                        </div>
                       </div>
                     </template>
                   </el-tooltip>
@@ -48,7 +66,7 @@
           </div>
         </el-aside>
         <el-container v-if="componentType == null">
-          <el-main v-loading="listLoading">
+          <el-main>
             <div class="list">
               <div class="flex between search">
                 <div class="search_input">
@@ -59,29 +77,38 @@
                   >
                 </div>
                 <div>
-                  <el-button type="primary" icon="el-icon-search" size="mini" @click="searchDbByName()">查询</el-button>
-                  <el-button type="primary" size="mini" @click="openDatabaseDialog()">数据源接入</el-button>
+                  <el-button
+                    type="primary"
+                    icon="el-icon-search"
+                    size="mini"
+                    @click="searchDbByName()"
+                  >查询</el-button>
+                  <el-button
+                    type="primary"
+                    size="mini"
+                    @click="openDatabaseDialog()"
+                  >数据源接入</el-button>
                 </div>
               </div>
               <template>
                 <el-table
+                  v-loading="listLoading"
                   :data="dbList"
                   style="width: 100%"
                   max-height="640"
+                  element-loading-text="正在加载数据..."
+                  element-loading-spinner="el-icon-loading"
+                  element-loading-background="rgba(255, 255, 255, 0.8)"
                 >
-                  <el-table-column
-                    fixed
-                    type="index"
-                    label="#"
-                  />
+                  <el-table-column fixed type="index" label="#" />
                   <el-table-column prop="name" label="数据源名称" width="220" />
                   <el-table-column prop="groupName" label="分组" width="200" />
-                  <el-table-column prop="labelName" label="数据源分层" width="200" />
                   <el-table-column
-                    prop="type"
-                    label="数据库类型"
+                    prop="labelName"
+                    label="数据源分层"
                     width="200"
                   />
+                  <el-table-column prop="type" label="数据库类型" width="200" />
                   <el-table-column
                     prop="createdTimeTxt"
                     label="创建日期"
@@ -94,27 +121,21 @@
                           <el-button
                             type="text"
                             size="mini"
-                            @click.native.prevent="
-                              handleDetail(scope.row.id)
-                            "
+                            @click.native.prevent="handleDetail(scope.row.id)"
                           >
                             查看
                           </el-button>
                           <el-button
                             type="text"
                             size="mini"
-                            @click.native.prevent="
-                              handleEdit(scope.row)
-                            "
+                            @click.native.prevent="handleEdit(scope.row)"
                           >
                             编辑
                           </el-button>
                           <el-button
                             type="text"
                             size="mini"
-                            @click.native.prevent="
-                              handleDelete(scope.row.id)
-                            "
+                            @click.native.prevent="handleDelete(scope.row.id)"
                           >
                             删除
                           </el-button>
@@ -183,7 +204,13 @@
       @onConfirm="submitAddGroup"
     >
       <div slot="content">
-        <el-form ref="groupForm" :model="groupForm" :label-position="labelPosition" :rules="groupRules" label-width="80px">
+        <el-form
+          ref="groupForm"
+          :model="groupForm"
+          :label-position="labelPosition"
+          :rules="groupRules"
+          label-width="80px"
+        >
           <el-form-item label="分组名称:" prop="name">
             <el-input
               ref="name"
@@ -206,7 +233,11 @@
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" size="mini" @click="submitAddGroup()">添加</el-button>
+            <el-button
+              type="primary"
+              size="mini"
+              @click="submitAddGroup()"
+            >添加</el-button>
             <el-button size="mini" @click="cancelGroup()">取消</el-button>
           </el-form-item>
         </el-form>
@@ -222,7 +253,13 @@
       @onConfirm="submitEditGroup"
     >
       <div slot="content">
-        <el-form ref="groupForm" :model="groupForm" :label-position="labelPosition" :rules="groupRules" label-width="80px">
+        <el-form
+          ref="groupForm"
+          :model="groupForm"
+          :label-position="labelPosition"
+          :rules="groupRules"
+          label-width="80px"
+        >
           <el-form-item label="分组名称:" prop="name">
             <el-input
               ref="name"
@@ -245,7 +282,11 @@
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" size="mini" @click="submitEditGroup()">编辑</el-button>
+            <el-button
+              type="primary"
+              size="mini"
+              @click="submitEditGroup()"
+            >编辑</el-button>
             <el-button size="mini" @click="cancelGroup()">取消</el-button>
           </el-form-item>
         </el-form>
@@ -328,9 +369,7 @@ export default {
         orderBy: 0
       },
       groupRules: {
-        name: [
-          { required: true, trigger: 'blur', message: '请输入分组名称!' }
-        ],
+        name: [{ required: true, trigger: 'blur', message: '请输入分组名称!' }],
         orderBy: [
           { required: true, message: '请输入分组排序!', trigger: 'blur' }
         ]
@@ -418,7 +457,6 @@ export default {
   },
 
   methods: {
-
     /**
      * 每页多少条记录
      * @param val
@@ -505,7 +543,7 @@ export default {
     queryAll() {
       tree('').then((res) => {
         this.group = res.data
-        this.group.forEach(g => {
+        this.group.forEach((g) => {
           g.icon = ''
         })
       })
@@ -559,24 +597,26 @@ export default {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }).then(async() => {
-        try {
-          const res = await deleteGroup(group.id)
-          this.$message.success(res.data || '删除成功!')
-          this.selectDbList()
-        } catch (error) {
-          console.error('删除分组失败:', error)
-          this.$message.error('删除失败，请重试')
-        } finally {
-          this.queryAll()
-          this.selectDbList()
-        }
-      }).catch(() => {
-        this.$message({
-          type: 'info',
-          message: '已取消删除'
-        })
       })
+        .then(async() => {
+          try {
+            const res = await deleteGroup(group.id)
+            this.$message.success(res.data || '删除成功!')
+            this.selectDbList()
+          } catch (error) {
+            console.error('删除分组失败:', error)
+            this.$message.error('删除失败，请重试')
+          } finally {
+            this.queryAll()
+            this.selectDbList()
+          }
+        })
+        .catch(() => {
+          this.$message({
+            type: 'info',
+            message: '已取消删除'
+          })
+        })
     },
 
     /**
@@ -601,7 +641,10 @@ export default {
         // 等待数据库基础信息加载完成
         await new Promise((resolve) => {
           this.$nextTick(() => {
-            if (this.databaseType.length > 0 && this.cacheDatabaseList.length > 0) {
+            if (
+              this.databaseType.length > 0 &&
+              this.cacheDatabaseList.length > 0
+            ) {
               resolve()
             } else {
               // 设置超时，避免无限等待
@@ -639,7 +682,9 @@ export default {
      * @param item
      */
     handleSelectType(item) {
-      this.databaseList = this.cacheDatabaseList.filter(db => db.categoryId === item.id)
+      this.databaseList = this.cacheDatabaseList.filter(
+        (db) => db.categoryId === item.id
+      )
     },
 
     /**
@@ -768,7 +813,7 @@ export default {
       try {
         getDbCategoryList().then((res) => {
           this.databaseType = res.data
-          this.databaseType.forEach(d => {
+          this.databaseType.forEach((d) => {
             if (d.imgConfig != null && d.imgConfig !== '') {
               var config = JSON.parse(d.imgConfig)
               d.width = config.width
@@ -795,14 +840,16 @@ export default {
         }
 
         this.cacheDatabaseList = res.data
-        this.cacheDatabaseList.forEach(d => {
+        this.cacheDatabaseList.forEach((d) => {
           if (d.imgConfig != null && d.imgConfig !== '') {
             var config = JSON.parse(d.imgConfig)
             d.width = config.width
             d.height = config.height
           }
         })
-        this.databaseList = this.cacheDatabaseList.filter(db => db.categoryId === 1)
+        this.databaseList = this.cacheDatabaseList.filter(
+          (db) => db.categoryId === 1
+        )
       } catch (error) {
         this.$message.error('获取详情失败')
         console.error(error)
@@ -838,7 +885,7 @@ export default {
 </script>
 
 <style lang="scss">
-@import '@/styles/variables.scss';
+@import "@/styles/variables.scss";
 
 .custom-tooltip {
   border: none !important;
@@ -853,7 +900,7 @@ export default {
 </style>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
+@import "@/styles/variables.scss";
 
 .custom-tooltip .custom-menu {
   border: none;
@@ -872,7 +919,7 @@ export default {
 
 .custom-tooltip .menu-item:hover {
   background-color: #fff;
-  color: #409EFF;
+  color: #409eff;
 }
 
 // 修改el-container的样式
@@ -901,7 +948,7 @@ export default {
 }
 
 ::v-deep .page-aside {
-  height: 92.5vh;
+  height: 90.5vh;
   margin-bottom: 10px;
   display: flex;
   flex-direction: column;

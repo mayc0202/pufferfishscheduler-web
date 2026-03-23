@@ -1,199 +1,185 @@
 <template>
-  <div class="app-container user-manage-page">
-    <div class="page-header">
-      <div class="page-header__text">
-        <h1 class="page-title">用户管理</h1>
-        <p class="page-desc">维护系统账号、角色分配与账号注销（仅管理员）</p>
+  <div class="app-container uc-container user-manage-page">
+    <div class="uc-body">
+      <div class="uc-list">
+        <div class="uc-page-head">
+          <h1 class="uc-page-head__title">用户管理</h1>
+          <p class="uc-page-head__desc">维护系统账号、角色分配与账号注销（仅管理员）</p>
+        </div>
+
+        <div class="uc-stat-row">
+          <div class="uc-stat-item">
+            <div class="uc-stat-item__icon uc-stat-item__icon--primary">
+              <i class="el-icon-user-solid" />
+            </div>
+            <div>
+              <div class="uc-stat-item__value">{{ total }}</div>
+              <div class="uc-stat-item__label">用户总数</div>
+            </div>
+          </div>
+          <div class="uc-stat-item">
+            <div class="uc-stat-item__icon uc-stat-item__icon--success">
+              <i class="el-icon-s-grid" />
+            </div>
+            <div>
+              <div class="uc-stat-item__value">{{ list.length }}</div>
+              <div class="uc-stat-item__label">当前页条数</div>
+            </div>
+          </div>
+          <div class="uc-stat-item">
+            <div class="uc-stat-item__icon uc-stat-item__icon--info">
+              <i class="el-icon-key" />
+            </div>
+            <div>
+              <div class="uc-stat-item__value">{{ roleOptions.length || 2 }}</div>
+              <div class="uc-stat-item__label">可分配角色</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="uc-search">
+          <div class="uc-search__left">
+            <div class="uc-search__label">账号：</div>
+            <el-input
+              v-model="query.account"
+              placeholder="支持模糊查询"
+              clearable
+              size="small"
+              prefix-icon="el-icon-user"
+              class="uc-search__input"
+              @keyup.enter.native="fetchList"
+            />
+            <div class="uc-search__label">姓名：</div>
+            <el-input
+              v-model="query.name"
+              placeholder="支持模糊查询"
+              clearable
+              size="small"
+              prefix-icon="el-icon-postcard"
+              class="uc-search__input"
+              @keyup.enter.native="fetchList"
+            />
+          </div>
+          <div class="uc-search__right">
+            <el-button type="primary" icon="el-icon-search" size="small" @click="fetchList">
+              查询
+            </el-button>
+            <el-button icon="el-icon-refresh-left" size="small" @click="resetQuery">
+              重置
+            </el-button>
+            <el-button type="primary" icon="el-icon-plus" size="small" @click="openDialog('add')">
+              新增用户
+            </el-button>
+          </div>
+        </div>
+
+        <div class="uc-table-wrap">
+          <el-table
+            v-loading="loading"
+            stripe
+            size="small"
+            element-loading-text="正在加载数据..."
+            element-loading-spinner="el-icon-loading"
+            element-loading-background="rgba(255, 255, 255, 0.8)"
+            :data="list"
+            style="width: 100%"
+            :max-height="ucTableMaxHeight"
+            :header-cell-style="tableHeaderStyle"
+            empty-text="暂无数据"
+          >
+            <el-table-column type="index" label="#" width="56" align="center" />
+            <el-table-column prop="account" label="账号" min-width="140" show-overflow-tooltip>
+              <template slot-scope="scope">
+                <span class="cell-strong">{{ scope.row.account }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="name" label="姓名" min-width="100" show-overflow-tooltip />
+            <el-table-column label="手机" min-width="118" show-overflow-tooltip>
+              <template slot-scope="scope">
+                {{ rowPhone(scope.row) || '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="邮箱" min-width="168" show-overflow-tooltip>
+              <template slot-scope="scope">
+                {{ rowEmail(scope.row) || '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="微信" min-width="110" show-overflow-tooltip>
+              <template slot-scope="scope">
+                {{ rowWechat(scope.row) || '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="过期日期" width="118" align="center">
+              <template slot-scope="scope">
+                {{ formatExpireDate(rowExpire(scope.row)) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="角色" min-width="140">
+              <template slot-scope="scope">
+                <el-tag
+                  v-if="roleTagType(scope.row)"
+                  :type="roleTagType(scope.row)"
+                  class="role-pill"
+                  size="small"
+                  effect="plain"
+                >
+                  {{ roleDisplayText(scope.row) }}
+                </el-tag>
+                <span v-else class="text-muted">{{ roleDisplayText(scope.row) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="statusTxt" label="状态" width="120" align="center">
+              <template slot-scope="scope">
+                <el-tag v-if="scope.row.statusTxt" type="info" size="mini" effect="plain">
+                  {{ scope.row.statusTxt }}
+                </el-tag>
+                <span v-else class="text-muted">—</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="创建时间" width="158" align="center" show-overflow-tooltip>
+              <template slot-scope="scope">
+                {{ formatDateTime(rowCreatedAt(scope.row)) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200" align="center" fixed="right">
+              <template slot-scope="scope">
+                <el-button type="text" size="mini" icon="el-icon-edit" @click.native.prevent="openDialog('edit', scope.row)">
+                  编辑
+                </el-button>
+                <el-button
+                  type="text"
+                  size="mini"
+                  class="btn-danger-text"
+                  icon="el-icon-circle-close"
+                  @click.native.prevent="handleDeactivate(scope.row)"
+                >
+                  注销
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <div class="pagination-wrapper">
+          <el-pagination
+            :current-page="pageNo"
+            :page-sizes="[10, 20, 30, 40, 50, 100]"
+            :page-size="pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="total"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
       </div>
     </div>
-
-    <el-row :gutter="16" class="stat-row">
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="hover" class="stat-card stat-card--primary">
-          <div class="stat-card__icon">
-            <i class="el-icon-user-solid" />
-          </div>
-          <div class="stat-card__body">
-            <div class="stat-card__value">{{ total }}</div>
-            <div class="stat-card__label">用户总数</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="hover" class="stat-card stat-card--success">
-          <div class="stat-card__icon">
-            <i class="el-icon-s-grid" />
-          </div>
-          <div class="stat-card__body">
-            <div class="stat-card__value">{{ list.length }}</div>
-            <div class="stat-card__label">当前页条数</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="hover" class="stat-card stat-card--info">
-          <div class="stat-card__icon">
-            <i class="el-icon-key" />
-          </div>
-          <div class="stat-card__body">
-            <div class="stat-card__value">{{ roleOptions.length || 2 }}</div>
-            <div class="stat-card__label">可分配角色</div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-card shadow="never" class="section-card filter-card">
-      <div slot="header" class="card-header">
-        <span class="card-header__title">
-          <i class="el-icon-search card-header__icon" />
-          筛选条件
-        </span>
-      </div>
-      <el-form :inline="true" class="filter-form" @submit.native.prevent="fetchList">
-        <el-form-item label="账号">
-          <el-input
-            v-model="query.account"
-            placeholder="支持模糊查询"
-            clearable
-            prefix-icon="el-icon-user"
-            class="filter-input"
-            @keyup.enter.native="fetchList"
-          />
-        </el-form-item>
-        <el-form-item label="姓名">
-          <el-input
-            v-model="query.name"
-            placeholder="支持模糊查询"
-            clearable
-            prefix-icon="el-icon-postcard"
-            class="filter-input"
-            @keyup.enter.native="fetchList"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" icon="el-icon-search" @click="fetchList">
-            查询
-          </el-button>
-          <el-button icon="el-icon-refresh-left" @click="resetQuery">
-            重置
-          </el-button>
-          <el-button type="primary" plain icon="el-icon-plus" @click="openDialog('add')">
-            新增用户
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card shadow="never" class="section-card table-card" :body-style="{ padding: '0 0 16px' }">
-      <div slot="header" class="card-header">
-        <span class="card-header__title">
-          <i class="el-icon-s-order card-header__icon" />
-          用户列表
-        </span>
-        <span class="card-header__extra text-muted">共 {{ total }} 条</span>
-      </div>
-
-      <div class="table-wrap">
-        <el-table
-          v-loading="loading"
-          :data="list"
-          stripe
-          style="width: 100%"
-          :header-cell-style="tableHeaderStyle"
-          empty-text="暂无数据"
-        >
-          <el-table-column type="index" label="#" width="56" align="center" />
-          <el-table-column prop="account" label="账号" min-width="140" show-overflow-tooltip>
-            <template slot-scope="scope">
-              <span class="cell-strong">{{ scope.row.account }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="name" label="姓名" min-width="100" show-overflow-tooltip />
-          <el-table-column label="手机" min-width="118" show-overflow-tooltip>
-            <template slot-scope="scope">
-              {{ rowPhone(scope.row) || '—' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="邮箱" min-width="168" show-overflow-tooltip>
-            <template slot-scope="scope">
-              {{ rowEmail(scope.row) || '—' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="微信" min-width="110" show-overflow-tooltip>
-            <template slot-scope="scope">
-              {{ rowWechat(scope.row) || '—' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="过期日期" width="118" align="center">
-            <template slot-scope="scope">
-              {{ formatExpireDate(rowExpire(scope.row)) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="角色" min-width="140">
-            <template slot-scope="scope">
-              <el-tag
-                v-if="roleTagType(scope.row)"
-                :type="roleTagType(scope.row)"
-                size="small"
-                effect="plain"
-              >
-                {{ scope.row.roleNames || scope.row.roleName || '—' }}
-              </el-tag>
-              <span v-else class="text-muted">{{ scope.row.roleNames || scope.row.roleName || '—' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="statusTxt" label="状态" width="120" align="center">
-            <template slot-scope="scope">
-              <el-tag v-if="scope.row.statusTxt" type="info" size="mini" effect="plain">
-                {{ scope.row.statusTxt }}
-              </el-tag>
-              <span v-else class="text-muted">—</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="创建时间" width="158" align="center" show-overflow-tooltip>
-            <template slot-scope="scope">
-              {{ formatDateTime(rowCreatedAt(scope.row)) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="200" align="center" fixed="right">
-            <template slot-scope="scope">
-              <el-button type="text" size="small" icon="el-icon-edit" @click.native.prevent="openDialog('edit', scope.row)">
-                编辑
-              </el-button>
-              <el-button
-                type="text"
-                size="small"
-                class="btn-danger-text"
-                icon="el-icon-circle-close"
-                @click.native.prevent="handleDeactivate(scope.row)"
-              >
-                注销
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-
-      <div class="pagination-bar">
-        <el-pagination
-          :current-page="pageNo"
-          :page-sizes="[10, 20, 30, 40, 50]"
-          :page-size="pageSize"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="total"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-    </el-card>
 
     <el-dialog
       :visible.sync="dialogVisible"
       :title="dialogMode === 'edit' ? '编辑用户' : '新增用户'"
       width="720px"
       :close-on-click-modal="false"
-      custom-class="user-manage-dialog"
+      custom-class="uc-manage-dialog"
       append-to-body
     >
       <el-form
@@ -305,6 +291,7 @@ import { encrypt } from '@/utils/encrypt/RsaUtil'
 import { getUserInfo } from '@/api/upms/auth'
 import { list, detail, roles, add, update, deactivate } from '@/api/upms/userManage'
 import AvatarBase64Upload from '@/components/Upload/AvatarBase64Upload.vue'
+import ucListTableHeight from '@/views/usercenter/mixins/ucListTableHeight'
 
 const defaultForm = () => ({
   id: null,
@@ -324,6 +311,7 @@ export default {
   components: {
     AvatarBase64Upload
   },
+  mixins: [ucListTableHeight],
   data() {
     const validatePassword = (rule, value, callback) => {
       if (this.dialogMode === 'add') {
@@ -517,6 +505,7 @@ export default {
         this.$message.error('获取用户列表失败')
       } finally {
         this.loading = false
+        this.ucSyncTableMaxHeight()
       }
     },
 
@@ -541,15 +530,41 @@ export default {
       return {
         background: '#f5f7fa',
         color: '#606266',
-        fontWeight: '600'
+        fontWeight: '600',
+        fontSize: '13px'
       }
     },
 
     roleTagType(row) {
       const text = String(row.roleNames || row.roleName || row.roleCode || '').toLowerCase()
-      if (text.includes('管理员') || text.includes('admin')) return 'danger'
-      if (text.includes('操作员') || text.includes('editor')) return 'success'
-      return ''
+      if (!text) return ''
+      if (text.includes('管理员') || text.includes('admin')) return 'primary'
+      return 'info'
+    },
+
+    roleDisplayText(row) {
+      if (!row) return '—'
+      const raw = row.roleNames != null ? row.roleNames : (row.roleName != null ? row.roleName : row.roleCode)
+      if (raw == null || raw === '') return '—'
+      if (Array.isArray(raw)) {
+        const list = raw.map((x) => String(x).trim()).filter(Boolean)
+        return list.length ? list.join('、') : '—'
+      }
+
+      const text = String(raw).trim()
+      if (!text) return '—'
+
+      try {
+        const parsed = JSON.parse(text)
+        if (Array.isArray(parsed)) {
+          const list = parsed.map((x) => String(x).trim()).filter(Boolean)
+          return list.length ? list.join('、') : '—'
+        }
+      } catch (e) {
+        // noop: keep original text when it's not json array
+      }
+
+      return text.replace(/^\[|\]$/g, '').replace(/['"]/g, '').trim() || '—'
     },
 
     rowPhone(row) {
@@ -770,6 +785,7 @@ export default {
       const roleId = this.getSelectedRoleIdByCode(this.form.roleCode)
       const payload = {
         id: this.form.id,
+        account: String(this.form.account || '').trim(),
         name: this.form.name,
         roleIds: [roleId],
         ...this.buildBasicPayloadForSave()
@@ -820,145 +836,22 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.user-manage-page {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.page-header {
-  margin-bottom: 20px;
-}
-
-.page-title {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 600;
-  color: #303133;
-  letter-spacing: 0.02em;
-}
-
-.page-desc {
-  margin: 0;
-  font-size: 13px;
-  color: #909399;
-  line-height: 1.5;
-}
-
-.stat-row {
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  border-radius: 10px;
-  border: none;
-  margin-bottom: 16px;
-  overflow: hidden;
-
-  ::v-deep .el-card__body {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    padding: 18px 20px;
-  }
-}
-
-.stat-card__icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  color: #fff;
-  flex-shrink: 0;
-  margin-right: 16px;
-}
-
-.stat-card--primary .stat-card__icon {
-  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
-}
-
-.stat-card--success .stat-card__icon {
-  background: linear-gradient(135deg, #67c23a 0%, #95d475 100%);
-}
-
-.stat-card--info .stat-card__icon {
-  background: linear-gradient(135deg, #909399 0%, #b1b3b8 100%);
-}
-
-.stat-card__value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #303133;
-  line-height: 1.2;
-}
-
-.stat-card__label {
-  font-size: 13px;
-  color: #909399;
-  margin-top: 4px;
-}
-
-.section-card {
-  border-radius: 10px;
-  margin-bottom: 16px;
-  border: 1px solid #ebeef5;
-
-  ::v-deep .el-card__header {
-    padding: 14px 20px;
-    border-bottom: 1px solid #f0f2f5;
-  }
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.card-header__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #303133;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-header__icon {
-  color: #409eff;
-  font-size: 16px;
-}
-
-.card-header__extra {
-  font-size: 13px;
-}
+@import './uc-shared.scss';
 
 .text-muted {
   color: #c0c4cc;
 }
 
-.filter-form {
-  ::v-deep .el-form-item {
-    margin-bottom: 8px;
-    margin-right: 16px;
-  }
-}
-
-.filter-input {
-  width: 220px;
-}
-
-.table-wrap {
-  padding: 0 20px;
-}
-
 .cell-strong {
   font-weight: 500;
   color: #303133;
+}
+
+.role-pill {
+  border-radius: 999px;
+  padding: 0 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .btn-danger-text {
@@ -969,15 +862,11 @@ export default {
   }
 }
 
-.pagination-bar {
-  padding: 0 20px;
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-}
-
 .dialog-form {
-  padding: 8px 8px 0;
+  padding: 4px 4px 0;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #ebeef5;
 }
 
 .form-section-title {
@@ -997,31 +886,6 @@ export default {
 </style>
 
 <style lang="scss">
-/* el-dialog 挂载到 body，单独写样式 */
-.user-manage-dialog {
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.user-manage-dialog .el-dialog__header {
-  padding: 18px 24px 12px;
-  border-bottom: 1px solid #f0f2f5;
-}
-
-.user-manage-dialog .el-dialog__title {
-  font-size: 17px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.user-manage-dialog .el-dialog__body {
-  padding: 20px 24px 8px;
-}
-
-.user-manage-dialog .el-dialog__footer {
-  padding: 12px 24px 20px;
-  border-top: 1px solid #f0f2f5;
-  background: #fafbfc;
-}
+@import './uc-dialog.scss';
 </style>
 

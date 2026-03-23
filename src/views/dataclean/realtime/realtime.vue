@@ -93,14 +93,26 @@
                     @click="isFailureStatus(scope.row) && openReason(scope.row)"
                   >
                     <i v-if="rtStatusShowDot(scope.row)" class="rt-status-dot" />
-                    <span class="rt-status-text">{{ taskStatusLabel(scope.row) }}</span>
+                    <span class="rt-status-text">
+                      <template v-if="getTaskStatusDisplay(scope.row).plain">
+                        {{ getTaskStatusDisplay(scope.row).text }}
+                      </template>
+                      <template v-else>
+                        {{ getTaskStatusDisplay(scope.row).before }}<span class="rt-status-fail-underline">失败</span>{{ getTaskStatusDisplay(scope.row).after }}
+                      </template>
+                    </span>
                   </span>
                 </template>
               </el-table-column>
               <el-table-column prop="createdTimeTxt" label="创建时间" width="200" />
-              <el-table-column fixed="right" label="操作" width="180">
+              <el-table-column fixed="right" label="操作" width="240">
                 <template slot-scope="scope">
                   <div class="flex around action-btns">
+                    <el-button
+                      type="text"
+                      size="small"
+                      @click.prevent="handleOpenMonitor(scope.row)"
+                    >监控</el-button>
                     <el-button
                       type="text"
                       size="small"
@@ -147,21 +159,20 @@
       </el-container>
     </div>
 
-    <!-- 异常详情 -->
+    <!-- 任务失败原因 -->
     <el-dialog
+      v-el-drag-dialog
       :visible.sync="reasonDialogVisible"
-      title="异常详情"
-      width="900px"
+      title="任务失败原因"
+      width="700px"
       class="reason-dialog"
+      :show-close="true"
       :close-on-click-modal="false"
       :modal-append-to-body="true"
       :append-to-body="true"
     >
       <div class="reason-body">
-        <pre class="reason-pre">{{ reasonText || '暂无异常信息' }}</pre>
-      </div>
-      <div slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="reasonDialogVisible = false">关闭</el-button>
+        <pre class="reason-pre">{{ reasonText || '暂无失败原因' }}</pre>
       </div>
     </el-dialog>
 
@@ -573,6 +584,12 @@
       </div>
 
     </el-dialog>
+
+    <realtime-monitor-dialog
+      v-if="monitorDialogVisible"
+      :visible.sync="monitorDialogVisible"
+      :task-row="monitorTaskRow"
+    />
   </div>
 </template>
 
@@ -582,9 +599,11 @@ import { getDict } from '@/api/dict/dict'
 import { relationalDbTree } from '@/api/database/database/dbGroup'
 import { dbTableList, fieldList } from '@/api/database/database/database'
 import { add as addRealtimeTask, list as listRealtimeTask, detail as detailRealtimeTask, update as updateRealtimeTask, deleteTask as deleteRealtimeTask, start as startRealtimeTask, stop as stopRealtimeTask } from '@/api/collect/realtime/realtime'
+import RealtimeMonitorDialog from './RealtimeMonitorDialog.vue'
 
 export default {
   name: 'Collection',
+  components: { RealtimeMonitorDialog },
   data() {
     return {
       // 搜索参数（来源库/目标库与步骤一一致为级联选择，值为数组）
@@ -607,9 +626,12 @@ export default {
       tableLoading: false,
       // 页面定时刷新
       listTimer: null,
-      // 异常详情弹窗
+      // 任务失败原因弹窗
       reasonDialogVisible: false,
       reasonText: '',
+      // 实时任务监控弹窗
+      monitorDialogVisible: false,
+      monitorTaskRow: null,
       // 对话框控制
       taskDialogVisible: false,
       isEdit: false,
@@ -821,6 +843,29 @@ export default {
       if (s === 'FAILURE' || s === 'F') return '失败'
       if (s === 'S') return '成功'
       return '未知'
+    },
+    getTaskStatusDisplay(row) {
+      const text = this.taskStatusLabel(row)
+      if (!this.isFailureStatus(row)) {
+        return { plain: true, text }
+      }
+      const idx = text.indexOf('失败')
+      if (idx === -1) {
+        return { plain: true, text }
+      }
+      return {
+        plain: false,
+        before: text.slice(0, idx),
+        after: text.slice(idx + 2)
+      }
+    },
+    handleOpenMonitor(row) {
+      if (!row || row.taskId == null) {
+        this.$message.warning('缺少任务ID')
+        return
+      }
+      this.monitorTaskRow = row
+      this.monitorDialogVisible = true
     },
     async openReason(row) {
       // 优先用列表字段 reason；没有则走 detail 再取 reason
@@ -1959,24 +2004,112 @@ export default {
   background: rgba(245, 108, 108, 0.12);
 }
 
+.rt-status-fail-underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .reason-dialog {
+  ::v-deep .el-dialog {
+    width: 700px !important;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    margin-top: 8vh !important;
+    margin-bottom: 5vh;
+    border-radius: 8px;
+    border: 1px solid #ebeef5;
+    box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  ::v-deep .el-dialog__header {
+    position: relative;
+    flex-shrink: 0;
+    padding: 14px 48px 14px 16px;
+    margin: 0;
+    border-bottom: 1px solid #ebeef5;
+    background: #fff;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    cursor: move;
+  }
+  ::v-deep .el-dialog__title {
+    color: #303133;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+  }
+  ::v-deep .el-dialog__headerbtn {
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    padding: 0;
+  }
+  ::v-deep .el-dialog__headerbtn .el-dialog__close {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    text-align: center;
+    border-radius: 50%;
+    background: #eef0f3;
+    color: #606266;
+    font-size: 15px;
+    transition: background-color 0.2s, color 0.2s;
+  }
+  ::v-deep .el-dialog__headerbtn .el-dialog__close:hover {
+    background: #e4e7ed;
+    color: #303133;
+  }
   ::v-deep .el-dialog__body {
-    padding: 12px 20px 10px;
+    flex-shrink: 0;
+    padding: 14px 16px 16px;
+    box-sizing: border-box;
+    overflow: hidden;
+    background: #fafafa;
   }
 }
 
 .reason-body {
-  max-height: 60vh;
-  overflow: auto;
+  height: 270px;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  scrollbar-width: thin;
+  scrollbar-color: #c0c4cc #eff1f5;
+}
+
+.reason-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.reason-body::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 4px;
+}
+
+.reason-body::-webkit-scrollbar-track {
+  background: #eff1f5;
+  border-radius: 4px;
 }
 
 .reason-pre {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #f56c6c;
-  font-size: 12px;
-  line-height: 18px;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.65;
+  font-family: Consolas, Menlo, Monaco, 'Courier New', monospace;
 }
 
 // 任务对话框样式

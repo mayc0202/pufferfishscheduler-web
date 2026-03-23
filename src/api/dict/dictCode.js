@@ -23,5 +23,9 @@ export default {
   // CDC引擎类型
   CDC_ENGINE_TYPE: 'cdc_engine_type',
   // 调度方式 / 执行类型（清洗任务等）
-  SCHEDULE_TYPE: 'schedule_type'
+  SCHEDULE_TYPE: 'schedule_type',
+  // 告警方式
+  ALERT_METHOD: 'alert_method',
+  // 执行状态
+  EXECUTE_STATUS: 'execute_status'
 }

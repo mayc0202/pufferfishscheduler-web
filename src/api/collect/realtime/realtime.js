@@ -62,7 +62,7 @@ export function add(task) {
  * @returns {Promise}
  */
 export function update(taskForm) {
-  return PUFFERFISH_API.post('/realtime/task/update.do', taskForm)
+  return PUFFERFISH_API.put('/realtime/task/update.do', taskForm)
 }
 
 /**
@@ -72,7 +72,7 @@ export function update(taskForm) {
  */
 export function deleteTask(taskId) {
   const url = '/realtime/task/delete.do?taskId=' + Number(taskId)
-  return PUFFERFISH_API.post(url)
+  return PUFFERFISH_API.put(url)
 }
 
 /**
@@ -93,4 +93,33 @@ export function start(taskId) {
 export function stop(taskId) {
   const url = '/realtime/task/stop.do?taskId=' + Number(taskId)
   return PUFFERFISH_API.post(url)
+}
+
+/**
+ * 查询实时同步累计统计（Redis：last_* / today_* / updated_at）
+ * 若后端 Controller 路径不同，请与 @GetMapping("/stats.do") 所在类上的 @RequestMapping 对齐
+ * @param {number} taskId
+ * @param {number} tableMapperId
+ */
+export function getCumulativeStats(taskId, tableMapperId) {
+  return PUFFERFISH_API.get('/realtime/task/stats.do', {
+    taskId: Number(taskId),
+    tableMapperId: Number(tableMapperId)
+  })
+}
+
+/**
+ * 查询某小时维度的插入/更新/删除量
+ * @param {number} taskId
+ * @param {number} tableMapperId
+ * @param {number} syncDate 形如 YYYYMMDD
+ * @param {number} syncHour 0-23
+ */
+export function getHourlyStats(taskId, tableMapperId, syncDate, syncHour) {
+  return PUFFERFISH_API.get('/realtime/task/hourly.do', {
+    taskId: Number(taskId),
+    tableMapperId: Number(tableMapperId),
+    syncDate: Number(syncDate),
+    syncHour: Number(syncHour)
+  })
 }

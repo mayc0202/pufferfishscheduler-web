@@ -143,7 +143,7 @@ export const asyncRoutes = [
       },
       {
         path: '/dataclean/flow',
-        component: () => import('@/views/flow/flow'),
+        component: () => import('@/views/dataclean/flow/flow'),
         name: 'FLOW',
         meta: { title: '清洗流程设计', icon: 'clean-flow' },
         roles: ['admin', 'editor']
@@ -155,27 +155,17 @@ export const asyncRoutes = [
         meta: { title: '清洗任务管理', icon: 'clean-task' },
         hidden: false,
         roles: ['admin', 'editor']
+      },
+      {
+        path: '/dataclean/task-log',
+        component: () => import('@/views/dataclean/task-log/index'),
+        name: 'TASK_LOG',
+        meta: { title: '清洗任务日志', icon: 'el-icon-document' },
+        hidden: false,
+        roles: ['admin', 'editor']
       }
     ]
   },
-  // {
-  //   path: '/excel',
-  //   component: Layout,
-  //   redirect: '/excel/export-excel',
-  //   name: 'Excel',
-  //   meta: {
-  //     title: '监控预警',
-  //     icon: 'monitor'
-  //   },
-  //   children: [
-  //     {
-  //       path: 'export-excel',
-  //       component: () => import('@/views/excel/export-excel'),
-  //       name: 'ExportExcel',
-  //       meta: { title: 'Export Excel' }
-  //     }
-  //   ]
-  // },
 
   {
     path: '/knowledge-base',
@@ -217,6 +207,16 @@ export const asyncRoutes = [
         meta: {
           title: '用户管理',
           icon: 'el-icon-user',
+          roles: ['admin']
+        }
+      },
+      {
+        path: 'contact-manage',
+        component: () => import('@/views/usercenter/contact-manage.vue'),
+        name: 'ContactManage',
+        meta: {
+          title: '联系人管理',
+          icon: 'el-icon-phone-outline',
           roles: ['admin']
         }
       }
@@ -283,7 +283,7 @@ export const asyncRoutes = [
 
   {
     path: '/etl/flowChart',
-    component: () => import('@/views/flow/flowChart.vue'),
+    component: () => import('@/views/dataclean/flow/flowChart.vue'),
     hidden: true
   }
 ]

@@ -144,11 +144,23 @@
                 width="180"
               />
 
-              <el-table-column label="最近执行状态" width="140">
+              <el-table-column label="最近执行状态" width="160">
                 <template slot-scope="scope">
-                  <el-tag :type="taskStatusType(scope.row)">
-                    {{ taskStatusLabel(scope.row) }}
-                  </el-tag>
+                  <span
+                    class="rt-status"
+                    :class="rtStatusClass(scope.row)"
+                    @click="isFailureStatus(scope.row) && openReason(scope.row)"
+                  >
+                    <i v-if="rtStatusShowDot(scope.row)" class="rt-status-dot" />
+                    <span class="rt-status-text">
+                      <template v-if="getTaskStatusDisplay(scope.row).plain">
+                        {{ getTaskStatusDisplay(scope.row).text }}
+                      </template>
+                      <template v-else>
+                        {{ getTaskStatusDisplay(scope.row).before }}<span class="rt-status-fail-underline">失败</span>{{ getTaskStatusDisplay(scope.row).after }}
+                      </template>
+                    </span>
+                  </span>
                 </template>
               </el-table-column>
 
@@ -187,8 +199,9 @@
                   <el-button
                     type="text"
                     size="small"
-                    @click="handleImmediatelyExecute(scope.row)"
-                  >立即执行</el-button>
+                    :disabled="isImmediateActionLoading(scope.row) || (!isEnabled(scope.row.enable != null ? scope.row.enable : scope.row.enabled) && !isImmediateStopMode(scope.row))"
+                    @click="handleImmediateAction(scope.row)"
+                  >{{ isImmediateStopMode(scope.row) ? '立即停止' : '立即执行' }}</el-button>
                   <el-button
                     type="text"
                     size="small"
@@ -353,6 +366,23 @@
       @apply="handleCronApply"
     />
 
+    <!-- 任务失败原因（对齐实时归集、元数据同步） -->
+    <el-dialog
+      v-el-drag-dialog
+      :visible.sync="reasonDialogVisible"
+      title="任务失败原因"
+      width="700px"
+      class="reason-dialog"
+      :show-close="true"
+      :close-on-click-modal="false"
+      :modal-append-to-body="true"
+      :append-to-body="true"
+    >
+      <div class="reason-body">
+        <pre class="reason-pre">{{ reasonText || '暂无失败原因' }}</pre>
+      </div>
+    </el-dialog>
+
     <!-- 任务详情（参考“数据源接入”详情弹窗 dynamic-detail.vue） -->
     <dynamic-detail-dialog
       title="任务详情"
@@ -383,7 +413,8 @@ import {
   deleteTask,
   enableTask,
   disableTask,
-  immediatelyExecute
+  immediatelyExecute,
+  immediatelyStop
 } from '@/api/collect/task/transtask'
 
 function nowText() {
@@ -488,7 +519,14 @@ export default {
       detailLoading: false,
       detailData: {},
       // detail dialog 默认排除字段（根据需要可调整）
-      detailExcludeFields: ['password'],
+      detailExcludeFields: [
+        'password',
+        'id',
+        'flowId',
+        'groupId',
+        'reason',
+        'taskReason'
+      ],
       detailLabelMap: {
         id: '任务ID',
         name: '任务名称',
@@ -508,11 +546,18 @@ export default {
         status: '执行状态',
         taskStatus: '执行状态',
         lastRunStatus: '执行状态',
-        statusTxt: '执行状态',
         lastRunTime: '最近执行时间',
-        executeTimeTxt: '最近执行时间'
+        executeTimeTxt: '最近执行时间',
+        groupName: '分组',
+        createdTime: '创建时间'
       },
-      showCronDialog: false
+      showCronDialog: false,
+      reasonDialogVisible: false,
+      reasonText: '',
+      // 列表定时刷新（与 CDC 实时归集、元数据同步一致，离开页面销毁）
+      listTimer: null,
+      immediateActionLoadingMap: {},
+      immediateStopHintMap: {}
     }
   },
   computed: {
@@ -540,7 +585,49 @@ export default {
     await this.loadFlowCascaderOptions()
     this.queryTaskList()
   },
+  mounted() {
+    this.startListTimer()
+  },
+  beforeDestroy() {
+    this.stopListTimer()
+  },
   methods: {
+    startListTimer() {
+      this.stopListTimer()
+      // 与 realtime / metadata 一致：10s 拉一次列表；不启表格 loading，避免定时刷新闪烁
+      this.listTimer = setInterval(() => {
+        this.queryTaskList(false, false)
+      }, 10000)
+    },
+    stopListTimer() {
+      if (this.listTimer) {
+        clearInterval(this.listTimer)
+        this.listTimer = null
+      }
+    },
+
+    /**
+     * 与 request 拦截器配合：业务失败（如 code 999999）时 axios 仍 resolve，须在此判定成功后再提示成功。
+     */
+    isTransTaskApiSuccess(res) {
+      if (!res || typeof res !== 'object') return false
+      const code = res.code
+      const codeStr = code != null ? String(code) : ''
+      if (codeStr === '999999') return false
+      if (String(res.status || '').toUpperCase() === 'ERROR') return false
+      if (code === '000000' || code === 200 || codeStr === '200') return true
+      if (res.success === true) return true
+      return false
+    },
+    throwIfTransTaskApiFailed(res, defaultMsg = '操作失败') {
+      if (this.isTransTaskApiSuccess(res)) return
+      const msg = (res && res.message) || defaultMsg
+      if (String(res && res.code) !== '999999') {
+        this.$message.error(msg)
+      }
+      throw new Error(msg)
+    },
+
     async initTaskDicts() {
       const [failureRes, notifyRes, taskStatusRes, scheduleRes] = await Promise.all([
         getDict(dictCode.FAILURE_POLICY),
@@ -683,6 +770,21 @@ export default {
       }
       return code
     },
+    getTaskId(row) {
+      return row && row.id != null ? String(row.id) : ''
+    },
+    isTaskRunningStatus(row) {
+      const code = this.getTaskStatusCode(row)
+      return code === 'RUNNING' || code === 'R' || code === 'STARTING' || code === 'STOPPING'
+    },
+    isImmediateStopMode(row) {
+      const id = this.getTaskId(row)
+      return this.isTaskRunningStatus(row) || (id ? Boolean(this.immediateStopHintMap[id]) : false)
+    },
+    isImmediateActionLoading(row) {
+      const id = this.getTaskId(row)
+      return id ? Boolean(this.immediateActionLoadingMap[id]) : false
+    },
     taskStatusLabel(row) {
       const code = this.getTaskStatusCode(row)
       const meta = this.taskStatusMap[code]
@@ -711,25 +813,89 @@ export default {
         '未知'
       )
     },
-    taskStatusType(row) {
+    /** 失败状态可点击打开 reason（与实时归集、元数据同步一致） */
+    isFailureStatus(row) {
       const code = this.getTaskStatusCode(row)
-      const meta = this.taskStatusMap[code]
-      const aliasMeta =
-        !meta && code
-          ? this.taskStatusMap[
-            code === 'SUCCESS'
-              ? 'S'
-              : code === 'RUNNING'
-                ? 'R'
-                : code === 'FAIL'
-                  ? 'F'
-                  : code === 'NEVER'
-                    ? 'N'
-                    : ''
-          ]
-          : null
-      const finalMeta = meta || aliasMeta
-      return (finalMeta && finalMeta.type) || 'info'
+      return code === 'FAILURE' || code === 'F' || code === 'FAIL'
+    },
+    rtStatusClass(row) {
+      const code = this.getTaskStatusCode(row)
+      if (
+        code === 'RUNNING' ||
+        code === 'R' ||
+        code === 'S' ||
+        code === 'SUCCESS'
+      ) {
+        return 'is-running'
+      }
+      if (code === 'FAILURE' || code === 'F' || code === 'FAIL') {
+        return 'is-failure is-clickable'
+      }
+      if (code === 'STARTING') return 'is-starting'
+      if (code === 'STOPPING') return 'is-stopping'
+      if (code === 'STOP' || code === 'T') return 'is-stopped'
+      if (code === 'INIT' || code === 'N' || code === 'NEVER') return 'is-init'
+      return 'is-init'
+    },
+    rtStatusShowDot(row) {
+      const code = this.getTaskStatusCode(row)
+      return (
+        code === 'RUNNING' ||
+        code === 'R' ||
+        code === 'FAILURE' ||
+        code === 'F' ||
+        code === 'FAIL'
+      )
+    },
+    /** 失败态下给「失败」二字加下划线，提示可点击 */
+    getTaskStatusDisplay(row) {
+      const text = this.taskStatusLabel(row)
+      if (!this.isFailureStatus(row)) {
+        return { plain: true, text }
+      }
+      const idx = text.indexOf('失败')
+      if (idx === -1) {
+        return { plain: true, text }
+      }
+      return {
+        plain: false,
+        before: text.slice(0, idx),
+        after: text.slice(idx + 2)
+      }
+    },
+    async openReason(row) {
+      const localReason = row && (row.reason || row.taskReason)
+      if (localReason) {
+        this.reasonText = String(localReason)
+        this.reasonDialogVisible = true
+        return
+      }
+      const id = row && row.id
+      if (id == null) {
+        this.reasonText = ''
+        this.reasonDialogVisible = true
+        return
+      }
+      try {
+        const res = await transTaskDetail(id)
+        if (!this.isTransTaskApiSuccess(res)) {
+          this.reasonText = (res && res.message) || '获取任务详情失败'
+          this.reasonDialogVisible = true
+          return
+        }
+        const data = res && res.data
+        this.reasonText =
+          data && (data.reason || data.taskReason)
+            ? String(data.reason || data.taskReason)
+            : ''
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(err)
+        this.reasonText =
+          err?.response?.data?.message || err?.message || ''
+      } finally {
+        this.reasonDialogVisible = true
+      }
     },
     loadMockTasks() {
       const mock = []
@@ -828,10 +994,14 @@ export default {
         this.flowIdToFlow = {}
       }
     },
-    async queryTaskList(resetPage = false) {
+    /**
+     * @param {boolean} resetPage 是否重置到第一页
+     * @param {boolean} showLoading 是否显示表格 loading（定时轮询传 false）
+     */
+    async queryTaskList(resetPage = false, showLoading = true) {
       try {
         if (resetPage) this.pagination.currentPage = 1
-        this.tableLoading = true
+        if (showLoading) this.tableLoading = true
 
         const res = await transTaskList({
           groupId: this.selectedGroupId,
@@ -842,36 +1012,73 @@ export default {
           pageSize: this.pagination.pageSize
         })
 
+        if (!this.isTransTaskApiSuccess(res)) {
+          this.taskList = []
+          this.rawTaskList = []
+          this.pagination.total = 0
+          const msg = (res && res.message) || '获取清洗任务列表失败'
+          // 定时静默刷新失败时不反复弹窗，仅首次带 loading 的请求提示
+          if (showLoading && String(res && res.code) !== '999999') {
+            this.$message.error(msg)
+          }
+          return
+        }
+
         const result = (res && res.data) || {}
         this.pagination.total = result.total ?? 0
         this.pagination.currentPage = result.current ?? this.pagination.currentPage
         this.pagination.pageSize = result.size ?? this.pagination.pageSize
         const records = result.records || []
         this.taskList = records.map((r) => {
-          const scheduleType = r.scheduleType || r.syncType || ''
-          const normalizedScheduleType = String(scheduleType).toUpperCase()
+          const typeRaw =
+            r.scheduleType || r.syncType || r.executeType || ''
+          const normalizedScheduleType = String(typeRaw).toUpperCase()
+          const codeStr = String(typeRaw)
+          const cronVals = this.cronScheduleTypeValues || []
+          const isCron =
+            normalizedScheduleType === 'CRON' ||
+            cronVals.some((v) => String(v) === codeStr)
+          const optHit = (this.scheduleTypeOptions || []).find(
+            (o) => String(o.code) === codeStr
+          )
+          const scheduleText =
+            r.scheduleText ||
+            r.executeTypeTxt ||
+            (isCron
+              ? `CRON：${r.cronExpr || r.cron || ''}`
+              : normalizedScheduleType === 'STREAM' ||
+                codeStr.toUpperCase().includes('STREAM')
+                ? '流式执行'
+                : optHit
+                  ? optHit.label
+                  : codeStr || '-')
           return {
             ...r,
             taskName: r.taskName || r.name || '',
             lastRunTime: r.lastRunTime || r.executeTimeTxt || r.executeTime || '',
             enable: r.enable != null ? r.enable : r.enabled,
             remark: r.remark != null ? r.remark : r.description,
-            scheduleText:
-              r.scheduleText ||
-              (normalizedScheduleType === 'CRON'
-                ? `CRON：${r.cronExpr || r.cron || ''}`
-                : normalizedScheduleType === 'STREAM'
-                  ? '流式执行'
-                  : '流式执行')
+            scheduleText
           }
         })
         this.rawTaskList = this.taskList
+        const keepStopHintMap = {}
+        this.taskList.forEach((item) => {
+          const id = this.getTaskId(item)
+          if (!id) return
+          if (this.isTaskRunningStatus(item)) {
+            keepStopHintMap[id] = true
+          }
+        })
+        this.immediateStopHintMap = keepStopHintMap
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error(e)
-        this.$message.error('获取清洗任务列表失败')
+        if (showLoading) {
+          this.$message.error('获取清洗任务列表失败')
+        }
       } finally {
-        this.tableLoading = false
+        if (showLoading) this.tableLoading = false
       }
     },
     handleSizeChange(size) {
@@ -915,10 +1122,12 @@ export default {
       try {
         const curEnabled = this.isEnabled(row.enable != null ? row.enable : row.enabled)
         if (curEnabled) {
-          await disableTask(row.id)
+          const res = await disableTask(row.id)
+          this.throwIfTransTaskApiFailed(res, '禁用任务失败')
           this.$message.success('已禁用该任务')
         } else {
-          await enableTask(row.id)
+          const res = await enableTask(row.id)
+          this.throwIfTransTaskApiFailed(res, '启用任务失败')
           this.$message.success('已启用该任务')
         }
         await this.queryTaskList(false)
@@ -970,6 +1179,7 @@ export default {
         // 再拉取详情接口，确保字段完整
         try {
           const res = await transTaskDetail(row.id)
+          this.throwIfTransTaskApiFailed(res, '获取任务详情失败')
           const d = (res && res.data) || {}
           this.taskForm = {
             ...this.taskForm,
@@ -1041,10 +1251,12 @@ export default {
           }
 
           if (this.taskDialogMode === 'edit') {
-            await updateTransTask(payload)
+            const res = await updateTransTask(payload)
+            this.throwIfTransTaskApiFailed(res, '编辑任务失败')
             this.$message.success('编辑任务成功')
           } else {
-            await addTransTask(payload)
+            const res = await addTransTask(payload)
+            this.throwIfTransTaskApiFailed(res, '新增任务失败')
             this.$message.success('新增任务成功')
           }
 
@@ -1065,6 +1277,66 @@ export default {
     handleEditTask(row) {
       this.openTaskDialog('edit', row)
     },
+    /**
+     * 任务详情弹窗：主字段展示文案（*Txt），去掉冗余键与不展示的字段
+     */
+    normalizeTransTaskDetail(raw) {
+      if (!raw || typeof raw !== 'object') return {}
+      const d = { ...raw }
+
+      const mergeTxt = (mainKey, txtKey) => {
+        if (!Object.prototype.hasOwnProperty.call(d, txtKey)) return
+        const t = d[txtKey]
+        if (t != null && String(t).trim() !== '') d[mainKey] = t
+        delete d[txtKey]
+      }
+
+      const typeKey =
+        d.executeType != null
+          ? 'executeType'
+          : d.scheduleType != null
+            ? 'scheduleType'
+            : 'executeType'
+      mergeTxt(typeKey, 'executeTypeTxt')
+
+      mergeTxt('failurePolicy', 'failurePolicyTxt')
+      mergeTxt('notifyPolicy', 'notifyPolicyTxt')
+
+      const enableMain =
+        Object.prototype.hasOwnProperty.call(d, 'enable') &&
+        d.enable !== undefined
+          ? 'enable'
+          : Object.prototype.hasOwnProperty.call(d, 'enabled')
+            ? 'enabled'
+            : 'enable'
+      mergeTxt(enableMain, 'enableTxt')
+
+      mergeTxt('createdTime', 'createdTimeTxt')
+
+      const runText =
+        d.statusTxt ||
+        d.lastRunStatusTxt ||
+        this.taskStatusLabel(d) ||
+        d.lastRunStatus ||
+        d.status ||
+        d.taskStatus
+      delete d.status
+      delete d.statusTxt
+      delete d.taskStatus
+      delete d.taskStatusTxt
+      delete d.lastRunStatusTxt
+      d.lastRunStatus =
+        runText != null && String(runText).trim() !== ''
+          ? runText
+          : '-'
+
+      delete d.executeTime
+      delete d.reason
+      delete d.taskReason
+
+      return d
+    },
+
     // 查看详情（表格“查看”按钮）
     async handleRun(row) {
       if (!row || row.id == null) return
@@ -1072,7 +1344,8 @@ export default {
       this.detailLoading = true
       try {
         const res = await transTaskDetail(row.id)
-        this.detailData = (res && res.data) || {}
+        this.throwIfTransTaskApiFailed(res, '获取任务详情失败')
+        this.detailData = this.normalizeTransTaskDetail((res && res.data) || {})
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error(e)
@@ -1082,17 +1355,40 @@ export default {
       }
     },
 
-    // 立即执行
-    async handleImmediatelyExecute(row) {
+    // 立即执行/立即停止（根据任务当前状态动态切换）
+    async handleImmediateAction(row) {
       if (!row || row.id == null) return
+      const id = this.getTaskId(row)
+      if (!id || this.immediateActionLoadingMap[id]) return
+
+      const shouldStop = this.isImmediateStopMode(row)
+      if (!shouldStop && !this.isEnabled(row.enable != null ? row.enable : row.enabled)) return
+
+      this.$set(this.immediateActionLoadingMap, id, true)
       try {
-        await immediatelyExecute(row.id)
-        this.$message.success('已触发立即执行')
+        const res = shouldStop
+          ? await immediatelyStop(row.id)
+          : await immediatelyExecute(row.id)
+        if (!this.isTransTaskApiSuccess(res)) {
+          const code = res != null && res.code != null ? String(res.code) : ''
+          if (code !== '999999') {
+            this.$message.error((res && res.message) || (shouldStop ? '立即停止失败' : '立即执行失败'))
+          }
+          return
+        }
+        if (shouldStop) {
+          this.$delete(this.immediateStopHintMap, id)
+        } else {
+          this.$set(this.immediateStopHintMap, id, true)
+        }
+        this.$message.success(shouldStop ? '已受理，转换任务停止中' : '已触发立即执行')
         await this.queryTaskList(false)
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error(e)
-        this.$message.error('立即执行失败')
+        this.$message.error((e && e.message) || (shouldStop ? '立即停止失败' : '立即执行失败'))
+      } finally {
+        this.$delete(this.immediateActionLoadingMap, id)
       }
     },
 
@@ -1106,7 +1402,8 @@ export default {
       })
         .then(async() => {
           try {
-            await deleteTask(row.id)
+            const res = await deleteTask(row.id)
+            this.throwIfTransTaskApiFailed(res, '删除失败')
             this.$message.success('删除成功')
             await this.queryTaskList(false)
           } catch (e) {
@@ -1145,7 +1442,7 @@ export default {
 }
 
 .page-aside {
-  height: 92.5vh;
+  height: 90.5vh;
   margin: 10px 0 10px 10px;
   display: flex;
   flex-direction: column;
@@ -1393,6 +1690,170 @@ export default {
   margin-top: 15px;
   text-align: right;
   flex-shrink: 0;
+}
+
+/* 执行状态 pill（对齐实时归集 / 元数据同步） */
+.rt-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  line-height: 28px;
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.rt-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.rt-status.is-running {
+  color: #19be6b;
+  background: rgba(25, 190, 107, 0.08);
+  border-color: rgba(25, 190, 107, 0.25);
+}
+.rt-status.is-running .rt-status-dot {
+  background: #19be6b;
+}
+
+.rt-status.is-failure {
+  color: #f56c6c;
+  background: rgba(245, 108, 108, 0.08);
+  border-color: rgba(245, 108, 108, 0.25);
+}
+.rt-status.is-failure .rt-status-dot {
+  background: #f56c6c;
+}
+
+.rt-status.is-init,
+.rt-status.is-stopped,
+.rt-status.is-starting,
+.rt-status.is-stopping {
+  color: #606266;
+  background: #f5f7fa;
+  border-color: #e4e7ed;
+}
+
+.rt-status.is-clickable {
+  cursor: pointer;
+}
+.rt-status.is-clickable:hover {
+  border-color: rgba(245, 108, 108, 0.6);
+  background: rgba(245, 108, 108, 0.12);
+}
+
+.rt-status-fail-underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.reason-dialog {
+  ::v-deep .el-dialog {
+    width: 700px !important;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    margin-top: 8vh !important;
+    margin-bottom: 5vh;
+    border-radius: 8px;
+    border: 1px solid #ebeef5;
+    box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  ::v-deep .el-dialog__header {
+    position: relative;
+    flex-shrink: 0;
+    padding: 14px 48px 14px 16px;
+    margin: 0;
+    border-bottom: 1px solid #ebeef5;
+    background: #fff;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    cursor: move;
+  }
+  ::v-deep .el-dialog__title {
+    color: #303133;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+  }
+  ::v-deep .el-dialog__headerbtn {
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    padding: 0;
+  }
+  ::v-deep .el-dialog__headerbtn .el-dialog__close {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    text-align: center;
+    border-radius: 50%;
+    background: #eef0f3;
+    color: #606266;
+    font-size: 15px;
+    transition: background-color 0.2s, color 0.2s;
+  }
+  ::v-deep .el-dialog__headerbtn .el-dialog__close:hover {
+    background: #e4e7ed;
+    color: #303133;
+  }
+  ::v-deep .el-dialog__body {
+    flex-shrink: 0;
+    padding: 14px 16px 16px;
+    box-sizing: border-box;
+    overflow: hidden;
+    background: #fafafa;
+  }
+}
+
+.reason-body {
+  height: 270px;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  scrollbar-width: thin;
+  scrollbar-color: #c0c4cc #eff1f5;
+}
+
+.reason-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.reason-body::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 4px;
+}
+
+.reason-body::-webkit-scrollbar-track {
+  background: #eff1f5;
+  border-radius: 4px;
+}
+
+.reason-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.65;
+  font-family: Consolas, Menlo, Monaco, 'Courier New', monospace;
 }
 </style>
 

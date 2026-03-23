@@ -42,7 +42,7 @@ export function add(form) {
 }
 
 /**
- * 编辑转换任务
+ * 编辑转换任务（TransTaskController：@PutMapping("/update.do")）
  * @param {Object} form TransTaskForm（需包含 id）
  */
 export function update(form) {
@@ -50,8 +50,7 @@ export function update(form) {
 }
 
 /**
- * 删除转换任务
- * controller 使用 PutMapping("/delete.do")
+ * 删除转换任务（TransTaskController：@PutMapping("/delete.do")）
  * @param {number|string} id
  */
 export function deleteTask(id) {
@@ -59,21 +58,19 @@ export function deleteTask(id) {
 }
 
 /**
- * 启用转换任务
- * controller 使用 PutMapping("/enable.do")
+ * 启用转换任务（TransTaskController：@PutMapping("/enable.do")，id 为 RequestParam）
  * @param {number|string} id
  */
 export function enableTask(id) {
-  return PUFFERFISH_API.put('/trans/task/enable.do?id=' + Number(id))
+  return PUFFERFISH_API.put('/trans/task/enable.do?id=' + Number(id), null)
 }
 
 /**
- * 禁用转换任务
- * controller 使用 PutMapping("/disable.do")
+ * 禁用转换任务（TransTaskController：@PutMapping("/disable.do")，id 为 RequestParam）
  * @param {number|string} id
  */
 export function disableTask(id) {
-  return PUFFERFISH_API.put('/trans/task/disable.do?id=' + Number(id))
+  return PUFFERFISH_API.put('/trans/task/disable.do?id=' + Number(id), null)
 }
 
 /**
@@ -84,6 +81,18 @@ export function disableTask(id) {
 export function immediatelyExecute(id) {
   return PUFFERFISH_API.post(
     '/trans/task/immediatelyExecute.do?id=' + Number(id),
+    null
+  )
+}
+
+/**
+ * 立即停止转换任务
+ * controller 使用 PostMapping("/immediatelyStop.do")
+ * @param {number|string} id
+ */
+export function immediatelyStop(id) {
+  return PUFFERFISH_API.post(
+    '/trans/task/immediatelyStop.do?id=' + Number(id),
     null
   )
 }

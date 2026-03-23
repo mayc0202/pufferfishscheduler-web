@@ -2,6 +2,7 @@ export default {
   bind(el, binding, vnode) {
     const dialogHeaderEl = el.querySelector('.el-dialog__header')
     const dragDom = el.querySelector('.el-dialog')
+    if (!dialogHeaderEl || !dragDom) return
     dialogHeaderEl.style.cssText += ';cursor:move;'
     dragDom.style.cssText += ';top:0px;'
 
@@ -35,12 +36,26 @@ export default {
       let styL = getStyle(dragDom, 'left')
       let styT = getStyle(dragDom, 'top')
 
-      if (styL.includes('%')) {
+      if (styL && String(styL).includes('%')) {
         styL = +document.body.clientWidth * (+styL.replace(/\%/g, '') / 100)
         styT = +document.body.clientHeight * (+styT.replace(/\%/g, '') / 100)
       } else {
-        styL = +styL.replace(/\px/g, '')
-        styT = +styT.replace(/\px/g, '')
+        const parsePx = (v) => {
+          if (v == null || v === 'auto' || v === '') return NaN
+          const n = parseFloat(String(v).replace(/px/g, ''))
+          return Number.isFinite(n) ? n : NaN
+        }
+        styL = parsePx(styL)
+        styT = parsePx(styT)
+        if (!Number.isFinite(styL) || !Number.isFinite(styT)) {
+          const r = dragDom.getBoundingClientRect()
+          dragDom.style.position = 'absolute'
+          dragDom.style.margin = '0'
+          dragDom.style.left = `${r.left}px`
+          dragDom.style.top = `${r.top}px`
+          styL = r.left
+          styT = r.top
+        }
       }
 
       document.onmousemove = function(e) {

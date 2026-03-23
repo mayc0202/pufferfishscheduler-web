@@ -1,0 +1,74 @@
+/* el-dialog 挂载到 body，与用户中心两页共用 */
+.uc-manage-dialog {
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+/* 联系人弹窗：避免 overflow 裁掉中部表单项（预警类型等） */
+/* custom-class 挂在根节点 .el-dialog 上 */
+.uc-manage-dialog.contact-dialog {
+  overflow: visible;
+}
+
+.uc-manage-dialog.contact-dialog .el-dialog__body {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.uc-manage-dialog .el-dialog__header {
+  padding: 14px 20px;
+  border-bottom: 1px solid #ebeef5;
+  background: #fff;
+}
+
+.uc-manage-dialog .el-dialog__title {
+  color: #303133;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.uc-manage-dialog .el-dialog__body {
+  padding: 16px 20px 8px;
+  background: #fafafa;
+}
+
+.uc-manage-dialog .el-dialog__footer {
+  padding: 12px 20px 16px;
+  border-top: 1px solid #ebeef5;
+  background: #fff;
+}
+
+/* 联系人弹窗：白底表单区 + 标签在上 */
+.uc-manage-dialog .contact-dialog-form {
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+}
+
+.uc-manage-dialog .contact-dialog-form .el-form-item__label {
+  line-height: 1.45;
+  padding-bottom: 6px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.uc-manage-dialog .contact-dialog-footer {
+  text-align: right;
+}
+
+.uc-manage-dialog .contact-dialog-footer .el-button + .el-button {
+  margin-left: 10px;
+}
+
+/* 预警方式多选：占满一行，不覆盖 Element 多选内部高度以免把下拉挤没 */
+.uc-manage-dialog .contact-alert-select {
+  width: 100%;
+}
+
+.uc-manage-dialog .contact-alert-method-item {
+  margin-bottom: 8px;
+}

@@ -243,7 +243,16 @@
           <button type="button" class="btn add-btn" @click="addField">+ 添加行</button>
         </div>
         <div class="dialog-footer">
-          <button type="button" class="btn secondary-btn" @click="getFields">获取字段</button>
+          <button
+            type="button"
+            class="btn secondary-btn"
+            :class="{ 'is-loading': getFieldsLoading }"
+            :disabled="getFieldsLoading"
+            @click="getFields"
+          >
+            <span v-if="getFieldsLoading" class="btn-spinner" />
+            {{ getFieldsLoading ? '获取中...' : '获取字段' }}
+          </button>
           <button type="button" class="btn primary-btn" @click="saveFields">确定</button>
           <button type="button" class="btn secondary-btn" @click="editFieldsVisible = false">取消</button>
         </div>
@@ -303,7 +312,8 @@ export default {
       selectedValue: '',
       selectedLabel: '',
       editFieldsVisible: false,
-      editFieldList: []
+      editFieldList: [],
+      getFieldsLoading: false
     }
   },
   computed: {
@@ -545,6 +555,7 @@ export default {
      * 获取字段列表
      */
     async getFields() {
+      if (this.getFieldsLoading) return
       // 验证必填字段
       if (!this.flowId) {
         this.$message.warning('流程ID不存在')
@@ -563,6 +574,7 @@ export default {
         return
       }
 
+      this.getFieldsLoading = true
       try {
         // 使用父组件传入的完整流程配置
         let flowData = this.flowConfig
@@ -624,6 +636,8 @@ export default {
       } catch (error) {
         console.error('获取字段失败:', error)
         this.$message.error('获取字段失败')
+      } finally {
+        this.getFieldsLoading = false
       }
     },
     /**
@@ -898,6 +912,31 @@ export default {
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.btn.is-loading {
+  pointer-events: none;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  border-radius: 50%;
+  border: 2px solid rgba(64, 158, 255, 0.25);
+  border-top-color: #409eff;
+  animation: btn-spin 0.8s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .preview-btn {

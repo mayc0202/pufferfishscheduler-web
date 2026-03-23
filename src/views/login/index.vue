@@ -59,8 +59,6 @@
 import icons from '@/assets/icon/icons.js'
 import { isEmpty } from '@/utils/validate'
 import router from '@/router'
-// import SocialSign from './components/SocialSignin'
-
 export default {
   name: 'Login',
   components: {
@@ -84,8 +82,8 @@ export default {
     return {
       icons,
       loginForm: {
-        username: 'develop',
-        password: '1q2w3e4R'
+        username: '',
+        password: ''
       },
       loginRules: {
         username: [{ required: true, trigger: 'blur', validator: validateUsername }],

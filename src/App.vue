@@ -159,6 +159,15 @@ body {
   z-index: 11001 !important;
 }
 
+/* 轻提示须高于对话框、确认框与下拉层（弹窗内校验、接口错误提示不被遮挡） */
+.el-message {
+  z-index: 20050 !important;
+}
+
+.el-notification {
+  z-index: 20050 !important;
+}
+
 /* 统一提升下拉类弹层的层级，避免被对话框遮挡导致“看起来没有选项” */
 .el-popper {
   z-index: 3005 !important;

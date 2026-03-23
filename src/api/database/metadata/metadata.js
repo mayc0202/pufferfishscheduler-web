@@ -33,7 +33,7 @@ export function add(data) {
  * @returns
  */
 export function update(data) {
-  return PUFFERFISH_API.post('/metadata/update.do', data)
+  return PUFFERFISH_API.put('/metadata/update.do', data)
 }
 
 /**
@@ -51,7 +51,7 @@ export function detail(id) {
  * @returns
  */
 export function deleted(id) {
-  return PUFFERFISH_API.get('/metadata/delete.do?id=' + id)
+  return PUFFERFISH_API.put('/metadata/delete.do?id=' + id)
 }
 
 /**
@@ -60,7 +60,7 @@ export function deleted(id) {
  * @returns
  */
 export function toggleEnableStatus(id) {
-  return PUFFERFISH_API.get('/metadata/toggleEnableStatus.do?id=' + id)
+  return PUFFERFISH_API.put('/metadata/toggleEnableStatus.do?id=' + id)
 }
 
 /**

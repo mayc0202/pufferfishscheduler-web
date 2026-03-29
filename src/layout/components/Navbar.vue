@@ -69,11 +69,11 @@ export default {
         this.$message.success('登出成功!')
         this.$router.push(`/login?redirect=${this.$route.fullPath}`)
       } catch (error) {
-        // 现在这里能拿到完整的错误信息了
-        if (error.code === '999999') {
-          this.$message.warning(error.message) // "账号已在其他地方登录!"
+        // 999999 已在 request 拦截器中以 MessageBox 告警提示，此处不再重复弹窗
+        if (error && (String(error.code) === '999999' || Number(error.code) === 999999)) {
+          // noop
         } else {
-          this.$message.error(error.message || '登出失败!')
+          this.$message.error((error && error.message) || '登出失败!')
         }
 
         // 无论登出请求是否成功，都跳转到登录页
@@ -92,8 +92,8 @@ export default {
   overflow: hidden;
   position: relative; /* 改为相对定位 */
   background: $headerBg;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
-  border-bottom: 1px solid #e5e5e5;
+  box-shadow: none; /* 移除阴影 */
+  border-bottom: 1px solid #f0f2f5; /* 统一底部边框 */
 
   .hamburger-container {
     line-height: 46px;
@@ -101,10 +101,10 @@ export default {
     float: left;
     cursor: pointer;
     transition: background .3s;
-    -webkit-tap-highlight-color:transparent;
+    -webkit-tap-highlight-color: transparent;
 
     &:hover {
-      background: rgba(0, 0, 0, .025)
+      background: #f0f2f5; /* 悬浮背景色 */
     }
   }
 
@@ -114,7 +114,7 @@ export default {
 
   .errLog-container {
     display: inline-block;
-    vertical-align: top;
+    vertical-align: middle; /* 垂直居中 */
   }
 
   .right-menu {
@@ -128,24 +128,25 @@ export default {
 
     .right-menu-item {
       display: inline-block;
-      padding: 0 8px;
+      padding: 0 10px; /* 调整水平间距 */
       height: 100%;
       font-size: 18px;
       color: $headerTxt;
-      vertical-align: text-bottom;
+      vertical-align: middle; /* 垂直居中 */
 
       &.hover-effect {
         cursor: pointer;
         transition: background .3s;
+
         &:hover {
-          background: rgba(0, 0, 0, .025);
-          color: $headerTxtHover;
+          background: #f0f2f5; /* 悬浮背景色 */
+          color: $headerTxtHover; /* 悬浮文字颜色 */
         }
       }
     }
 
     .avatar-container {
-      margin-right: 30px;
+      margin-right: 20px; /* 调整右侧外边距 */
 
       .avatar-wrapper {
         margin-top: 5px;
@@ -155,15 +156,16 @@ export default {
           cursor: pointer;
           width: 40px;
           height: 40px;
-          border-radius: 10px;
+          border-radius: 50%; /* 圆形头像 */
         }
 
         .el-icon-caret-bottom {
           cursor: pointer;
           position: absolute;
-          right: -20px;
-          top: 25px;
+          right: -16px; /* 调整位置 */
+          top: 18px; /* 调整位置 */
           font-size: 12px;
+          color: $headerTxt; /* 调整颜色 */
         }
       }
     }

@@ -136,8 +136,45 @@ export function showTransImg(id) {
  * @param {*} id 流程ID
  * @returns
  */
-export function getFieldStream(id) {
-  return PUFFERFISH_API.get(`/trans/flow/getFieldStream.do?id=${id}`)
+export function getFieldStream(flowIdOrForm, config) {
+  // 兼容两种调用方式：
+  // 1) getFieldStream({flowId, config, stepName, code, dbId, tableId})  [推荐]
+  // 2) getFieldStream(flowId, config)  [历史写法，会补齐 stepName 默认值以避免必填报错]
+  if (flowIdOrForm && typeof flowIdOrForm === 'object') {
+    return getFieldStreamByForm(flowIdOrForm)
+  }
+
+  return PUFFERFISH_API.post(
+    '/trans/flow/getFieldStream.do',
+    {
+      flowId: flowIdOrForm,
+      // config 必填，兜底给空对象字符串而不是空字符串
+      config: config == null ? '{}' : config,
+      // stepName 为必填，这里用默认值避免必填校验失败
+      stepName: '清洗转换步骤',
+      code: ''
+    },
+    { bizErrorAsMessage: true }
+  )
+}
+
+/**
+ * 获取字段流（推荐）
+ * 后端：FieldStreamForm
+ * flowId: Integer (NotNull)
+ * config: String (NotBlank)
+ * stepName: String (NotBlank)
+ */
+export function getFieldStreamByForm(form) {
+  const body = {
+    flowId: form?.flowId,
+    config: form?.config,
+    stepName: form?.stepName,
+    code: form?.code,
+    dbId: form?.dbId,
+    tableId: form?.tableId
+  }
+  return PUFFERFISH_API.post('/trans/flow/getFieldStream.do', body, { bizErrorAsMessage: true })
 }
 
 /**

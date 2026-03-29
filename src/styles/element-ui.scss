@@ -54,6 +54,34 @@
   margin: 0 auto;
 }
 
+// Global dialog responsiveness:
+// keep old fixed-width declarations working, while preventing overflow on smaller screens.
+.el-dialog:not(.is-fullscreen) {
+  width: fit-content;
+  max-width: calc(100vw - 32px) !important;
+  max-height: calc(100vh - 32px);
+  margin-top: clamp(16px, 8vh, 64px) !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.el-dialog:not(.is-fullscreen) .el-dialog__body {
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+}
+
+@media (max-width: 1366px) {
+  .el-dialog:not(.is-fullscreen) {
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 24px);
+    margin-top: 12px !important;
+  }
+
+  .el-dialog:not(.is-fullscreen) .el-dialog__body {
+    max-height: calc(100vh - 160px);
+  }
+}
+
 // refine element ui upload
 .upload-container {
   .el-upload {
@@ -81,4 +109,16 @@
 // to fix el-date-picker css style
 .el-range-separator {
   box-sizing: content-box;
+}
+
+// table cursor behavior:
+// default arrow in cells, pointer for clickable actions.
+.el-table .cell {
+  cursor: default;
+}
+
+.el-table .cell .el-button,
+.el-table .cell .el-button--text,
+.el-table .cell a {
+  cursor: pointer;
 }

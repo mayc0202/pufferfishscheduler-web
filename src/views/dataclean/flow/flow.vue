@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container flow-page">
     <div class="body">
       <el-container>
         <el-aside width="260px" class="page-aside">
@@ -18,7 +18,7 @@
                   <el-button
                     type="primary"
                     icon="el-icon-plus"
-                    style="padding: 10px"
+                    class="group-add-btn"
                     @click="openGroupDialog()"
                   />
                 </div>
@@ -83,19 +83,19 @@
                     type="index"
                     label="#"
                   />
-                  <el-table-column prop="name" label="流程名称" width="300" />
-                  <el-table-column prop="groupName" label="流程分组" width="280" />
+                  <el-table-column prop="name" label="流程名称" min-width="200" />
+                  <el-table-column prop="groupName" label="流程分组" min-width="170" />
                   <el-table-column
                     prop="description"
                     label="流程描述"
-                    width="300"
+                    min-width="220"
                   />
                   <el-table-column
                     prop="createdTimeTxt"
                     label="创建日期"
-                    width="180"
+                    min-width="150"
                   />
-                  <el-table-column fixed="right" label="操作" width="140">
+                  <el-table-column fixed="right" label="操作" width="130">
                     <template slot-scope="scope">
                       <div class="wrap">
                         <div>
@@ -1000,7 +1000,7 @@ export default {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .container {
   margin: 0;
   padding: 0;
@@ -1032,21 +1032,6 @@ export default {
   background-color: transparent;
 }
 
-::v-deep .el-main {
-  padding: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-::v-deep .el-table {
-  border: 1px solid #ebeef5;
-  border-bottom: 0;
-  min-height: 640px;
-  flex: 1;
-}
-
 ::v-deep .el-input--mini .el-input__inner {
   height: 36px;
   line-height: 28px;
@@ -1076,7 +1061,6 @@ export default {
 }
 
 .body {
-  margin: 0 10px;
   padding: 0;
   position: relative;
   flex: 1;
@@ -1084,6 +1068,12 @@ export default {
   flex-direction: column;
   overflow: hidden;
   height: calc(100vh - 60px);
+}
+
+::v-deep .el-main {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .page-aside {
@@ -1134,12 +1124,12 @@ export default {
   background: #fff;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   border-radius: 4px;
+  height: 100%;
   flex: 1;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 90px);
-  min-width: 1100px;
-  overflow: hidden;
+  min-width: 0;
 }
 
 .body .list .search {
@@ -1276,3 +1266,26 @@ export default {
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 </style>
+
+<style lang="scss">
+@media (max-width: 1500px) {
+  .app-wrapper.openSidebar .flow-page .search-row-uniform {
+    flex-wrap: wrap;
+  }
+
+  .app-wrapper.openSidebar .flow-page .search-row-uniform .search-col:not(.search-col-btns) {
+    flex: 1 1 260px;
+    min-width: 260px;
+  }
+
+  .app-wrapper.openSidebar .flow-page .search-col-btns {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .app-wrapper.openSidebar .flow-page .search-col-btns .search-btns {
+    justify-content: flex-end;
+  }
+}
+</style>
+

@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/valid-template-root -->
 <template>
-  <div class="container">
+  <div class="container metadata-page">
     <div class="body">
       <el-container>
         <el-aside width="260px" class="page-aside">
@@ -34,7 +34,7 @@
           <el-main>
             <div class="list">
               <div class="search">
-                <el-row>
+                <el-row class="search-row search-row-uniform" :gutter="12">
                   <el-col :span="5">
                     <div class="search_input">
                       <input
@@ -43,22 +43,22 @@
                         class="input"
                       >
                     </div></el-col>
-                  <el-col :span="5">
+                  <el-col :span="6">
                     <div class="col">
                       <div class="label">
                         分组：
                       </div>
                       <el-select v-model="queryData.groupId" clearable placeholder="请选择数据源分组">
                         <el-option
-                          v-for="item in groupOption"
-                          :key="String(item.code)"
-                          :label="item.value"
-                          :value="String(item.code)"
+                          v-for="item in groupSelectOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
                         />
                       </el-select>
                     </div>
                   </el-col>
-                  <el-col :span="5">
+                  <el-col :span="6">
                     <div class="col">
                       <div class="label">
                         同步状态：
@@ -84,8 +84,8 @@
                       />
                     </div>
                   </el-col>
-                  <el-col :span="4">
-                    <div>
+                  <el-col :span="4" class="search-col-btns">
+                    <div class="search-btns">
                       <el-button type="primary" icon="el-icon-search" size="mini" @click="selectTaskList()">查询</el-button>
                       <el-button type="primary" size="mini" @click="handleAddSchedule">新增同步任务</el-button>
                     </div>
@@ -107,16 +107,16 @@
                     type="index"
                     label="#"
                   />
-                  <el-table-column prop="dbName" label="数据源名称" width="220" />
-                  <el-table-column prop="dbGroupName" label="数据源分组" width="200" />
+                  <el-table-column prop="dbName" label="数据源名称" min-width="180" />
+                  <el-table-column prop="dbGroupName" label="数据源分组" min-width="150" />
                   <el-table-column
                     prop="cron"
                     label="同步策略"
-                    width="200"
+                    min-width="170"
                   />
                   <el-table-column
                     label="执行状态"
-                    width="180"
+                    min-width="140"
                   >
                     <template slot-scope="scope">
                       <span
@@ -136,8 +136,8 @@
                       </span>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="executeTimeTxt" label="最近执行时间" width="220" />
-                  <el-table-column fixed="right" label="操作" width="220">
+                  <el-table-column prop="executeTimeTxt" label="最近执行时间" min-width="170" />
+                  <el-table-column fixed="right" label="操作" width="190">
                     <template slot-scope="scope">
                       <div class="wrap">
                         <div>
@@ -293,11 +293,21 @@ export default {
   },
 
   computed: {
+    toDictOption() {
+      return (item) => {
+        const labelRaw = item && (item.value ?? item.label ?? item.name ?? item.code)
+        const valueRaw = item && (item.code ?? item.id ?? item.value)
+        return {
+          label: labelRaw != null ? String(labelRaw) : '',
+          value: valueRaw != null ? String(valueRaw) : ''
+        }
+      }
+    },
+    groupSelectOptions() {
+      return (this.groupOption || []).map(this.toDictOption)
+    },
     taskStatusSelectOptions() {
-      return (this.taskStatusOption || []).map(item => ({
-        label: item.value != null ? String(item.value) : String(item.code || ''),
-        value: item.code != null ? String(item.code) : String(item.value || '')
-      }))
+      return (this.taskStatusOption || []).map(this.toDictOption)
     },
     taskStatusMap() {
       const map = {}
@@ -691,6 +701,70 @@ export default {
 }
 </style>
 
+<style lang="scss">
+@media (max-width: 1500px) {
+  .app-wrapper.openSidebar .metadata-page .search-row-uniform {
+    flex-wrap: wrap;
+  }
+
+  .app-wrapper.openSidebar .metadata-page .search-row-uniform .search-col:not(.search-col-btns),
+  .app-wrapper.openSidebar .metadata-page .search-row-uniform .el-col-5:not(.search-col-btns) {
+    flex: 1 1 260px;
+    min-width: 260px;
+  }
+
+  .app-wrapper.openSidebar .metadata-page .search-col-btns,
+  .app-wrapper.openSidebar .metadata-page .search-row-uniform .el-col-4.search-col-btns {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .app-wrapper.openSidebar .metadata-page .search-col-btns .search-btns {
+    justify-content: flex-end;
+  }
+}
+
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 220px) minmax(210px, 230px) minmax(210px, 230px) 150px auto;
+  align-items: center !important;
+  column-gap: 16px !important;
+  row-gap: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform > [class*='el-col-'] {
+  float: none !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* 折叠态固定轨道顺序：输入/分组/状态/启用/按钮 */
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform > [class*='el-col-']:nth-child(1) { grid-column: 1; }
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform > [class*='el-col-']:nth-child(2) { grid-column: 2; }
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform > [class*='el-col-']:nth-child(3) { grid-column: 3; }
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform > [class*='el-col-']:nth-child(4) { grid-column: 4; }
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform > [class*='el-col-']:nth-child(5) { grid-column: 5; }
+
+.app-wrapper.hideSidebar .metadata-page .search-col-btns,
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform .el-col-4.search-col-btns {
+  width: auto !important;
+  justify-self: end !important;
+}
+
+.app-wrapper.hideSidebar .metadata-page .search-col-btns .search-btns {
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
+}
+
+.app-wrapper.hideSidebar .metadata-page .search-row-uniform .el-col-5:nth-child(4) .label {
+  min-width: 84px;
+}
+</style>
+
 <style lang="scss" scoped>
 @import '@/styles/variables.scss';
 
@@ -863,6 +937,22 @@ export default {
   height: 32px
 }
 
+::v-deep .body .list .search .el-select .el-input__inner {
+  height: 30px;
+  line-height: 30px;
+  padding-right: 26px;
+}
+
+::v-deep .body .list .search .el-select .el-input__suffix {
+  right: 8px;
+  display: flex;
+  align-items: center;
+}
+
+::v-deep .body .list .search .el-select .el-select__caret {
+  line-height: 30px;
+}
+
 .body {
   flex: 1; // 占据剩余空间
   display: flex;
@@ -914,19 +1004,37 @@ export default {
   box-shadow: $shadow;
   border-radius: 4px;
   height: 100%;
-  min-width: 1267px;
+  min-width: 0;
 }
 
 .body .list .search {
   padding: 10px;
   margin-bottom: 20px;
+  overflow-x: auto; // 容器宽度不够时允许横向查看（同时也可折行到下一层）
+  overflow-y: hidden;
+}
+
+.body .list .search .search-row-uniform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 10px;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.body .list .search .search-row-uniform > [class*='el-col-'] {
+  float: none !important;
+  width: auto !important;
+  flex: 1 1 220px;
+  min-width: 220px;
 }
 
 .body .list .search .search_input {
-  width: 220px;
-  min-width: 220px;
+  width: 180px;
+  min-width: 180px;
   height: 30px;
-  margin-right: 10px;
+  margin-right: 0;
   border-bottom: 1px rgb(167, 167, 167) inset;
 }
 
@@ -941,6 +1049,68 @@ export default {
 
 .body .list .search > div:last-child {
   flex-shrink: 0;
+}
+
+.body .list .search .search-btns {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.body .list .col {
+  align-items: center;
+}
+
+.body .list .col .label {
+  min-width: 4.5em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+// Responsive: 避免按钮/标签/输入框在小屏下“挤在一起”
+// 方案：允许 el-row 在宽度不足时折行（第二层），必要时可横向滚动。
+@media (max-width: 1440px) {
+  .body .list .search > .el-row {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  // ElementUI 的列类名通常会带 el-col-{span}，这里按 span 给最小宽度，保证控件不会互相挤压
+  .body .list .search .el-row .el-col-5,
+  .body .list .search .el-row .el-col-4 {
+    float: none !important;
+    margin: 0 !important;
+    width: auto !important;
+    flex: 1 1 220px;
+    min-width: 220px;
+  }
+
+  .body .list .search .el-row .el-col-4 {
+    flex-basis: 240px;
+  }
+
+  // 搜索区输入/选择器内部输入不要固定像素宽度，改为铺满父容器
+  ::v-deep .search .el-input__inner {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 30px;
+    line-height: 30px;
+    font-size: 12px;
+  }
+
+  .body .list .label {
+    font-size: 12px;
+    margin-right: 4px;
+  }
+
+  ::v-deep .search .el-button--mini {
+    padding: 7px 10px;
+  }
 }
 
 .item {
@@ -1162,5 +1332,6 @@ export default {
     line-height: 1.65;
     font-family: Consolas, Menlo, Monaco, 'Courier New', monospace;
   }
+
 </style>
 

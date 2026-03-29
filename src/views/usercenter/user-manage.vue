@@ -747,7 +747,7 @@ export default {
     throwIfManageApiFailed(res, defaultMsg = '操作失败') {
       if (this.isManageApiSuccess(res)) return
       const msg = (res && res.message) || defaultMsg
-      // 999999 在 request 拦截器里已 Message.warning，避免重复弹窗
+      // 999999 在 request 拦截器里已 MessageBox 告警弹窗，避免重复提示
       if (String(res && res.code) !== '999999') {
         this.$message.error(msg)
       }

@@ -12,6 +12,7 @@
           :form-data="formData"
           :flow-id="flowId"
           :flow-config="flowConfig"
+          :current-node-id="currentNodeId"
           @save="handleSave"
           @cancel="handleClose"
         />
@@ -25,6 +26,7 @@
 import TableInputConfig from './config/input/TableInputConfig.vue'
 import UpsetOutputConfig from './config/output/UpsetOutputConfig.vue'
 import TableOutputConfig from './config/output/TableOutputConfig.vue'
+import CleanTransformConfig from './config/clean/CleanTransformConfig.vue'
 
 export default {
   name: 'ConfigDrawer',
@@ -52,6 +54,10 @@ export default {
     flowConfig: {
       type: Object,
       default: null
+    },
+    currentNodeId: {
+      type: String,
+      default: ''
     }
   },
   data() {
@@ -66,7 +72,13 @@ export default {
       const componentMap = {
         TableInput: TableInputConfig,
         UpsetOutput: UpsetOutputConfig,
-        TableOutput: TableOutputConfig
+        TableOutput: TableOutputConfig,
+        // 数据清洗转换（不同环境 code 可能略有差异，这里做兼容映射）
+        DataCleanTransform: CleanTransformConfig,
+        DataCleanConvert: CleanTransformConfig,
+        DataCleanConversion: CleanTransformConfig,
+        CleanTransform: CleanTransformConfig,
+        DataClean: CleanTransformConfig
       }
       return componentMap[this.componentType] || TableInputConfig
     }
@@ -95,7 +107,7 @@ export default {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .config-drawer {
   position: fixed;
   top: 0;
@@ -104,7 +116,8 @@ export default {
   height: 100%;
   background: white;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
-  z-index: 9999;
+  /* 低于 ElementUI 弹窗默认 z-index(2000)，避免编辑规则等 dialog 被抽屉压住 */
+  z-index: 1990;
   display: flex;
   flex-direction: column;
   animation: slideIn 0.3s ease;

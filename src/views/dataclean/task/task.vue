@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container task-page">
     <div class="body">
       <el-container>
         <el-aside width="260px" class="page-aside">
@@ -60,11 +60,11 @@
                   </div>
                 </el-col>
                 <el-col
-                  class="search-col search-col-equal search-col-btns"
+                  class="search-col search-col-equal"
                   :span="6"
                 >
                   <div class="col">
-                    <div class="label">最近执行状态：</div>
+                    <div class="label">执行状态：</div>
                     <el-select
                       v-model="searchForm.lastRunStatus"
                       class="search-select"
@@ -98,17 +98,17 @@
                     </el-select>
                   </div>
                 </el-col>
-                <el-col class="search-col search-col-equal" :span="6">
+                <el-col class="search-col search-col-equal search-col-btns" :span="6">
                   <div class="col search-btns">
                     <el-button
                       type="primary"
                       icon="el-icon-search"
-                      size="small"
+                      size="mini"
                       @click="queryTaskList(true)"
                     >查询</el-button>
                     <el-button
                       type="primary"
-                      size="small"
+                      size="mini"
                       @click="openTaskDialog('add')"
                     >新建任务</el-button>
                   </div>
@@ -129,22 +129,15 @@
               <el-table-column
                 prop="taskName"
                 label="任务名称"
-                min-width="220"
-                max-width="220"
-              />
-              <el-table-column
-                prop="remark"
-                label="备注"
-                min-width="220"
-                max-width="220"
+                min-width="180"
               />
               <el-table-column
                 prop="scheduleText"
                 label="同步策略"
-                width="180"
+                min-width="150"
               />
 
-              <el-table-column label="最近执行状态" width="160">
+              <el-table-column label="执行状态" width="140">
                 <template slot-scope="scope">
                   <span
                     class="rt-status"
@@ -167,7 +160,7 @@
               <el-table-column
                 prop="lastRunTime"
                 label="最近执行时间"
-                width="200"
+                min-width="170"
               />
               <el-table-column fixed="right" label="操作" width="220">
                 <template slot-scope="scope">
@@ -562,10 +555,7 @@ export default {
   },
   computed: {
     taskStatusSelectOptions() {
-      return (this.taskStatusOption || []).map((item) => ({
-        label: item.value != null ? String(item.value) : String(item.code || ''),
-        value: item.code != null ? String(item.code) : String(item.value || '')
-      }))
+      return (this.taskStatusOption || []).map((item) => this.toDictOption(item))
     },
     taskStatusMap() {
       const map = {};
@@ -592,6 +582,14 @@ export default {
     this.stopListTimer()
   },
   methods: {
+    toDictOption(item) {
+      const labelRaw = item && (item.value ?? item.label ?? item.name ?? item.code)
+      const valueRaw = item && (item.code ?? item.id ?? item.value)
+      return {
+        label: labelRaw != null ? String(labelRaw) : '',
+        value: valueRaw != null ? String(valueRaw) : ''
+      }
+    },
     startListTimer() {
       this.stopListTimer()
       // 与 realtime / metadata 一致：10s 拉一次列表；不启表格 loading，避免定时刷新闪烁
@@ -645,10 +643,9 @@ export default {
 
       const items = (scheduleRes && scheduleRes.data) || []
       this.scheduleTypeOptions = items.map((item) => {
-        const code =
-          item && item.code != null ? String(item.code) : String(item.value)
-        const label =
-          item && item.value != null ? String(item.value) : code
+        const opt = this.toDictOption(item)
+        const code = opt.value
+        const label = opt.label || code
         return { code, label }
       })
 
@@ -668,7 +665,7 @@ export default {
           )
         })
         .map((item) =>
-          item && item.code != null ? String(item.code) : String(item.value)
+          this.toDictOption(item).value
         )
 
       // 回填默认执行类型：优先 STREAM，其次第一个
@@ -1425,7 +1422,7 @@ export default {
 }
 
 .body {
-  margin: 0 10px;
+  margin: 0;
   padding: 0;
   position: relative;
   flex: 1;
@@ -1539,11 +1536,19 @@ export default {
 
 /* 确保 element 内部输入框真正收敛 */
 ::v-deep .search-input .el-input__inner {
-  width: 180px;
+  width: 100%;
 }
 
 ::v-deep .search-select .el-input__inner {
-  width: 180px;
+  width: 100%;
+}
+
+::v-deep .search-select .el-input__suffix {
+  right: 6px;
+}
+
+::v-deep .search-select .el-select__caret {
+  line-height: 30px;
 }
 
 ::v-deep .task-dialog .el-dialog__body {
@@ -1606,13 +1611,15 @@ export default {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 90px);
-  min-width: 1300px;
+  min-width: 0;
 }
 
 .search {
   padding: 10px 0 0;
-  margin-bottom: 40px;
+  margin-bottom: 18px;
   flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .col {
@@ -1622,20 +1629,25 @@ export default {
 
 .label {
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 12px;
   color: #606266;
-  margin-right: 6px;
+  margin-right: 4px;
 }
 
 /* 筛选行：文字/控件水平、竖直居中 */
 .search-row-uniform {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  row-gap: 10px;
 }
 
 /* el-col 本身也做 flex 居中，避免按钮列和其他列对齐不一致 */
 .search-row-uniform .el-col {
   display: flex;
   align-items: center;
+  flex: 1 1 260px;
+  min-width: 260px;
 }
 
 /* 按钮列与筛选项隔开，同时靠右 */
@@ -1648,15 +1660,16 @@ export default {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .search-input {
-  width: 220px;
+  width: 170px;
 }
 
 .search-select {
-  width: 220px;
+  width: 170px;
 }
 
 .search-cascader {
@@ -1680,10 +1693,20 @@ export default {
 /* 对齐 CDC 实时归集的搜索按钮样式 */
 .search-btns {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
-  white-space: nowrap;
+  white-space: normal;
   justify-content: flex-end;
+}
+
+::v-deep .search .el-input__inner {
+  height: 30px;
+  line-height: 30px;
+  font-size: 12px;
+}
+
+::v-deep .search .el-button--mini {
+  padding: 7px 10px;
 }
 
 .pagination-wrapper {
@@ -1854,6 +1877,28 @@ export default {
   font-size: 13px;
   line-height: 1.65;
   font-family: Consolas, Menlo, Monaco, 'Courier New', monospace;
+}
+</style>
+
+<style lang="scss">
+@media (max-width: 1500px) {
+  .app-wrapper.openSidebar .task-page .search-row-uniform {
+    flex-wrap: wrap;
+  }
+
+  .app-wrapper.openSidebar .task-page .search-row-uniform .search-col:not(.search-col-btns) {
+    flex: 1 1 260px;
+    min-width: 260px;
+  }
+
+  .app-wrapper.openSidebar .task-page .search-col-btns {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .app-wrapper.openSidebar .task-page .search-col-btns .search-btns {
+    justify-content: flex-end;
+  }
 }
 </style>
 

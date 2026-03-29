@@ -107,7 +107,7 @@
                   max-height="640"
                 >
                   <el-table-column fixed type="index" label="#" />
-                  <el-table-column prop="name" label="数据源名称" width="220">
+                  <el-table-column prop="name" label="数据源名称" min-width="180">
                     <template slot-scope="scope">
                       <div class="flex node-label" :class="scope.row.type === 'FILE' ? '': 'hand'" @click="queryResourceChildren(scope.row)">
                         <img :src="scope.row.icon" class="icon">
@@ -115,14 +115,14 @@
                       </div>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="typeTxt" label="文件类型" width="200" />
-                  <el-table-column prop="size" label="文件大小" width="200" />
+                  <el-table-column prop="typeTxt" label="文件类型" min-width="140" />
+                  <el-table-column prop="size" label="文件大小" min-width="120" />
                   <el-table-column
                     prop="createdTimeTxt"
                     label="创建日期"
-                    width="220"
+                    min-width="170"
                   />
-                  <el-table-column fixed="right" label="操作" width="260">
+                  <el-table-column fixed="right" label="操作" width="220">
                     <template slot-scope="scope">
                       <div class="wrap">
                         <div>

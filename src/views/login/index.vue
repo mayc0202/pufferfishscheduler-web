@@ -4,7 +4,7 @@
 
       <div class="title-container">
         <h3 class="title">
-          <img :src="icons.logo" class="sidebar-logo">
+          <img :src="icons.logo_2" class="sidebar-logo">
           PufferfishScheduler
         </h3>
       </div>
@@ -275,6 +275,8 @@ $login_form_bg: rgba(255, 255, 255);
     margin: 0 auto;
     overflow: hidden;
     background-color: $login_form_bg;
+    // 背景颜色透明
+    // background-color: rgba(255, 255, 255, 0.2);
     position: absolute;
     z-index: 999;
     top: 50%;

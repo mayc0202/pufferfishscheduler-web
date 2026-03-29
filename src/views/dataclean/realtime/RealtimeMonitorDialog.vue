@@ -675,6 +675,26 @@ export default {
   font-size: 13px;
   color: #606266;
 }
+
+@media (max-width: 1440px) {
+  .rt-monitor-card-body {
+    flex-direction: column;
+  }
+
+  .rt-monitor-side {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .rt-stat-card {
+    min-width: 180px;
+  }
+
+  .rt-echart {
+    height: 240px;
+  }
+}
 </style>
 
 <style lang="scss">

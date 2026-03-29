@@ -49,12 +49,13 @@ class HttpServiceFactory {
        * @param {Object} [data] - 请求体数据
        * @returns {Promise} 请求Promise
        */
-      post(url, data) {
+      post(url, data, axiosConfig = {}) {
         return this._request({
           method: 'post',
           timeout: DEFAULT_TIMEOUT,
           url,
-          data
+          data,
+          ...axiosConfig
         })
       },
 

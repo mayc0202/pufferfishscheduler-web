@@ -17,11 +17,14 @@
         <app-main />
       </div>
     </div>
+    <!-- 悬浮 AI 小助手：挂在布局根上，避免侧栏 overflow 裁剪，全屏可拖 -->
+    <assistant-float />
   </div>
 </template>
 
 <script>
 import { AppMain, Navbar, Sidebar } from './components'
+import AssistantFloat from '@/components/AIAgentAssistant/index.vue'
 import ResizeMixin from './mixin/ResizeHandler'
 import { mapState } from 'vuex'
 
@@ -30,7 +33,8 @@ export default {
   components: {
     AppMain,
     Navbar,
-    Sidebar
+    Sidebar,
+    AssistantFloat
   },
   mixins: [ResizeMixin],
   computed: {

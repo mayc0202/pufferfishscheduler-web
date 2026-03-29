@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container realtime-page">
     <!-- 主体内容 -->
     <div class="body">
       <el-container>
@@ -59,8 +59,8 @@
                 </el-col>
                 <el-col class="search-col search-col-equal search-col-btns">
                   <div class="flex search-btns">
-                    <el-button type="primary" icon="el-icon-search" @click="queryTaskList">查询</el-button>
-                    <el-button type="primary" @click="handleAddTask">新增实时任务</el-button>
+                    <el-button type="primary" icon="el-icon-search" size="mini" @click="queryTaskList">查询</el-button>
+                    <el-button type="primary" size="mini" @click="handleAddTask">新增实时任务</el-button>
                   </div>
                 </el-col>
               </el-row>
@@ -76,16 +76,16 @@
               element-loading-spinner="el-icon-loading"
               element-loading-background="rgba(255, 255, 255, 0.8)"
             >
-              <el-table-column fixed type="index" label="#" width="50" />
-              <el-table-column prop="taskName" label="任务名称" width="280" />
-              <el-table-column prop="sourceDbName" label="来源数据库" width="200" />
-              <el-table-column prop="targetDbName" label="目标数据库" width="200" />
-              <el-table-column label="同步引擎" width="160">
+              <el-table-column fixed type="index" label="#" width="46" />
+              <el-table-column prop="taskName" label="任务名称" min-width="200" />
+              <el-table-column prop="sourceDbName" label="来源数据库" min-width="160" />
+              <el-table-column prop="targetDbName" label="目标数据库" min-width="160" />
+              <el-table-column label="同步引擎" width="120">
                 <template slot-scope="scope">
                   <el-tag type="primary">{{ scope.row.engineTypeTxt || (scope.row.engineType === '1' ? 'Flink' : 'Kafka') }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="任务运行状态" width="160">
+              <el-table-column label="任务运行状态" width="130">
                 <template slot-scope="scope">
                   <span
                     class="rt-status"
@@ -104,8 +104,8 @@
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column prop="createdTimeTxt" label="创建时间" width="200" />
-              <el-table-column fixed="right" label="操作" width="240">
+              <el-table-column prop="createdTimeTxt" label="创建时间" min-width="170" />
+              <el-table-column fixed="right" label="操作" width="260">
                 <template slot-scope="scope">
                   <div class="flex around action-btns">
                     <el-button
@@ -731,10 +731,7 @@ export default {
     },
     // 任务状态下拉选项：展示 value（中文），查询传 code（S/F/R/T）
     taskStatusSelectOptions() {
-      return (this.taskStatusOption || []).map(item => ({
-        label: item.value != null ? String(item.value) : String(item.code || ''),
-        value: item.code != null ? String(item.code) : String(item.value || '')
-      }))
+      return (this.taskStatusOption || []).map(item => this.toDictOption(item))
     },
     // 任务状态字典映射：code -> { label, type }
     taskStatusMap() {
@@ -770,10 +767,7 @@ export default {
     },
     // CDC 引擎下拉选项，传值对齐 RtTask.engine_type：0-Kafka，1-Flink
     engineTypeOptions() {
-      return (this.engineTypes || []).map((item) => ({
-        label: item.value != null ? String(item.value) : String(item.code || ''),
-        value: item.code != null ? String(item.code) : String(item.value || '')
-      }))
+      return (this.engineTypes || []).map((item) => this.toDictOption(item))
     }
   },
   mounted() {
@@ -792,6 +786,14 @@ export default {
     this.stopListTimer()
   },
   methods: {
+    toDictOption(item) {
+      const labelRaw = item && (item.value ?? item.label ?? item.name ?? item.code)
+      const valueRaw = item && (item.code ?? item.id ?? item.value)
+      return {
+        label: labelRaw != null ? String(labelRaw) : '',
+        value: valueRaw != null ? String(valueRaw) : ''
+      }
+    },
     startListTimer() {
       this.stopListTimer()
       // 10s 刷新一次，可按需调整
@@ -1765,7 +1767,6 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  margin: 10px 0 0 0;
   padding: 0;
   overflow: hidden; // 隐藏溢出内容
 }
@@ -1782,7 +1783,7 @@ export default {
   box-shadow: $shadow;
   border-radius: 4px;
   height: 100%;
-  min-width: 1267px;
+  min-width: 0;
 }
 
 // 表格区域样式调整
@@ -1794,6 +1795,7 @@ export default {
   flex-direction: column;
   margin-left: 0 !important;
   margin-top: -10px !important;
+  padding: 20px 10px;
   .list {
     flex: 1;
     display: flex;
@@ -1830,36 +1832,51 @@ export default {
 }
 
 .body .list {
-  padding: 10px 20px 20px 20px;
+  padding: 10px 12px 20px 12px;
   background: #fff fixed;
   box-shadow: $shadow;
   border-radius: 4px;
   height: calc(100vh - 90px);
-  min-width: 1400px;
+  min-width: 0;
 }
 
 .body .list .search {
-  padding: 10px;
+  padding: 10px 6px 10px 0;
   margin-bottom: 20px;
-  min-width: 1400px;
+  min-width: 0;
 }
 
 .body .list .search .search-row {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .body .list .search .search-row-uniform {
   display: flex;
+  align-items: center;
+  row-gap: 8px;
+  column-gap: 12px;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  flex-wrap: wrap;
 }
 
 .body .list .search .search-row-uniform .el-col {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   max-width: none;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 .body .list .search .search-col-btns .search-btns {
   justify-content: flex-end;
+}
+
+.body .list .search .search-col-btns {
+  padding-left: 0 !important;
+  flex: 0 0 auto;
+  min-width: auto;
+  margin-left: auto;
 }
 
 .body .list .search .search-col {
@@ -1868,34 +1885,43 @@ export default {
 
 .body .list .search .search-btns {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
   white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .body .list .search .search-input {
-  width: 100%;
-  min-width: 0;
+  width: 170px;
+  min-width: 170px;
 }
 
 .body .list .search .search-input,
 .body .list .search .search-cascader,
 .body .list .search .search-select {
-  max-width: 180px;
+  width: 170px;
+  min-width: 170px;
+  max-width: 170px;
 }
 
 .body .list .label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: #606266;
   white-space: nowrap;
   flex-shrink: 0;
-  margin-right: 8px;
+  margin-right: 4px;
 }
 
 .body .list .search .col .label {
-  min-width: 4.5em;
+  width: 72px;
+  min-width: 72px;
   text-align: right;
+}
+
+.body .list .search .col {
+  gap: 6px;
+  width: 100%;
 }
 
 .body .list .col {
@@ -1907,7 +1933,7 @@ export default {
 .body .list .col .search-input,
 .body .list .col .search-cascader,
 .body .list .col .search-select {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -1917,12 +1943,29 @@ export default {
 
 .body .list .search .search-cascader,
 .body .list .search .search-select {
-  width: 100%;
-  min-width: 0;
+  width: 170px;
+  min-width: 170px;
 }
 
 .body .list .search .search-select ::v-deep .el-input__inner {
   width: 100%;
+}
+
+@media (max-width: 1500px) {
+  .app-wrapper.openSidebar .realtime-page .body .list .search .search-col:not(.search-col-btns) {
+    flex: 1 1 260px;
+    min-width: 260px;
+  }
+}
+
+.app-wrapper.openSidebar .realtime-page .body .list .search .search-col-btns {
+  flex: 1 1 100%;
+  min-width: 100%;
+  margin-left: 0;
+}
+
+.app-wrapper.openSidebar .realtime-page .body .list .search .search-col-btns .search-btns {
+  justify-content: flex-end;
 }
 
 .pagination-wrapper {
@@ -1934,7 +1977,9 @@ export default {
 }
 
 .action-btns {
-  gap: 8px;
+  gap: 6px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 
   .el-button--text {
     padding: 0;
@@ -2833,4 +2878,5 @@ export default {
 .task-dialog-message {
   z-index: 10000 !important;
 }
+
 </style>

@@ -1,13 +1,5 @@
 <template>
   <div class="table-output-config">
-    <!-- 标签页 -->
-    <div class="config-tabs">
-      <div class="tab-item" :class="{ active: currentTab === 'basic' }" @click="currentTab = 'basic'">
-        基础配置
-      </div>
-
-    </div>
-
     <!-- 配置内容 -->
     <div class="config-content">
       <!-- 基础配置 -->
@@ -118,10 +110,10 @@
               <tr v-for="(field, index) in formData.fieldList" :key="index">
                 <td>{{ index + 1 }}</td>
                 <td>
-                  <input v-model="field.fieldStream" type="text" class="field-input">
+                  <span class="field-text" :title="field.fieldStream">{{ field.fieldStream }}</span>
                 </td>
                 <td>
-                  <input v-model="field.fieldDatabase" type="text" class="field-input">
+                  <span class="field-text" :title="field.fieldDatabase">{{ field.fieldDatabase }}</span>
                 </td>
               </tr>
             </tbody>
@@ -130,73 +122,6 @@
             <a href="#" @click.prevent="editFields">编辑字段</a>
           </div>
         </div>
-      </div>
-
-      <!-- 高级配置 -->
-      <div v-show="currentTab === 'advanced'" class="tab-content">
-        <div class="form-item checkbox-item">
-          <el-checkbox v-model="formData.ignoreErrors">忽略插入错误</el-checkbox>
-        </div>
-
-        <div class="form-item checkbox-item">
-          <el-checkbox v-model="formData.useBatchUpdate">是否批量插入</el-checkbox>
-        </div>
-
-        <div class="form-item">
-          <label class="form-label">分区表类型：</label>
-          <select v-model="formData.partitioningType" class="form-select">
-            <option value="">请选择</option>
-            <option value="none">无</option>
-            <option value="time">时间分区</option>
-            <option value="field">字段分区</option>
-          </select>
-        </div>
-
-        <div v-if="formData.partitioningType === 'field'" class="form-item">
-          <label class="form-label">分区字段：</label>
-          <input v-model="formData.partitioningField" type="text" class="form-input" placeholder="请输入分区字段">
-        </div>
-
-        <div v-if="formData.partitioningType === 'time'" class="form-item">
-          <label class="form-label">分区字段：</label>
-          <input v-model="formData.partitioningField" type="text" class="form-input" placeholder="请输入分区字段">
-        </div>
-
-        <div v-if="formData.partitioningType === 'time'" class="form-item">
-          <label class="form-label">按月或天：</label>
-          <select v-model="formData.partitioningTimeRadio" class="form-select">
-            <option value="">请选择</option>
-            <option value="month">按月</option>
-            <option value="day">按天</option>
-          </select>
-        </div>
-
-        <div class="form-item">
-          <label class="form-label">包含表名的字段：</label>
-          <input v-model="formData.tableNameField" type="text" class="form-input" placeholder="请输入包含表名的字段">
-        </div>
-
-        <div class="form-item checkbox-item">
-          <el-checkbox v-model="formData.tableNameInTable">存储表名字段</el-checkbox>
-        </div>
-
-        <div class="form-item checkbox-item">
-          <el-checkbox v-model="formData.returningGeneratedKeys">返回自动产生的关键字</el-checkbox>
-        </div>
-
-        <div v-if="formData.returningGeneratedKeys" class="form-item">
-          <label class="form-label">自动产生的关键字的字段名称：</label>
-          <input v-model="formData.generatedKeyField" type="text" class="form-input" placeholder="请输入字段名称">
-        </div>
-
-        <div class="form-item checkbox-item">
-          <el-checkbox v-model="formData.distributeType">分发或复制</el-checkbox>
-        </div>
-      </div>
-
-      <!-- 步骤错误处理设置 -->
-      <div v-show="currentTab === 'step'" class="tab-content">
-        <!-- 这里可以添加错误处理相关的配置 -->
       </div>
 
       <!-- 操作按钮 -->
@@ -208,8 +133,8 @@
 
     <!-- 编辑字段对话框 -->
     <div v-if="editFieldsVisible" class="dialog-mask">
-      <div class="dialog" @click.stop>
-        <div class="dialog-header">
+      <div class="dialog" :style="editDialogStyle" @click.stop>
+        <div class="dialog-header dialog-draggable-handle" @mousedown="onEditDialogMouseDown">
           <h3>编辑数据库字段</h3>
           <button class="close-btn" @click="editFieldsVisible = false">×</button>
         </div>
@@ -227,10 +152,36 @@
               <tr v-for="(field, index) in editFieldList" :key="index">
                 <td>{{ index + 1 }}</td>
                 <td>
-                  <input v-model="field.fieldStream" type="text" class="field-input">
+                  <el-select
+                    v-model="field.fieldStream"
+                    class="field-select"
+                    filterable
+                    clearable
+                    placeholder="请选择流字段"
+                  >
+                    <el-option
+                      v-for="opt in streamFieldOptions"
+                      :key="opt"
+                      :label="opt"
+                      :value="opt"
+                    />
+                  </el-select>
                 </td>
                 <td>
-                  <input v-model="field.fieldDatabase" type="text" class="field-input">
+                  <el-select
+                    v-model="field.fieldDatabase"
+                    class="field-select"
+                    filterable
+                    clearable
+                    placeholder="请选择表字段"
+                  >
+                    <el-option
+                      v-for="opt in dbFieldOptions"
+                      :key="opt"
+                      :label="opt"
+                      :value="opt"
+                    />
+                  </el-select>
                 </td>
                 <td>
                   <button type="button" class="btn remove-btn" @click="removeField(index)">
@@ -263,8 +214,9 @@
 
 <script>
 import { relationalDbTree } from '@/api/database/database/dbGroup'
-import { dbTableList } from '@/api/database/database/database'
+import { dbTableList, fieldList as dbFieldList } from '@/api/database/database/database'
 import { getFieldStream } from '@/api/collect/plugin/tableoutput'
+import { getFieldStream as getFlowFieldStream } from '@/api/collect/trans/transFlow'
 
 export default {
   name: 'TableOutputConfig',
@@ -299,7 +251,6 @@ export default {
   },
   data() {
     return {
-      currentTab: 'basic',
       sectionOpen: {
         general: true,
         fields: true
@@ -313,10 +264,30 @@ export default {
       selectedLabel: '',
       editFieldsVisible: false,
       editFieldList: [],
-      getFieldsLoading: false
+      getFieldsLoading: false,
+      streamFieldOptions: [],
+      dbFieldOptions: [],
+      editDialogDrag: {
+        dragging: false,
+        moved: false,
+        startX: 0,
+        startY: 0,
+        offsetX: 0,
+        offsetY: 0,
+        left: 0,
+        top: 0
+      }
     }
   },
   computed: {
+    editDialogStyle() {
+      if (!this.editDialogDrag.moved) return {}
+      return {
+        left: `${this.editDialogDrag.left}px`,
+        top: `${this.editDialogDrag.top}px`,
+        transform: 'none'
+      }
+    },
     cascaderDbOptions() {
       return this.transformToCascader(this.dbList)
     },
@@ -352,6 +323,12 @@ export default {
         }
       },
       deep: true,
+      immediate: true
+    },
+    'formData.tableId': {
+      handler(val) {
+        if (val) this.loadDbFieldOptions(val)
+      },
       immediate: true
     }
   },
@@ -532,6 +509,13 @@ export default {
       // 复制当前字段列表用于编辑
       this.editFieldList = JSON.parse(JSON.stringify(this.formData.fieldList))
       this.editFieldsVisible = true
+      this.resetEditDialogDrag()
+      // 尝试提前加载表字段列表（如果已选表）
+      if (this.formData.tableId) {
+        this.loadDbFieldOptions(this.formData.tableId)
+      }
+      // 通用：获取流字段下拉选项（/trans/flow/getFieldStream.do）
+      this.loadStreamFieldOptions()
     },
     /**
      * 添加字段
@@ -629,6 +613,8 @@ export default {
             fieldStream: field.fieldStream,
             fieldDatabase: field.fieldDatabase
           }))
+          // 流字段下拉选项走通用接口，避免仅依赖映射接口的返回
+          this.loadStreamFieldOptions()
           this.$message.success('获取字段成功')
         } else {
           this.$message.error(res.message || '获取字段失败')
@@ -646,6 +632,136 @@ export default {
     saveFields() {
       this.formData.fieldList = this.editFieldList
       this.editFieldsVisible = false
+    },
+    async loadDbFieldOptions(tableId) {
+      try {
+        const res = await dbFieldList(tableId)
+        if (res && res.code === '000000' && Array.isArray(res.data)) {
+          // 兼容后端可能返回 string[] 或 {name: string}[]
+          const names = res.data
+            .map(it => (typeof it === 'string' ? it : it && (it.name || it.fieldName || it.code)))
+            .filter(Boolean)
+          this.dbFieldOptions = Array.from(new Set(names))
+        } else {
+          this.dbFieldOptions = []
+        }
+      } catch (e) {
+        console.error('加载表字段失败:', e)
+        this.dbFieldOptions = []
+      }
+    },
+    async loadStreamFieldOptions() {
+      if (!this.flowId) return
+      try {
+        // 优先使用父组件传入的完整流程配置；没有的话构建临时配置
+        let flowData = this.flowConfig
+        if (!flowData) {
+          flowData = {
+            cells: [
+              {
+                id: 'temp-output-step',
+                shape: 'rect',
+                data: {
+                  name: this.formData.name,
+                  code: 'TableOutput',
+                  data: {
+                    name: this.formData.name,
+                    description: this.formData.description,
+                    dataSourceId: this.formData.dataSourceId,
+                    tableId: this.formData.tableId,
+                    tableName: this.formData.tableName,
+                    commitSize: this.formData.commitSize || '1000',
+                    preSql: this.formData.preSql,
+                    postSql: this.formData.postSql,
+                    fieldList: this.editFieldList,
+                    updateField: this.formData.updateField,
+                    updatePolicy: this.formData.updatePolicy,
+                    skipHeader: this.formData.skipHeader,
+                    ignoreError: this.formData.ignoreError,
+                    retryTimes: this.formData.retryTimes,
+                    retryInterval: this.formData.retryInterval
+                  }
+                }
+              }
+            ]
+          }
+        }
+
+        const res = await getFlowFieldStream({
+          flowId: Number(this.flowId),
+          config: JSON.stringify(flowData),
+          stepName: this.formData.name || '关系库表输出',
+          code: 'TableOutput',
+          dbId: this.formData.dataSourceId ? Number(this.formData.dataSourceId) : undefined,
+          tableId: this.formData.tableId ? Number(this.formData.tableId) : undefined
+        })
+
+        if (res && res.code === '000000' && Array.isArray(res.data)) {
+          this.streamFieldOptions = res.data
+            .map(x => (typeof x === 'string' ? x : (x.name || x.fieldName || x.fieldStream)))
+            .filter(Boolean)
+        } else if (res && res.code === '000000' && res.data && Array.isArray(res.data.fieldList)) {
+          this.streamFieldOptions = res.data.fieldList.filter(Boolean)
+        } else {
+          this.streamFieldOptions = []
+        }
+      } catch (e) {
+        this.streamFieldOptions = []
+      }
+    },
+    resetEditDialogDrag() {
+      this.editDialogDrag.dragging = false
+      this.editDialogDrag.moved = false
+      this.editDialogDrag.startX = 0
+      this.editDialogDrag.startY = 0
+      this.editDialogDrag.offsetX = 0
+      this.editDialogDrag.offsetY = 0
+      this.editDialogDrag.left = 0
+      this.editDialogDrag.top = 0
+    },
+    onEditDialogMouseDown(e) {
+      if (e.button !== 0) return
+      const dialogEl = this.$el && this.$el.querySelector('.dialog')
+      if (!dialogEl) return
+
+      const rect = dialogEl.getBoundingClientRect()
+      this.editDialogDrag.dragging = true
+      this.editDialogDrag.startX = e.clientX
+      this.editDialogDrag.startY = e.clientY
+      this.editDialogDrag.offsetX = e.clientX - rect.left
+      this.editDialogDrag.offsetY = e.clientY - rect.top
+
+      const onMove = (ev) => {
+        if (!this.editDialogDrag.dragging) return
+        const dx = ev.clientX - this.editDialogDrag.startX
+        const dy = ev.clientY - this.editDialogDrag.startY
+        if (!this.editDialogDrag.moved && Math.abs(dx) + Math.abs(dy) < 3) return
+
+        if (!this.editDialogDrag.moved) {
+          this.editDialogDrag.moved = true
+        }
+
+        let left = ev.clientX - this.editDialogDrag.offsetX
+        let top = ev.clientY - this.editDialogDrag.offsetY
+
+        // 简单边界，避免拖出窗口太多
+        const maxLeft = window.innerWidth - 120
+        const maxTop = window.innerHeight - 80
+        left = Math.max(12, Math.min(left, maxLeft))
+        top = Math.max(12, Math.min(top, maxTop))
+
+        this.editDialogDrag.left = left
+        this.editDialogDrag.top = top
+      }
+
+      const onUp = () => {
+        this.editDialogDrag.dragging = false
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+      }
+
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
     },
     /**
      * 提交配置
@@ -669,21 +785,6 @@ export default {
       if (!this.formData.commitSize) {
         this.formData.commitSize = '1000'
       }
-
-      // 调整字段名称以匹配后端期望的JSON结构，与表输入保持一致
-      this.formData.dataSourceId = this.formData.dataSourceId
-      this.formData.tableId = this.formData.tableId
-      this.formData.tableName = this.formData.tableName
-      this.formData.commitSize = this.formData.commitSize
-      this.formData.preSql = this.formData.preSql
-      this.formData.postSql = this.formData.postSql
-      this.formData.fieldList = this.formData.fieldList
-      this.formData.updateField = this.formData.updateField
-      this.formData.updatePolicy = this.formData.updatePolicy
-      this.formData.skipHeader = this.formData.skipHeader
-      this.formData.ignoreError = this.formData.ignoreError
-      this.formData.retryTimes = this.formData.retryTimes
-      this.formData.retryInterval = this.formData.retryInterval
 
       this.$emit('save')
     }
@@ -1100,11 +1201,12 @@ export default {
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #EBEEF5;
+  font-size: 12px;
 }
 
 .field-table th {
   background: #F5F7FA;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #303133;
 }
@@ -1129,6 +1231,20 @@ export default {
 .field-input:focus {
   border-color: #409EFF;
   outline: none;
+}
+
+.field-text {
+  display: inline-block;
+  width: 100%;
+  min-height: 32px;
+  line-height: 32px;
+  color: #606266;
+  font-size: 12px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .field-actions {
@@ -1279,6 +1395,10 @@ export default {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .dialog-header {
@@ -1287,6 +1407,11 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.dialog-draggable-handle {
+  cursor: move;
+  user-select: none;
 }
 
 .dialog-header h3 {
@@ -1344,6 +1469,10 @@ export default {
   content: '*';
   color: #F56C6C;
   margin-left: 4px;
+}
+
+.field-select {
+  width: 100%;
 }
 
 .add-btn {

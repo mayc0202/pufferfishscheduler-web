@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container task-log-page">
     <div class="body">
       <el-container>
         <el-main>
@@ -55,6 +55,7 @@
                     <el-button
                       type="primary"
                       icon="el-icon-search"
+                      size="mini"
                       @click="handleSearch"
                     >查询</el-button>
                   </div>
@@ -69,7 +70,7 @@
               max-height="640"
               element-loading-text="正在加载日志..."
             >
-              <el-table-column type="index" label="#" width="55" />
+              <el-table-column type="index" label="#" width="50" />
               <el-table-column
                 prop="taskName"
                 label="任务名称"
@@ -95,14 +96,14 @@
                 label="执行时间"
                 min-width="170"
               />
-              <el-table-column label="执行状态" width="100">
+              <el-table-column label="执行状态" width="90">
                 <template slot-scope="scope">
                   <span :class="statusClass(scope.row.executeStatus)">
                     {{ statusText(scope.row.executeStatus) }}
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column fixed="right" label="操作" width="80">
+              <el-table-column fixed="right" label="操作" width="70">
                 <template slot-scope="scope">
                   <el-button
                     type="text"
@@ -245,16 +246,7 @@ export default {
   },
   computed: {
     taskStatusSelectOptions() {
-      return (this.taskStatusOption || []).map((item) => ({
-        label:
-          item && item.value != null
-            ? String(item.value)
-            : String(item.code || ''),
-        value:
-          item && item.code != null
-            ? String(item.code)
-            : String(item.value || '')
-      }))
+      return (this.taskStatusOption || []).map((item) => this.toDictOption(item))
     }
   },
   mounted() {
@@ -266,6 +258,14 @@ export default {
     this.destroyPreviewGraph()
   },
   methods: {
+    toDictOption(item) {
+      const labelRaw = item && (item.value ?? item.label ?? item.name ?? item.code)
+      const valueRaw = item && (item.code ?? item.id ?? item.value)
+      return {
+        label: labelRaw != null ? String(labelRaw) : '',
+        value: valueRaw != null ? String(valueRaw) : ''
+      }
+    },
     async initTaskDicts() {
       try {
         const res = await getDict(dictCode.EXECUTE_STATUS)
@@ -545,30 +545,41 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  margin: 10px 0 0 0;
   padding: 0;
   overflow: hidden;
 }
+
+::v-deep .el-main {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
 .list {
   padding: 10px 20px 20px 20px;
   background: #fff;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   border-radius: 4px;
   height: calc(100vh - 90px);
-  min-width: 1280px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 .search {
   padding: 10px 0 0;
   margin-bottom: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 .search-row-uniform {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 10px;
 }
 .search-row-uniform .el-col {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 220px;
+  min-width: 220px;
 }
 .col {
   display: flex;
@@ -576,24 +587,77 @@ export default {
   line-height: 32px;
 }
 .label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: #606266;
   white-space: nowrap;
-  min-width: 5em;
+  min-width: 4.5em;
   text-align: right;
-  margin-right: 8px;
+  margin-right: 4px;
 }
 .search-input,
 .search-select,
 .search-date {
-  max-width: 200px;
+  max-width: 160px;
   width: 100%;
+}
+
+/* 日期范围选择器单独放宽，避免占位文字挤压变形 */
+.search-date {
+  max-width: 220px;
+  width: 220px;
 }
 .search-btns {
   display: flex;
-  gap: 10px;
-  white-space: nowrap;
+  justify-content: flex-end;
+  gap: 8px;
+  white-space: normal;
+  flex-wrap: wrap;
+}
+
+.search-col-btns {
+  margin-left: auto;
+}
+
+::v-deep .search .el-input__inner {
+  height: 30px;
+  line-height: 30px;
+  font-size: 12px;
+}
+
+/* 日期范围控件：缩小内置文字，保证占位完整展示 */
+::v-deep .search-date .el-range-input {
+  font-size: 11px;
+}
+
+::v-deep .search-date .el-range-separator {
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+::v-deep .search-date.el-date-editor {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+::v-deep .search-date .el-range__icon,
+::v-deep .search-date .el-range__close-icon {
+  line-height: 24px;
+}
+
+::v-deep .search-date .el-range-input {
+  height: 24px;
+  line-height: 24px;
+  vertical-align: middle;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent;
+}
+
+::v-deep .search .el-button--mini {
+  padding: 7px 10px;
 }
 .pagination-wrapper {
   margin-top: 15px;
@@ -718,3 +782,26 @@ export default {
   color: #303133;
 }
 </style>
+
+<style lang="scss">
+@media (max-width: 1500px) {
+  .app-wrapper.openSidebar .task-log-page .search-row-uniform {
+    flex-wrap: wrap;
+  }
+
+  .app-wrapper.openSidebar .task-log-page .search-row-uniform .search-col:not(.search-col-btns) {
+    flex: 1 1 260px;
+    min-width: 260px;
+  }
+
+  .app-wrapper.openSidebar .task-log-page .search-col-btns {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .app-wrapper.openSidebar .task-log-page .search-col-btns .search-btns {
+    justify-content: flex-end;
+  }
+}
+</style>
+

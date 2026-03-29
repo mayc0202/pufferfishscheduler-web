@@ -136,7 +136,17 @@
           <button class="close-log" @click="closeLogDialog">×</button>
         </div>
         <div class="log-body">
-          <pre class="log-content">{{ logContent }}</pre>
+          <div v-if="logItems.length" class="log-content">
+            <div
+              v-for="(item, idx) in logItems"
+              :key="idx"
+              class="log-line"
+              :class="{ 'log-line--fail': item.status === 'F' }"
+            >
+              {{ item.text }}
+            </div>
+          </div>
+          <pre v-else class="log-content">{{ logContent }}</pre>
         </div>
       </div>
     </div>
@@ -210,6 +220,7 @@ export default {
       // 日志相关
       logVisible: false,
       logContent: '',
+      logItems: [],
       logTimer: null,
       // 日志弹窗拖拽相关
       logDragging: false,
@@ -222,6 +233,7 @@ export default {
   mounted() {
     // 进入页面时置空日志
     this.logContent = ''
+    this.logItems = []
 
     this.loadComponentTree()
     this.$nextTick(() => {
@@ -241,6 +253,42 @@ export default {
     window.removeEventListener('beforeunload', this.handleBeforeUnload)
   },
   methods: {
+    isCleanTransformType(code) {
+      return ['DataCleanTransform', 'DataCleanConvert', 'DataCleanConversion', 'CleanTransform', 'DataClean'].includes(code)
+    },
+
+    // 该方法已不再用于构建 node.data，新节点直接使用 buildFrontendNodeData 构建扁平结构
+    // 保留此方法仅为兼容旧代码或特定场景，但其返回值不再嵌套 data
+    buildBackendConfigForNewNode(item) {
+      const name = item?.label || ''
+      const code = item?.code || ''
+
+      let initialFormData = {
+        name,
+        code,
+        description: ''
+      }
+
+      if (this.isCleanTransformType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          distributeType: false,
+          copiesCache: 1,
+          fieldList: [],
+          requestCode: 'UTF-8',
+          responseCode: 'UTF-8',
+          connectOutTime: '5000',
+          readOutTime: '5000',
+          supportCopy: true,
+          supportError: true,
+          supportInput: true,
+          errorStepName: name
+        }
+      }
+
+      return initialFormData // 直接返回扁平化的 formData
+    },
+
     async loadComponentTree() {
       try {
         const res = await getTransComponentTree()
@@ -499,29 +547,13 @@ export default {
         const res = await getProcessLog(this.flowId)
         if (res.code === '000000') {
           if (res.data && res.data.logList) {
-            // 处理日志列表，提取每条记录的text并清理日期
-            const logText = res.data.logList.map(logItem => {
-              if (logItem.text) {
-                // 简单直接的方法：按空格分割文本
-                const parts = logItem.text.split(' ')
-                // 寻找最后一个日期时间（格式：YYYY-MM-DD HH:MM:SS）
-                let lastDateIndex = -1
-                for (let i = parts.length - 2; i >= 0; i--) {
-                  if (parts[i].match(/^\d{4}-\d{2}-\d{2}$/) && parts[i + 1].match(/^\d{2}:\d{2}:\d{2}$/)) {
-                    lastDateIndex = i
-                    break
-                  }
-                }
-                if (lastDateIndex >= 0) {
-                  // 提取最后一个日期时间和后面的内容
-                  const lastDate = `${parts[lastDateIndex]} ${parts[lastDateIndex + 1]}`
-                  const content = parts.slice(lastDateIndex + 2).join(' ')
-                  return `${lastDate} ${content}`
-                }
-                return logItem.text
-              }
-              return ''
-            }).join('\n')
+            // 处理日志列表，提取每条记录并清理重复日期
+            const list = res.data.logList.map(logItem => ({
+              status: (logItem && logItem.status) || '',
+              text: this.normalizeLogText(logItem && logItem.text)
+            }))
+            this.logItems = list
+            const logText = list.map(item => item.text).join('\n')
             this.logContent = logText || '暂无日志'
 
             // 检查日志中是否包含停止成功或流程结束的标志
@@ -533,12 +565,30 @@ export default {
               this.stopLogUpdate()
             }
           } else {
+            this.logItems = []
             this.logContent = res.data || '暂无日志'
           }
         }
       } catch (error) {
         console.error('获取日志失败:', error)
       }
+    },
+    normalizeLogText(text) {
+      if (!text) return ''
+      const parts = text.split(' ')
+      let lastDateIndex = -1
+      for (let i = parts.length - 2; i >= 0; i--) {
+        if (parts[i].match(/^\d{4}-\d{2}-\d{2}$/) && parts[i + 1].match(/^\d{2}:\d{2}:\d{2}$/)) {
+          lastDateIndex = i
+          break
+        }
+      }
+      if (lastDateIndex >= 0) {
+        const lastDate = `${parts[lastDateIndex]} ${parts[lastDateIndex + 1]}`
+        const content = parts.slice(lastDateIndex + 2).join(' ')
+        return `${lastDate} ${content}`
+      }
+      return text
     },
 
     async stopFlowHandler() {
@@ -733,84 +783,97 @@ export default {
       this.graph.on('node:dblclick', ({ node }) => {
         const nodeData = node.getData() || {}
         const label = node.attr('label/text')
-        // 从 nodeData.data 中读取配置数据，后端返回的数据结构是 { name, type, data: {...} }
-        const configData = nodeData.data || nodeData
         const componentType = nodeData.code
 
         // 基础字段
         const baseForm = {
-          name: configData.name || label || '',
+          name: nodeData.name || label || '',
           code: nodeData.code || '',
-          description: configData.description || ''
+          description: nodeData.data?.description || '' // 从 nodeData.data 中取 description
         }
 
+        // 真实的 formData 数据在 nodeData.data 中
+        const realFormData = nodeData.data || {}
+
+        // 合并所有字段到 formDataToEdit
+        const formDataToEdit = {
+          ...baseForm,
+          ...realFormData,
+          // 确保 fieldList 始终是数组
+          fieldList: Array.isArray(realFormData.fieldList) ? realFormData.fieldList : []
+        }
+
+        // 以下各个组件的特定字段不再需要单独提取，因为它们都已包含在 realFormData 中
+        // 只需要确保初始值（如布尔值，数字）在 realFormData 中有正确默认值，这部分在 CleanTransformConfig.vue 里 initDefaults 做了
         // 表输入专用字段
         const tableInputFields = {
-          dbId: configData.dbId || '',
-          dataSourceId: configData.dataSourceId || '',
-          dbConnection: configData.dbConnection || '',
-          tableName: configData.tableName || '',
-          commitSize: configData.commitSize || '',
-          preSql: configData.preSql || '',
-          postSql: configData.postSql || '',
-          fieldList: configData.fieldList || [],
-          updatePolicy: configData.updatePolicy || '',
-          skipHeader: configData.skipHeader || false,
-          ignoreError: configData.ignoreError || false,
-          retryTimes: configData.retryTimes || '',
-          retryInterval: configData.retryInterval || '',
-          sql: configData.sql || '',
-          replaceVariables: configData.replaceVariables || false,
-          isIncrement: configData.isIncrement || false,
-          rowLimit: configData.rowLimit || '',
-          stepInsertVariable: configData.stepInsertVariable || '',
-          implementEveryOne: configData.implementEveryOne || false,
-          configMode: configData.configMode || 'custom'
+          dbId: realFormData.dbId || '',
+          dataSourceId: realFormData.dataSourceId || '',
+          dbConnection: realFormData.dbConnection || '',
+          tableName: realFormData.tableName || '',
+          commitSize: realFormData.commitSize || '',
+          preSql: realFormData.preSql || '',
+          postSql: realFormData.postSql || '',
+          fieldList: realFormData.fieldList || [],
+          updatePolicy: realFormData.updatePolicy || '',
+          skipHeader: realFormData.skipHeader || false,
+          ignoreError: realFormData.ignoreError || false,
+          retryTimes: realFormData.retryTimes || '',
+          retryInterval: realFormData.retryInterval || '',
+          sql: realFormData.sql || '',
+          replaceVariables: realFormData.replaceVariables || false,
+          isIncrement: realFormData.isIncrement || false,
+          rowLimit: realFormData.rowLimit || '',
+          stepInsertVariable: realFormData.stepInsertVariable || '',
+          implementEveryOne: realFormData.implementEveryOne || false,
+          configMode: realFormData.configMode || 'custom'
         }
 
         // 表输出专用字段
         const tableOutputFields = {
-          dbId: configData.dbId || '',
-          dataSourceId: configData.dataSourceId || '',
-          dbConnection: configData.dbConnection || '',
-          tableId: configData.tableId || '',
-          tableName: configData.tableName || '',
-          targetTable: configData.targetTable || '',
-          updateField: configData.updateField || '',
-          outputPath: configData.outputPath || '',
-          fileFormat: configData.fileFormat || '',
-          commitSize: configData.commitSize || '',
-          preSql: configData.preSql || '',
-          postSql: configData.postSql || '',
-          fieldList: configData.fieldList || [],
-          updatePolicy: configData.updatePolicy || '',
-          skipHeader: configData.skipHeader || false,
-          ignoreError: configData.ignoreError || false,
-          retryTimes: configData.retryTimes || '',
-          retryInterval: configData.retryInterval || '',
-          truncateTable: configData.truncateTable || false,
-          specifyFields: configData.specifyFields || false,
-          schemaName: configData.schemaName || '',
-          ignoreErrors: configData.ignoreErrors || false,
-          useBatchUpdate: configData.useBatchUpdate || false,
-          partitioningType: configData.partitioningType || '',
-          partitioningField: configData.partitioningField || '',
-          partitioningTimeRadio: configData.partitioningTimeRadio || '',
-          tableNameField: configData.tableNameField || '',
-          tableNameInTable: configData.tableNameInTable || false,
-          returningGeneratedKeys: configData.returningGeneratedKeys || false,
-          generatedKeyField: configData.generatedKeyField || '',
-          distributeType: configData.distributeType || false
+          dbId: realFormData.dbId || '',
+          dataSourceId: realFormData.dataSourceId || '',
+          dbConnection: realFormData.dbConnection || '',
+          tableId: realFormData.tableId || '',
+          tableName: realFormData.tableName || '',
+          targetTable: realFormData.targetTable || '',
+          updateField: realFormData.updateField || '',
+          outputPath: realFormData.outputPath || '',
+          fileFormat: realFormData.fileFormat || '',
+          commitSize: realFormData.commitSize || '',
+          preSql: realFormData.preSql || '',
+          postSql: realFormData.postSql || '',
+          fieldList: realFormData.fieldList || [],
+          updatePolicy: realFormData.updatePolicy || '',
+          skipHeader: realFormData.skipHeader || false,
+          ignoreError: realFormData.ignoreError || false,
+          retryTimes: realFormData.retryTimes || '',
+          retryInterval: realFormData.retryInterval || '',
+          truncateTable: realFormData.truncateTable || false,
+          specifyFields: realFormData.specifyFields || false,
+          schemaName: realFormData.schemaName || '',
+          ignoreErrors: realFormData.ignoreErrors || false,
+          useBatchUpdate: realFormData.useBatchUpdate || false,
+          partitioningType: realFormData.partitioningType || '',
+          partitioningField: realFormData.partitioningField || '',
+          partitioningTimeRadio: realFormData.partitioningTimeRadio || '',
+          tableNameField: realFormData.tableNameField || '',
+          tableNameInTable: realFormData.tableNameInTable || false,
+          returningGeneratedKeys: realFormData.returningGeneratedKeys || false,
+          generatedKeyField: realFormData.generatedKeyField || '',
+          distributeType: realFormData.distributeType || false
         }
 
         // 根据组件类型构建表单数据
         let formData
         if (componentType === 'TableInput') {
-          formData = { ...baseForm, ...tableInputFields }
+          formData = { ...formDataToEdit, ...tableInputFields }
         } else if (componentType === 'TableOutput') {
-          formData = { ...baseForm, ...tableOutputFields }
+          formData = { ...formDataToEdit, ...tableOutputFields }
+        } else if (this.isCleanTransformType(componentType)) {
+          formData = { ...formDataToEdit } // CleanTransformFields 已经包含在 realFormData 中，直接使用 formDataToEdit
         } else {
-          formData = baseForm
+          formData = formDataToEdit
         }
 
         // 获取完整的流程配置
@@ -819,6 +882,7 @@ export default {
         this.configDrawer = {
           visible: true,
           currentNode: node,
+          currentNodeId: node.id,
           componentType: componentType,
           form: formData,
           flowConfig: flowConfig
@@ -897,14 +961,13 @@ export default {
       const node = this.configDrawer.currentNode
       if (node) {
         const nodeData = node.getData() || {}
-        // 保存数据时，保持与后端返回的数据结构一致：{ name, code, data: {...} }
+        // 后端 create(String config, ...) 期望：
+        // config = { name: string, code: string, data: { ...真实参数... } }
         const newData = {
           ...nodeData,
           name: formData.name,
           code: formData.code,
-          data: {
-            ...formData
-          }
+          data: { ...formData } // 扁平化，直接将 formData 作为 data 存储
         }
         console.log(newData)
         node.setData(newData)
@@ -969,11 +1032,7 @@ export default {
 
         this.graph.addNode({
           ...nodeConfig,
-          data: {
-            type: item.type,
-            name: item.label,
-            code: item.code
-          },
+          data: this.buildFrontendNodeData(item), // 直接使用扁平化的前端节点数据
           ports: {
             groups: {
               left: {
@@ -1011,6 +1070,42 @@ export default {
         })
       } catch (error) {
         console.error('创建节点失败:', error)
+      }
+    },
+
+    // 新增：构建前端节点数据结构，确保扁平化
+    buildFrontendNodeData(item) {
+      const name = item?.label || ''
+      const code = item?.code || ''
+      let initialFormData = {
+        name,
+        code,
+        description: ''
+      }
+
+      // 清洗转换组件给一份可用的默认结构
+      if (this.isCleanTransformType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          distributeType: false,
+          copiesCache: 1,
+          fieldList: [],
+          requestCode: 'UTF-8',
+          responseCode: 'UTF-8',
+          connectOutTime: '5000',
+          readOutTime: '5000',
+          supportCopy: true,
+          supportError: true,
+          supportInput: true,
+          errorStepName: name // 默认错误步骤名称为当前组件名称
+        }
+      }
+
+      return {
+        type: item.type,
+        name: item.label,
+        code: item.code,
+        data: initialFormData // 这里直接是扁平的 formData
       }
     },
 
@@ -1388,29 +1483,7 @@ export default {
   border-color: #40a9ff;
 }
 
-/* 组件配置抽屉样式 */
-.config-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 30%;
-  height: 100%;
-  background: white;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
+/* 组件配置抽屉样式已迁移至 ConfigDrawer.vue，勿在此重复写 .config-drawer（Vue2 父 scoped 会作用到子根节点，覆盖子组件 z-index） */
 
 .drawer-header {
   display: flex;
@@ -1583,5 +1656,13 @@ export default {
   font-size: 14px;
   line-height: 1.5;
   color: #333;
+}
+
+.log-line {
+  color: #333;
+}
+
+.log-line--fail {
+  color: #f56c6c;
 }
 </style>

@@ -6,9 +6,9 @@
           <div class="lable">数据源接入</div>
         </el-col>
         <el-col :span="12" class="back">
-          <div class="back-style" @click="cancel()">
-            <img :src="icons.return" class="img">
-            返回
+          <div class="return" @click="cancel()">
+            <i class="el-icon-back" />
+            <div class="return-txt">返回</div>
           </div>
         </el-col>
       </el-row>
@@ -441,19 +441,24 @@ export default {
     display: flex;
     justify-content: right;
     cursor: pointer;
+  }
 
-    .back-style {
-      display: flex;
+  .return {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    font-size: 14px;
+    transition: all 0.3s ease;
+  }
 
-      .img {
-        width: 14px;
-        height: 14px;
-        margin-right: 5px;
-      }
-    }
-    .back-style:hover {
-      transform: translate(0, -2px);
-    }
+  .return:hover {
+    color: #1890ff;
+    transform: translate(0, -2px);
+  }
+
+  .return-txt {
+    margin-left: 5px;
   }
 }
 
@@ -507,9 +512,6 @@ export default {
 
 .connect {
   margin-right: 10px;
-}
-
-.save {
 }
 
 .cancel {

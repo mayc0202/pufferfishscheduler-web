@@ -20,7 +20,7 @@
                     type="primary"
                     size="mini"
                     icon="el-icon-plus"
-                    style="padding: 8px"
+                    class="group-add-btn"
                     @click="openGroupDialog()"
                   />
                 </div>
@@ -101,20 +101,20 @@
                   element-loading-background="rgba(255, 255, 255, 0.8)"
                 >
                   <el-table-column fixed type="index" label="#" />
-                  <el-table-column prop="name" label="数据源名称" width="220" />
-                  <el-table-column prop="groupName" label="分组" width="200" />
+                  <el-table-column prop="name" label="数据源名称" min-width="180" />
+                  <el-table-column prop="groupName" label="分组" min-width="150" />
                   <el-table-column
                     prop="labelName"
                     label="数据源分层"
-                    width="200"
+                    min-width="150"
                   />
-                  <el-table-column prop="type" label="数据库类型" width="200" />
+                  <el-table-column prop="type" label="数据库类型" min-width="150" />
                   <el-table-column
                     prop="createdTimeTxt"
                     label="创建日期"
-                    width="200"
+                    min-width="170"
                   />
-                  <el-table-column fixed="right" label="操作" width="160">
+                  <el-table-column fixed="right" label="操作" width="140">
                     <template slot-scope="scope">
                       <div class="wrap">
                         <div>

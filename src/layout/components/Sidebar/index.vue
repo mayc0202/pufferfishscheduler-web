@@ -16,9 +16,6 @@
         <sidebar-item v-for="route in permission_routes" :key="route.path" :item="route" :base-path="route.path" />
       </el-menu>
     </el-scrollbar>
-
-    <!-- 添加悬浮小助手 -->
-    <assistant-button :is-collapsed="isCollapse" />
   </div>
 </template>
 
@@ -27,19 +24,16 @@ import { mapGetters } from 'vuex'
 import Logo from './Logo'
 import SidebarItem from './SidebarItem'
 import variables from '@/styles/variables.scss'
-import AssistantButton from '@/components/AIAgentAssistant/index.vue'
 
 export default {
   components: {
     SidebarItem,
-    Logo,
-    AssistantButton
+    Logo
   },
   computed: {
     ...mapGetters([
       'permission_routes',
-      'sidebar',
-      'assistant'
+      'sidebar'
     ]),
     activeMenu() {
       const route = this.$route
@@ -76,6 +70,30 @@ export default {
     left: 0;
     z-index: 1001;
     overflow: hidden;
-    border-right: 1px solid #e5e5e5;
+    border-right: none; /* 移除右侧边框 */
+
+    .el-menu {
+      border: none; /* 移除 Element UI 菜单自带的边框 */
+      background-color: #fff; /* 确保菜单背景色为白色 */
+
+      .el-menu-item, .el-submenu__title {
+        height: 50px;
+        line-height: 50px;
+
+        &:hover {
+          background-color: #f0f2f5 !important; /* 菜单项悬浮背景色 */
+          color: #2A87FF !important; /* 菜单项悬浮文字颜色 */
+        }
+      }
+
+      .el-menu-item.is-active {
+        background-color: #2A87FF !important; /* 菜单项选中背景色 */
+        color: #fff !important; /* 菜单项选中文字颜色 */
+
+        .svg-icon {
+          color: #fff !important; /* 选中时图标颜色 */
+        }
+      }
+    }
 }
 </style>

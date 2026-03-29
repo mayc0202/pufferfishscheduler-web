@@ -3,52 +3,65 @@
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="header-left">
-        <button class="back-btn" @click="goBack">←</button>
-        <h1>知识库管理</h1>
+        <el-button class="back-btn" circle icon="el-icon-back" @click="goBack" />
+        <div class="title-wrap">
+          <h1 class="page-title">知识库管理</h1>
+          <div class="page-subtitle">统一沉淀 · 快速检索 · 结构化维护</div>
+        </div>
       </div>
       <div class="header-right">
-        <el-button type="primary" @click="openAddModal">
-          <i class="el-icon-plus" /> 新增知识
-        </el-button>
+        <el-button type="primary" icon="el-icon-plus" @click="openAddModal">新增知识</el-button>
       </div>
     </div>
 
     <!-- 搜索和筛选 -->
-    <div class="search-filter">
-      <el-input
-        v-model="searchKeyword"
-        placeholder="搜索知识标题或内容"
-        prefix-icon="el-icon-search"
-        style="width: 300px;"
-        @keyup.enter="handleSearch"
-      />
-      <el-select
-        v-model="categoryFilter"
-        placeholder="按分类筛选"
-        style="margin-left: 16px; width: 150px;"
-        @change="handleSearch"
-      >
-        <el-option label="全部" value="" />
-        <el-option label="技术文档" value="tech" />
-        <el-option label="操作指南" value="guide" />
-        <el-option label="常见问题" value="faq" />
-        <el-option label="其他" value="other" />
-      </el-select>
-      <el-button type="primary" style="margin-left: 16px;" @click="handleSearch">
-        搜索
-      </el-button>
-      <el-button style="margin-left: 8px;" @click="resetSearch">
-        重置
-      </el-button>
+    <div class="search-filter card">
+      <el-form class="search-form" :inline="true" @submit.native.prevent>
+        <el-form-item class="search-item keyword">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索标题 / 内容"
+            prefix-icon="el-icon-search"
+            clearable
+            @keyup.enter.native="handleSearch"
+          />
+        </el-form-item>
+        <el-form-item class="search-item category">
+          <el-select
+            v-model="categoryFilter"
+            placeholder="按分类筛选"
+            clearable
+            @change="handleSearch"
+          >
+            <el-option label="技术文档" value="tech" />
+            <el-option label="操作指南" value="guide" />
+            <el-option label="常见问题" value="faq" />
+            <el-option label="其他" value="other" />
+          </el-select>
+        </el-form-item>
+        <div class="search-actions">
+          <el-button type="primary" icon="el-icon-search" @click="handleSearch">搜索</el-button>
+          <el-button icon="el-icon-refresh" @click="resetSearch">重置</el-button>
+        </div>
+      </el-form>
+      <div class="search-meta">
+        <div class="meta-left">
+          <span class="meta-count">共 {{ filteredKnowledge.length }} 条</span>
+          <span v-if="searchKeyword || categoryFilter" class="meta-split">·</span>
+          <span v-if="searchKeyword" class="meta-chip">关键词：{{ searchKeyword }}</span>
+          <span v-if="categoryFilter" class="meta-chip">分类：{{ getCategoryName(categoryFilter) }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- 知识库列表 -->
-    <div class="knowledge-list">
+    <div class="knowledge-list card">
       <el-table
+        v-if="filteredKnowledge.length"
         :data="paginatedData"
         style="width: 100%"
-        border
         stripe
+        :header-cell-style="{ background: '#f7f9fc', color: '#303133', fontWeight: 600 }"
       >
         <el-table-column prop="title" label="标题" min-width="200">
           <template slot-scope="scope">
@@ -71,6 +84,7 @@
               :key="index"
               size="small"
               class="tag-item"
+              effect="plain"
             >
               {{ tag }}
             </el-tag>
@@ -81,28 +95,21 @@
         <el-table-column prop="updateTime" label="更新时间" width="200" />
         <el-table-column label="操作" width="260" fixed="right">
           <template slot-scope="scope">
-            <el-button
-              size="small"
-              type="primary"
-              plain
-              @click="editKnowledge(scope.row)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              plain
-              @click="deleteKnowledge(scope.row.id)"
-            >
-              删除
-            </el-button>
+            <el-button size="mini" type="text" class="action-link primary" @click="editKnowledge(scope.row)">编辑</el-button>
+            <el-divider direction="vertical" />
+            <el-button size="mini" type="text" class="action-link danger" @click="deleteKnowledge(scope.row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
 
+      <div v-else class="empty-wrap">
+        <el-empty description="暂无知识内容">
+          <el-button type="primary" icon="el-icon-plus" @click="openAddModal">新增第一条知识</el-button>
+        </el-empty>
+      </div>
+
       <!-- 分页 -->
-      <div class="pagination">
+      <div v-if="filteredKnowledge.length" class="pagination">
         <el-pagination
           :current-page="currentPage"
           :page-sizes="[10, 20, 50, 100]"
@@ -621,16 +628,17 @@ export default {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import "@/styles/variables.scss";
+
 .knowledge-base-container {
   width: 100%;
   height: 100vh;
-  background-color: #f5f7fa;
+  background: linear-gradient(180deg, #f6f8fc 0%, #f2f6fb 100%);
   display: flex;
   flex-direction: column;
   padding: 20px;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* 页面标题 */
@@ -639,60 +647,117 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  box-shadow: $shadow;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .back-btn {
-  background: white;
-  border: 1px solid #e0e0e0;
-  color: #666;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  box-shadow: 0 8px 18px rgba(24, 144, 255, 0.12);
+}
+
+.title-wrap {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.page-title {
   font-size: 18px;
-}
-
-.back-btn:hover {
-  background: #f5f5f5;
-  border-color: #d0d0d0;
-}
-
-.header-left h1 {
-  font-size: 24px;
   font-weight: 600;
-  color: #333;
+  color: #1f2d3d;
   margin: 0;
+}
+
+.page-subtitle {
+  font-size: 12px;
+  color: #7a879a;
 }
 
 /* 搜索和筛选 */
 .search-filter {
+  margin-bottom: 24px;
+  padding: 16px 16px 12px;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  box-shadow: $shadow;
+  border: 1px solid rgba(228, 231, 237, 0.85);
+}
+
+.search-form {
   display: flex;
   align-items: center;
-  margin-bottom: 24px;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+  gap: 12px;
+
+  .search-item {
+    margin-bottom: 0;
+  }
+
+  .keyword {
+    width: 360px;
+    max-width: 52vw;
+  }
+
+  .category {
+    width: 180px;
+  }
+}
+
+.search-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-meta {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #7a879a;
+  font-size: 12px;
+}
+
+.meta-left {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.meta-count {
+  color: #384252;
+  font-weight: 600;
+}
+
+.meta-split {
+  opacity: 0.7;
+}
+
+.meta-chip {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(24, 144, 255, 0.08);
+  color: #2f6fde;
+  border: 1px solid rgba(24, 144, 255, 0.14);
 }
 
 /* 知识库列表 */
 .knowledge-list {
   flex: 1;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -700,6 +765,14 @@ export default {
 
 .el-table {
   flex: 1;
+}
+
+.empty-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
 }
 
 .knowledge-title {
@@ -720,26 +793,26 @@ export default {
 }
 
 /* 弹窗样式优化 */
-.knowledge-dialog :deep(.el-dialog__header) {
+.knowledge-dialog ::v-deep .el-dialog__header {
   background-color: #f8f9fa;
   border-bottom: 1px solid #e4e7ed;
   padding: 20px 24px;
   border-radius: 8px 8px 0 0;
 }
 
-.knowledge-dialog :deep(.el-dialog__title) {
+.knowledge-dialog ::v-deep .el-dialog__title {
   font-size: 18px;
   font-weight: 600;
   color: #303133;
 }
 
-.knowledge-dialog :deep(.el-dialog__body) {
+.knowledge-dialog ::v-deep .el-dialog__body {
   padding: 24px;
   max-height: 70vh;
   overflow-y: auto;
 }
 
-.knowledge-dialog :deep(.el-dialog__footer) {
+.knowledge-dialog ::v-deep .el-dialog__footer {
   padding: 16px 24px 24px;
   border-top: 1px solid #e4e7ed;
   background-color: #f8f9fa;
@@ -751,21 +824,21 @@ export default {
   padding: 8px 0;
 }
 
-.knowledge-form :deep(.el-form-item) {
+.knowledge-form ::v-deep .el-form-item {
   margin-bottom: 22px;
 }
 
-.knowledge-form :deep(.el-form-item__label) {
+.knowledge-form ::v-deep .el-form-item__label {
   font-weight: 500;
   color: #606266;
   padding-right: 12px;
 }
 
-.knowledge-form :deep(.el-input__inner) {
+.knowledge-form ::v-deep .el-input__inner {
   border-radius: 6px;
 }
 
-.knowledge-form :deep(.el-textarea__inner) {
+.knowledge-form ::v-deep .el-textarea__inner {
   border-radius: 6px;
   font-family: inherit;
 }
@@ -795,7 +868,7 @@ export default {
   padding: 0;
 }
 
-.tag-input :deep(.el-input__inner) {
+.tag-input ::v-deep .el-input__inner {
   border: none;
   padding: 0;
   height: 28px;
@@ -803,12 +876,12 @@ export default {
   box-shadow: none !important;
 }
 
-.tag-input :deep(.el-input__inner:focus) {
+.tag-input ::v-deep .el-input__inner:focus {
   box-shadow: none;
 }
 
 /* 上传组件样式 */
-.upload-demo :deep(.el-upload-dragger) {
+.upload-demo ::v-deep .el-upload-dragger {
   width: 100%;
   height: 120px;
   display: flex;
@@ -821,18 +894,18 @@ export default {
   transition: all 0.3s;
 }
 
-.upload-demo :deep(.el-upload-dragger:hover) {
+.upload-demo ::v-deep .el-upload-dragger:hover {
   border-color: #409eff;
   background-color: #f0f7ff;
 }
 
-.upload-demo :deep(.el-upload-dragger .el-icon-upload) {
+.upload-demo ::v-deep .el-upload-dragger .el-icon-upload {
   font-size: 48px;
   color: #909399;
   margin-bottom: 8px;
 }
 
-.upload-demo :deep(.el-upload__tip) {
+.upload-demo ::v-deep .el-upload__tip {
   margin-top: 8px;
   color: #909399;
   font-size: 12px;
@@ -897,35 +970,35 @@ export default {
   color: #303133;
 }
 
-.detail-content :deep(h3) {
+.detail-content ::v-deep h3 {
   font-size: 18px;
   font-weight: 600;
   margin: 24px 0 12px;
   color: #303133;
 }
 
-.detail-content :deep(h3:first-child) {
+.detail-content ::v-deep h3:first-child {
   margin-top: 0;
 }
 
-.detail-content :deep(h4) {
+.detail-content ::v-deep h4 {
   font-size: 16px;
   font-weight: 600;
   margin: 20px 0 10px;
   color: #606266;
 }
 
-.detail-content :deep(p) {
+.detail-content ::v-deep p {
   margin: 0 0 12px;
 }
 
-.detail-content :deep(ul),
-.detail-content :deep(ol) {
+.detail-content ::v-deep ul,
+.detail-content ::v-deep ol {
   margin: 8px 0 16px;
   padding-left: 24px;
 }
 
-.detail-content :deep(li) {
+.detail-content ::v-deep li {
   margin: 4px 0;
 }
 
@@ -968,9 +1041,22 @@ export default {
 /* 分页 */
 .pagination {
   padding: 20px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid rgba(224, 224, 224, 0.8);
   display: flex;
   justify-content: flex-end;
+}
+
+.action-link {
+  font-weight: 600;
+  padding: 0;
+}
+
+.action-link.primary {
+  color: #2f6fde;
+}
+
+.action-link.danger {
+  color: #e64a4a;
 }
 
 /* 响应式设计 */

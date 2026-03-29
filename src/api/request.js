@@ -96,13 +96,28 @@ const setupInterceptors = (instance) => {
 
       // 普通请求的原有逻辑（保持不变）
       const res = response.data
-      if (res.code !== undefined && String(res.code) === SYSTEM_ERROR) {
+      // 业务失败：code 999999 / status ERROR — 统一用告警弹窗，并 reject 避免业务层再弹「成功」
+      const isBizError =
+        res &&
+        res.code !== undefined &&
+        (String(res.code) === SYSTEM_ERROR || Number(res.code) === 999999)
+      if (isBizError) {
         const errorMsg = res.message || '系统错误，请联系管理员'
-        Message.warning(errorMsg)
+        const reqCfg = response.config || {}
+        // 业务上可预期的失败（如 Java 编译错误）：用顶部 Message 警告条，避免 MessageBox 阻塞
+        if (reqCfg.bizErrorAsMessage) {
+          Message({ message: errorMsg, type: 'warning' })
+        } else {
+          MessageBox.alert(errorMsg, '提示', {
+            type: 'warning',
+            confirmButtonText: '确定',
+            closeOnClickModal: false
+          })
+        }
         if (res.message && res.message.includes('令牌')) {
           handleSessionExpired()
         }
-        return res
+        return Promise.reject(res)
       }
 
       const resCode = Number(res.code)

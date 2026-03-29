@@ -21,7 +21,7 @@
                     type="primary"
                     size="mini"
                     icon="el-icon-plus"
-                    style="padding: 8px"
+                    class="group-add-btn"
                     @click="openAddGroupDialog"
                   />
                 </div>
@@ -74,21 +74,6 @@
                 clearable
                 class="search-input"
               />
-              <div class="label">规则类型：</div>
-              <el-select
-                v-model="searchForm.type"
-                placeholder="请选择规则类型"
-                size="small"
-                clearable
-                class="search-select"
-              >
-                <el-option
-                  v-for="item in ruleTypeOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
             </div>
             <div class="search-right">
               <el-button type="primary" icon="el-icon-search" size="small" @click="queryRuleList">
@@ -110,16 +95,17 @@
             element-loading-background="rgba(255, 255, 255, 0.8)"
           >
             <el-table-column type="index" label="#" width="60" />
-            <el-table-column prop="name" label="规则名称" width="260" />
-            <el-table-column prop="groupName" label="规则分组" width="220" />
+            <el-table-column prop="name" label="规则名称" width="280" />
+            <el-table-column prop="groupName" label="规则分组" width="160" />
             <el-table-column prop="typeLabel" label="规则类型" width="140" />
             <el-table-column prop="statusLabel" label="状态" width="100" />
             <el-table-column prop="updatedTime" label="更新时间" width="200" />
-            <el-table-column fixed="right" label="操作" width="200">
+            <el-table-column fixed="right" label="操作" width="200" class-name="op-column">
               <template slot-scope="scope">
                 <el-button type="text" size="small" @click="handleViewRule(scope.row)">查看</el-button>
-                <el-button type="text" size="small" @click="handleEditRule(scope.row)">编辑</el-button>
-                <el-button type="text" size="small" @click="handleDeleteRule(scope.row)">删除</el-button>
+                <el-button v-if="!isGeneralRule(scope.row)" type="text" size="small" @click="handleEditRule(scope.row)">编辑</el-button>
+                <el-button v-if="!isGeneralRule(scope.row)" type="text" size="small" @click="handleDeleteRule(scope.row)">删除</el-button>
+                <el-button v-if="isGeneralRule(scope.row)" type="text" size="small" @click="handleToggleRuleStatus(scope.row)">{{ scope.row.statusBool ? '禁用' : '启用' }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -154,7 +140,7 @@
           <el-form-item label="父级分组:" prop="parentId">
             <el-cascader
               v-model="groupParentId"
-              :options="groupOptions"
+              :options="addGroupParentOptions"
               :props="{
                 expandTrigger: 'hover',
                 checkStrictly: true,
@@ -269,8 +255,9 @@
 <script>
 import icons from '@/assets/icon/icons.js'
 import DynamicDialog from '@/components/common/dynamic-dialog.vue'
+import { tree, addGroup, updateGroup, deleteGroup, regularGroupId } from '@/api/collect/rule/ruleGroup'
+import { list as ruleListApi, deleteRule as deleteRuleApi, releaseRule as releaseRuleApi } from '@/api/collect/rule/rule'
 
-// 这里先使用本地测试数据，后续再对接后端接口
 export default {
   name: 'DataCleanRuleList',
   components: {
@@ -281,22 +268,12 @@ export default {
     return {
       icons,
       groupFilter: '',
-      groupTree: [
-        { id: 0, name: '全部规则', type: 'GROUP', children: [] },
-        { id: 1, name: '字符串处理', type: 'GROUP', children: [] },
-        { id: 2, name: '数字处理', type: 'GROUP', children: [] },
-        { id: 3, name: '日期处理', type: 'GROUP', children: [] }
-      ],
+      groupTree: [],
       currentGroupId: 0,
+      regularGroupId: null,
       searchForm: {
-        name: '',
-        type: ''
+        name: ''
       },
-      ruleTypeOptions: [
-        { label: '字符串处理', value: 'string' },
-        { label: '数字处理', value: 'number' },
-        { label: '日期处理', value: 'date' }
-      ],
       tableLoading: false,
       ruleList: [],
       pagination: {
@@ -313,6 +290,7 @@ export default {
       groupOptions: [],
       groupForm: {
         id: null,
+        parentId: null,
         name: '',
         orderBy: 0
       },
@@ -322,61 +300,188 @@ export default {
       }
     }
   },
+  computed: {
+    isAdmin() {
+      const roles = (this.$store && this.$store.getters && this.$store.getters.roles) || []
+      return Array.isArray(roles) && roles.some(r => String(r).toLowerCase() === 'admin')
+    },
+    addGroupParentOptions() {
+      return this.filterGroupTreeByPermission(this.groupOptions || [], 'ADD_GROUP_PARENT')
+    }
+  },
   created() {
-    this.groupOptions = this.toCascaderOptions(this.groupTree)
-    this.loadMockRuleList()
+    this.queryGroupList()
+    this.queryRegularGroupId()
+    this.queryRuleList()
   },
   methods: {
-    toCascaderOptions(list) {
-      return (list || [])
-        .filter(g => g && g.id !== 0)
-        .map(g => ({ id: g.id, name: g.name, children: [] }))
+    classifyRootTypeByName(name) {
+      const n = String(name || '')
+      if (n.includes('通用')) return 'GENERAL'
+      if (n.includes('公共')) return 'PUBLIC'
+      if (n.includes('自定义')) return 'CUSTOM'
+      return 'OTHER'
     },
-    // 测试数据：模拟规则列表
-    loadMockRuleList() {
-      const mock = []
-      for (let i = 1; i <= 23; i++) {
-        mock.push({
-          id: i,
-          name: i === 1 ? '字符串截取示例' : `规则示例 ${i}`,
-          groupId: i % 3,
-          groupName: i % 3 === 1 ? '字符串处理' : i % 3 === 2 ? '数字处理' : '日期处理',
-          type: i % 3 === 1 ? 'string' : i % 3 === 2 ? 'number' : 'date',
-          typeLabel: i % 3 === 1 ? '字符串处理' : i % 3 === 2 ? '数字处理' : '日期处理',
-          status: i % 2 === 0 ? 1 : 0,
-          statusLabel: i % 2 === 0 ? '启用' : '停用',
-          updatedTime: '2026-03-15 10:57:32'
+    filterGroupTreeByPermission(options, scene) {
+      const allowRootTypes = this.isAdmin
+        ? ['PUBLIC', 'CUSTOM']
+        : ['CUSTOM']
+      const walk = (nodes, rootType = null) => {
+        const out = []
+        ;(nodes || []).forEach((node) => {
+          if (!node) return
+          const currentRootType = rootType || this.classifyRootTypeByName(node.name)
+          const cloned = { ...node }
+          if (Array.isArray(node.children) && node.children.length > 0) {
+            cloned.children = walk(node.children, currentRootType)
+          }
+          if (scene === 'ADD_GROUP_PARENT') {
+            if (currentRootType === 'GENERAL') return
+            if (rootType == null && !allowRootTypes.includes(currentRootType)) return
+          }
+          out.push(cloned)
         })
+        return out
       }
-      this.ruleList = mock
-      this.pagination.total = mock.length
+      return walk(options, null)
+    },
+    formatToCascader(data, disabledIds = []) {
+      return (data || [])
+        .filter(item => item && item.type === 'GROUP')
+        .map(item => {
+          const formattedItem = {
+            id: item.id,
+            name: item.name,
+            disabled: disabledIds.includes(item.id)
+          }
+          if (Array.isArray(item.children) && item.children.length > 0) {
+            const children = this.formatToCascader(item.children, disabledIds)
+            if (children.length) {
+              formattedItem.children = children
+            }
+          }
+          return formattedItem
+        })
+    },
+    findParentPath(options, targetId) {
+      for (const option of options || []) {
+        if (option.id === targetId) {
+          return [option.id]
+        }
+        if (Array.isArray(option.children) && option.children.length > 0) {
+          const path = this.findParentPath(option.children, targetId)
+          if (path.length > 0) {
+            return [option.id, ...path]
+          }
+        }
+      }
+      return []
+    },
+    findNodeById(nodes, id) {
+      for (const node of nodes || []) {
+        if (!node) continue
+        if (node.id === id) return node
+        if (Array.isArray(node.children) && node.children.length > 0) {
+          const found = this.findNodeById(node.children, id)
+          if (found) return found
+        }
+      }
+      return null
+    },
+    findRootTypeById(nodes, id, rootType = null) {
+      for (const node of nodes || []) {
+        if (!node) continue
+        const currentRootType = rootType || this.classifyRootTypeByName(node.name)
+        if (node.id === id) return currentRootType
+        if (Array.isArray(node.children) && node.children.length > 0) {
+          const hit = this.findRootTypeById(node.children, id, currentRootType)
+          if (hit) return hit
+        }
+      }
+      return null
+    },
+    isDescendant(parentNode, targetId) {
+      if (!parentNode || !Array.isArray(parentNode.children)) return false
+      for (const child of parentNode.children) {
+        if (!child) continue
+        if (child.id === targetId) return true
+        if (this.isDescendant(child, targetId)) return true
+      }
+      return false
+    },
+    validateParentRelation(parentId, currentId) {
+      if (!parentId || !currentId) return true
+      if (parentId === currentId) return false
+      const currentNode = this.findNodeById(this.groupTree, currentId)
+      return !this.isDescendant(currentNode, parentId)
+    },
+    async queryRegularGroupId() {
+      try {
+        const res = await regularGroupId()
+        this.regularGroupId = res && res.data != null ? Number(res.data) : null
+      } catch (e) {
+        this.regularGroupId = null
+      }
+    },
+    queryGroupList(name = '') {
+      tree(name)
+        .then((res) => {
+          this.groupTree = (res && res.data) || []
+          const disabledIds = this.currentEditGroupId ? [this.currentEditGroupId] : []
+          this.groupOptions = this.formatToCascader(this.groupTree, disabledIds)
+        })
+        .catch(() => {
+          this.groupTree = []
+          this.groupOptions = []
+        })
     },
     handleGroupFilter() {
-      // 此处可接后端分组名称查询，目前仅保留输入框样式
+      this.queryGroupList(this.groupFilter || '')
     },
     handleGroupClick(node) {
+      if (!node || node.type !== 'GROUP') return
       this.currentGroupId = node.id
+      this.pagination.currentPage = 1
       this.queryRuleList()
     },
-    queryRuleList() {
-      // 当前版本先基于本地 mock 做简单筛选
-      const { name, type } = this.searchForm
-      const groupId = this.currentGroupId
-      let list = this.ruleList.slice()
-      if (name) {
-        list = list.filter(item => item.name.includes(name))
+    async queryRuleList() {
+      this.tableLoading = true
+      try {
+        const groupId = this.currentGroupId === 0 ? undefined : this.currentGroupId
+        const res = await ruleListApi(
+          groupId,
+          this.searchForm.name || undefined,
+          this.pagination.currentPage,
+          this.pagination.pageSize
+        )
+        const data = (res && res.data) || {}
+        const records = Array.isArray(data.records) ? data.records : []
+        this.ruleList = records.map((item) => {
+          const statusRaw = item.status != null ? String(item.status) : ''
+          const statusBool = statusRaw === '1' || statusRaw === 'true'
+          const statusLabel = item.statusTxt || item.statusLabel || (statusRaw === '1' || statusRaw === 'true' ? '启用' : '禁用')
+          const updatedTime = item.updatedTimeTxt || item.createdTimeTxt || item.updatedTime || item.updateTime || '-'
+          return {
+            ...item,
+            id: item.id || item.ruleId,
+            name: item.name || item.ruleName || '',
+            groupName: item.groupName || '-',
+            typeLabel: item.processorName || item.typeLabel || '-',
+            statusBool,
+            statusLabel,
+            updatedTime
+          }
+        })
+        this.pagination.total = data.total != null ? data.total : this.ruleList.length
+        this.pagination.currentPage = data.current != null ? data.current : this.pagination.currentPage
+        this.pagination.pageSize = data.size != null ? data.size : this.pagination.pageSize
+      } catch (e) {
+        this.ruleList = []
+        this.pagination.total = 0
+        this.$message.error('获取规则列表失败')
+      } finally {
+        this.tableLoading = false
       }
-      if (type) {
-        list = list.filter(item => item.type === type)
-      }
-      if (groupId && groupId !== 0) {
-        list = list.filter(item => item.groupId === groupId)
-      }
-      this.pagination.total = list.length
-      // 简单分页展示
-      const start = (this.pagination.currentPage - 1) * this.pagination.pageSize
-      const end = start + this.pagination.pageSize
-      this.ruleList = list.slice(start, end)
     },
     handleSizeChange(size) {
       this.pagination.pageSize = size
@@ -388,18 +493,25 @@ export default {
       this.queryRuleList()
     },
     openAddGroupDialog() {
+      this.currentEditGroupId = null
+      this.queryGroupList(this.groupFilter || '')
       this.addGroupDialog.visible = true
-      this.groupForm = { id: null, name: '', orderBy: 0 }
+      this.groupForm = { id: null, parentId: null, name: '', orderBy: 0 }
       this.groupParentId = []
       this.$nextTick(() => {
         if (this.$refs.groupForm) this.$refs.groupForm.clearValidate()
       })
     },
     editGroup(node) {
+      if (this.regularGroupId != null && Number(node.id) === this.regularGroupId) {
+        this.$message.warning('固定分类不允许编辑')
+        return
+      }
       this.editGroupDialog.visible = true
       this.currentEditGroupId = node.id
-      this.groupForm = { id: node.id, name: node.name, orderBy: node.orderBy || 0 }
-      this.groupParentId = []
+      this.groupForm = { id: node.id, parentId: node.parentId || null, name: node.name, orderBy: node.orderBy || 0 }
+      this.queryGroupList(this.groupFilter || '')
+      this.groupParentId = node.parentId ? this.findParentPath(this.groupOptions, node.parentId) : []
       this.$nextTick(() => {
         if (this.$refs.groupForm) this.$refs.groupForm.clearValidate()
       })
@@ -408,31 +520,57 @@ export default {
       this.addGroupDialog.visible = false
       this.editGroupDialog.visible = false
       if (this.$refs.groupForm) this.$refs.groupForm.resetFields()
-      this.groupForm = { id: null, name: '', orderBy: 0 }
+      this.groupForm = { id: null, parentId: null, name: '', orderBy: 0 }
       this.groupParentId = []
       this.currentEditGroupId = null
+      this.queryGroupList(this.groupFilter || '')
     },
     submitAddGroup() {
       this.$refs.groupForm.validate((valid) => {
         if (!valid) return
-        const newId = Date.now()
-        this.groupTree.push({ id: newId, name: this.groupForm.name, type: 'GROUP', orderBy: Number(this.groupForm.orderBy), children: [] })
-        this.groupOptions = this.toCascaderOptions(this.groupTree)
-        this.$message.success('新增分组成功（测试）')
-        this.cancelGroup()
+        const parentId = this.groupParentId.length ? this.groupParentId[this.groupParentId.length - 1] : null
+        if (parentId != null) {
+          const rootType = this.findRootTypeById(this.groupTree, parentId)
+          if (rootType === 'GENERAL') {
+            this.$message.warning('新增分组时父级不能选择通用目录')
+            return
+          }
+          if (!this.isAdmin && rootType === 'PUBLIC') {
+            this.$message.warning('当前角色仅允许在自定义目录下新增分组')
+            return
+          }
+        }
+        const formData = {
+          groupName: this.groupForm.name,
+          parentId,
+          orderBy: Number(this.groupForm.orderBy)
+        }
+        addGroup(formData).then((res) => {
+          this.$message.success((res && res.data) || '新增分组成功')
+          this.queryGroupList(this.groupFilter || '')
+          this.cancelGroup()
+        })
       })
     },
     submitEditGroup() {
       this.$refs.groupForm.validate((valid) => {
         if (!valid) return
-        const node = this.groupTree.find(g => g.id === this.groupForm.id)
-        if (node) {
-          node.name = this.groupForm.name
-          node.orderBy = Number(this.groupForm.orderBy)
+        const parentId = this.groupParentId.length ? this.groupParentId[this.groupParentId.length - 1] : null
+        if (!this.validateParentRelation(parentId, this.groupForm.id)) {
+          this.$message.warning('父级分组不能选择自己或自己的子分组')
+          return
         }
-        this.groupOptions = this.toCascaderOptions(this.groupTree)
-        this.$message.success('编辑分组成功（测试）')
-        this.cancelGroup()
+        const formData = {
+          id: this.groupForm.id,
+          groupName: this.groupForm.name,
+          parentId,
+          orderBy: Number(this.groupForm.orderBy)
+        }
+        updateGroup(formData).then((res) => {
+          this.$message.success((res && res.data) || '编辑分组成功')
+          this.queryGroupList(this.groupFilter || '')
+          this.cancelGroup()
+        })
       })
     },
     handleViewAll() {
@@ -444,19 +582,24 @@ export default {
         this.$message.warning('该分组不可删除')
         return
       }
+      if (this.regularGroupId != null && Number(node.id) === this.regularGroupId) {
+        this.$message.warning('固定分类不允许删除')
+        return
+      }
       this.$confirm('确定要删除该分组吗？', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       })
         .then(() => {
-          this.groupTree = this.groupTree.filter(g => g.id !== node.id)
-          this.groupOptions = this.toCascaderOptions(this.groupTree)
-          if (this.currentGroupId === node.id) {
-            this.currentGroupId = 0
+          deleteGroup(node.id).then((res) => {
+            this.$message.success((res && res.data) || '删除分组成功')
+            this.queryGroupList(this.groupFilter || '')
+            if (this.currentGroupId === node.id) {
+              this.currentGroupId = 0
+            }
             this.queryRuleList()
-          }
-          this.$message.success('删除分组成功（测试）')
+          })
         })
         .catch(() => {})
     },
@@ -471,18 +614,59 @@ export default {
       })
     },
     handleEditRule(row) {
+      if (this.isGeneralRule(row)) {
+        this.$message.warning('通用规则不允许编辑')
+        return
+      }
       this.$router.push({
         path: '/basic-config/dataclean/edit',
         query: { id: row.id }
       })
     },
-    handleDeleteRule() {
+    handleDeleteRule(row) {
+      if (this.isGeneralRule(row)) {
+        this.$message.warning('通用规则不允许删除')
+        return
+      }
       this.$confirm('确定要删除该规则吗？', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        this.$message.success('删除成功（测试）')
+        return deleteRuleApi(row.id).then((res) => {
+          this.$message.success((res && res.data) || '删除成功')
+          this.queryRuleList()
+        })
+      }).catch(() => {})
+    },
+    isGeneralRule(row) {
+      if (!row) return false
+      const groupName = String(row.groupName || '')
+      if (groupName.includes('通用')) return true
+      if (this.regularGroupId != null) {
+        if (row.firstGroupId != null && Number(row.firstGroupId) === Number(this.regularGroupId)) return true
+        if (row.groupId != null && Number(row.groupId) === Number(this.regularGroupId)) return true
+      }
+      const gid = row.groupId != null ? Number(row.groupId) : null
+      if (gid != null) {
+        const rootType = this.findRootTypeById(this.groupTree, gid)
+        if (rootType === 'GENERAL') return true
+      }
+      return false
+    },
+    handleToggleRuleStatus(row) {
+      if (!this.isGeneralRule(row)) return
+      const nextStatus = !(row && row.statusBool)
+      const text = nextStatus ? '启用' : '禁用'
+      this.$confirm(`确定要${text}该规则吗？`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        return releaseRuleApi(row.id, nextStatus).then((res) => {
+          this.$message.success((res && res.data) || `规则${text}成功`)
+          this.queryRuleList()
+        })
       }).catch(() => {})
     }
   }
@@ -513,7 +697,7 @@ export default {
 
 .page-aside {
   height: 90.5vh;
-  margin: 10px 0 10px 10px;
+  margin: 10px 10px 10px 10px; /* 调整右侧外边距 */
   display: flex;
   flex-direction: column;
   background-color: #fff;
@@ -583,7 +767,7 @@ export default {
 
 .rule-main {
   height: 90.5vh;
-  margin: 10px 10px 10px 10px;
+  margin: 10px 10px 10px 0; /* 调整左侧外边距 */
   padding: 10px 20px 20px 20px;
   background: #fff;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
@@ -698,8 +882,101 @@ export default {
   text-align: right;
 }
 
+.rule-main ::v-deep .el-table .cell {
+  cursor: default;
+}
+
+.rule-main ::v-deep td.op-column .el-button--text {
+  cursor: pointer;
+}
+
 .group-dialog ::v-deep .el-dialog__body {
   padding: 16px 20px 10px;
+}
+
+/* 表格样式优化 */
+.rule-main {
+  ::v-deep .el-table {
+    border: 1px solid #ebeef5; /* 统一表格边框 */
+    border-radius: 4px; /* 增加圆角 */
+
+    th {
+      background-color: #f5f7fa; /* 表头背景色 */
+      color: #333639; /* 表头文字颜色 */
+      font-weight: 600; /* 表头字体加粗 */
+      border-bottom: 1px solid #ebeef5;
+    }
+
+    td {
+      padding: 8px 0; /* 调整行高 */
+      border-bottom: 1px solid #ebeef5; /* 统一单元格底部边框 */
+      color: #606266; /* 单元格文字颜色 */
+    }
+
+    .el-table__fixed-right::before,
+    .el-table__fixed::before {
+      background-color: transparent; /* 移除固定列的额外边框阴影 */
+    }
+
+    .el-table__empty-block {
+      min-height: 80px; /* 调整空数据提示的最小高度 */
+    }
+
+    .el-button--text {
+      color: #2A87FF; /* 操作列按钮颜色 */
+      &:hover {
+        color: #549DFF; /* 悬浮时颜色变亮 */
+      }
+    }
+  }
+}
+
+/* 分页器样式优化 */
+.pagination-wrapper {
+  ::v-deep .el-pagination {
+    padding: 10px 0; /* 调整分页器内边距 */
+
+    .btn-prev,
+    .btn-next {
+      background-color: #fff;
+      color: #606266;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      margin: 0 5px;
+      &:hover {
+        border-color: #2A87FF;
+        color: #2A87FF;
+      }
+    }
+
+    .el-pager li {
+      background-color: #fff;
+      color: #606266;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      margin: 0 5px;
+      min-width: 30px;
+      &:hover {
+        border-color: #2A87FF;
+        color: #2A87FF;
+      }
+      &.active {
+        background-color: #2A87FF;
+        border-color: #2A87FF;
+        color: #fff;
+      }
+    }
+
+    .el-pagination__total,
+    .el-pagination__jump,
+    .el-pagination__sizes {
+      color: #606266; /* 统一文字颜色 */
+    }
+
+    .el-input__inner {
+      border-color: #dcdfe6; /* 输入框边框颜色 */
+    }
+  }
 }
 </style>
 

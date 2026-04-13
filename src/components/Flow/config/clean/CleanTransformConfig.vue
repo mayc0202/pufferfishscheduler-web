@@ -14,63 +14,63 @@
       </el-tabs>
 
       <div v-show="activeTab === 'basic'">
-      <div class="form-item">
-        <label class="form-label required">节点名称：</label>
-        <input v-model="formData.name" type="text" class="form-input" placeholder="数据清洗转换">
-      </div>
-
-      <div class="form-item">
-        <label class="form-label">节点说明：</label>
-        <textarea v-model="formData.description" class="form-textarea" placeholder="请输入节点说明" rows="3" />
-      </div>
-
-      <div class="section-header" @click="sectionOpen.fields = !sectionOpen.fields">
-        <h4>清洗字段</h4>
-        <div class="section-toggle">
-          <i :class="sectionOpen.fields ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
-        </div>
-      </div>
-
-      <div v-show="sectionOpen.fields" class="section-content">
-        <div class="field-table-wrap clean-fields-summary-wrap">
-          <el-table
-            :data="formData.fieldList"
-            class="clean-fields-summary-table"
-            border
-            style="width: 100%"
-            max-height="200"
-          >
-            <el-table-column type="index" label="#" width="52" align="center" />
-            <el-table-column prop="name" label="清洗字段名称" min-width="72" show-overflow-tooltip />
-            <el-table-column label="清洗规则" min-width="72">
-              <template slot-scope="scope">
-                <div class="rule-tags">
-                  <el-tag
-                    v-for="(r, i) in (scope.row.ruleList || [])"
-                    :key="r.uuId || i"
-                    size="mini"
-                    class="rule-tag"
-                  >
-                    {{ r.ruleName || r.ruleCode || '-' }}
-                  </el-tag>
-                  <span v-if="!scope.row.ruleList || scope.row.ruleList.length === 0" class="empty-text">暂无数据</span>
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
+        <div class="form-item">
+          <label class="form-label required">节点名称：</label>
+          <input v-model="formData.name" type="text" class="form-input" placeholder="数据清洗转换">
         </div>
 
-        <div class="field-actions">
-          <button type="button" class="dash-btn" @click="openRuleEditor">
-            <i class="el-icon-edit" /> 编辑清洗规则
-          </button>
+        <div class="form-item">
+          <label class="form-label">节点说明：</label>
+          <textarea v-model="formData.description" class="form-textarea" placeholder="请输入节点说明" rows="3" />
         </div>
-      </div>
 
-      <div class="form-actions">
-        <button type="button" class="btn primary-btn" @click="handleSubmit">确认</button>
-        <button type="button" class="btn secondary-btn" @click="$emit('cancel')">取消</button>
-      </div>
+        <div class="section-header" @click="sectionOpen.fields = !sectionOpen.fields">
+          <h4>清洗字段</h4>
+          <div class="section-toggle">
+            <i :class="sectionOpen.fields ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          </div>
+        </div>
+
+        <div v-show="sectionOpen.fields" class="section-content">
+          <div class="field-table-wrap clean-fields-summary-wrap">
+            <el-table
+              :data="formData.fieldList"
+              class="clean-fields-summary-table"
+              border
+              style="width: 100%"
+              max-height="200"
+            >
+              <el-table-column type="index" label="#" width="52" align="center" />
+              <el-table-column prop="name" label="清洗字段名称" min-width="72" show-overflow-tooltip />
+              <el-table-column label="清洗规则" min-width="72">
+                <template slot-scope="scope">
+                  <div class="rule-tags">
+                    <el-tag
+                      v-for="(r, i) in (scope.row.ruleList || [])"
+                      :key="r.uuId || i"
+                      size="mini"
+                      class="rule-tag"
+                    >
+                      {{ r.ruleName || r.ruleCode || '-' }}
+                    </el-tag>
+                    <span v-if="!scope.row.ruleList || scope.row.ruleList.length === 0" class="empty-text">暂无数据</span>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <div class="field-actions">
+            <button type="button" class="dash-btn" @click="openRuleEditor">
+              <i class="el-icon-edit" /> 编辑清洗规则
+            </button>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn primary-btn" @click="handleSubmit">确认</button>
+          <button type="button" class="btn secondary-btn" @click="$emit('cancel')">取消</button>
+        </div>
       </div>
 
       <div v-show="activeTab === 'advanced'" class="advanced-layout">

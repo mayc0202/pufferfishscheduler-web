@@ -2436,15 +2436,15 @@ export default {
             pageCondition: realFormData.pageCondition != null ? String(realFormData.pageCondition) : '',
             ...(apiIn
               ? {
-                  pageDelayMin:
+                pageDelayMin:
                     realFormData.pageDelayMin != null && realFormData.pageDelayMin !== ''
                       ? Math.max(0, Math.trunc(Number(realFormData.pageDelayMin)) || 0)
                       : 1,
-                  pageDelayMax:
+                pageDelayMax:
                     realFormData.pageDelayMax != null && realFormData.pageDelayMax !== ''
                       ? Math.max(0, Math.trunc(Number(realFormData.pageDelayMax)) || 0)
                       : 100
-                }
+              }
               : {}),
             startPageNo:
               realFormData.startPageNo != null && realFormData.startPageNo !== ''
@@ -2906,7 +2906,7 @@ export default {
         const normalizedCode = this.isConditionJudgeType(formData.code) ? 'JavaCondition' : formData.code
         // 后端 create(String config, ...) 期望：
         // config = { name: string, code: string, data: { ...真实参数... } }
-        let flatData = this.unwrapChainedPluginData({ ...formData, code: normalizedCode })
+        const flatData = this.unwrapChainedPluginData({ ...formData, code: normalizedCode })
         if (this.isPrintLogType(flatData.code)) {
           delete flatData.logFieldList
           delete flatData.limitInputRows

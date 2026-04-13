@@ -39,7 +39,7 @@ export function normalizeFieldTypeDictList(raw) {
     .map((x, idx) => {
       if (x == null) return null
       if (typeof x === 'string' || typeof x === 'number') {
-        return { order: idx, opt: { label: String(x), value: x } }
+        return { order: idx, opt: { label: String(x), value: x }}
       }
       const codeStr =
         x.code !== undefined && x.code !== null && String(x.code).trim() !== ''
@@ -54,11 +54,11 @@ export function normalizeFieldTypeDictList(raw) {
         codeStr
       if (codeStr !== '') {
         const order = x.order != null ? Number(x.order) : NaN
-        return { order: Number.isFinite(order) ? order : idx, opt: { label: label || codeStr, value: codeStr } }
+        return { order: Number.isFinite(order) ? order : idx, opt: { label: label || codeStr, value: codeStr }}
       }
       const value = x.value != null ? x.value : x.key
       if (value === undefined || value === null) return null
-      return { order: idx, opt: { label: label || String(value), value } }
+      return { order: idx, opt: { label: label || String(value), value }}
     })
     .filter(Boolean)
   rows.sort((a, b) => {

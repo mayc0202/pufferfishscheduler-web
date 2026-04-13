@@ -13,48 +13,48 @@
     </el-tabs>
 
     <div v-show="activeTab === 'basic'">
-    <div class="form-item">
-      <label class="form-label">组件名称</label>
-      <input
-        v-model="formData.name"
-        type="text"
-        class="form-input"
-        placeholder="请输入组件名称"
-        required
-      >
-    </div>
+      <div class="form-item">
+        <label class="form-label">组件名称</label>
+        <input
+          v-model="formData.name"
+          type="text"
+          class="form-input"
+          placeholder="请输入组件名称"
+          required
+        >
+      </div>
 
-    <div class="form-item">
-      <label class="form-label">组件类型</label>
-      <input
-        v-model="formData.type"
-        type="text"
-        class="form-input"
-        disabled
-      >
-    </div>
+      <div class="form-item">
+        <label class="form-label">组件类型</label>
+        <input
+          v-model="formData.type"
+          type="text"
+          class="form-input"
+          disabled
+        >
+      </div>
 
-    <div class="form-item">
-      <label class="form-label">目标表</label>
-      <input
-        v-model="formData.targetTable"
-        type="text"
-        class="form-input"
-        placeholder="请输入目标表名"
-        required
-      >
-    </div>
+      <div class="form-item">
+        <label class="form-label">目标表</label>
+        <input
+          v-model="formData.targetTable"
+          type="text"
+          class="form-input"
+          placeholder="请输入目标表名"
+          required
+        >
+      </div>
 
-    <div class="form-item">
-      <label class="form-label">更新字段</label>
-      <input
-        v-model="formData.updateField"
-        type="text"
-        class="form-input"
-        placeholder="请输入更新字段"
-        required
-      >
-    </div>
+      <div class="form-item">
+        <label class="form-label">更新字段</label>
+        <input
+          v-model="formData.updateField"
+          type="text"
+          class="form-input"
+          placeholder="请输入更新字段"
+          required
+        >
+      </div>
     </div>
 
     <div v-show="activeTab === 'advanced'" class="advanced-layout">

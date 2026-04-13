@@ -375,7 +375,7 @@ export default {
 
     // 测试连接
     async testConnect() {
-      this.$refs.databaseInfo.validate(async (valid) => {
+      this.$refs.databaseInfo.validate(async(valid) => {
         if (!valid) return
         const database = JSON.parse(JSON.stringify(this.databaseInfo))
         database.password = await encrypt(database.password)
@@ -388,7 +388,7 @@ export default {
 
     // 保存
     async save() {
-      this.$refs.databaseInfo.validate(async (valid) => {
+      this.$refs.databaseInfo.validate(async(valid) => {
         if (!valid) return
         const database = JSON.parse(JSON.stringify(this.databaseInfo))
         database.password = await encrypt(database.password)

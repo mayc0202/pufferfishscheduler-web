@@ -14,64 +14,64 @@
       </el-tabs>
 
       <div v-show="activeTab === 'basic'">
-      <div class="form-item">
-        <label class="form-label required">节点名称：</label>
-        <input
-          v-model="formData.name"
-          type="text"
-          class="form-input"
-          placeholder="打印日志"
-        >
-      </div>
-
-      <div class="form-item">
-        <label class="form-label">节点说明：</label>
-        <textarea
-          v-model="formData.description"
-          class="form-textarea"
-          placeholder="请输入节点说明"
-          rows="3"
-        />
-      </div>
-
-      <div class="form-item checkbox-row">
-        <el-checkbox v-model="formData.limitRows">限制输入行数</el-checkbox>
-        <span class="help-icon" title="勾选后可限制本步骤输出的日志最大行数">?</span>
-      </div>
-
-      <div v-show="formData.limitRows" class="form-item">
-        <label class="form-label required">最大输出日志行数：</label>
-        <input
-          v-model.number="formData.limitRowsNumber"
-          type="number"
-          min="1"
-          class="form-input"
-          placeholder="1000"
-        >
-      </div>
-
-      <div class="section-header" @click="sectionOpen.logFields = !sectionOpen.logFields">
-        <h4>需要打印日志的字段</h4>
-        <div class="section-toggle">
-          <i :class="sectionOpen.logFields ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+        <div class="form-item">
+          <label class="form-label required">节点名称：</label>
+          <input
+            v-model="formData.name"
+            type="text"
+            class="form-input"
+            placeholder="打印日志"
+          >
         </div>
-      </div>
 
-      <div v-show="sectionOpen.logFields" class="section-content">
-        <div class="aligned-block">
-          <div class="field-table-wrap">
-            <el-table :data="formData.fieldList" border style="width: 100%" max-height="260">
-              <el-table-column type="index" label="#" width="60" />
-              <el-table-column prop="name" label="输入字段名称" min-width="200" show-overflow-tooltip />
-            </el-table>
-          </div>
-          <div class="field-actions">
-            <button type="button" class="dash-btn" @click="openFieldEditor">
-              <i class="el-icon-edit" /> 编辑字段
-            </button>
+        <div class="form-item">
+          <label class="form-label">节点说明：</label>
+          <textarea
+            v-model="formData.description"
+            class="form-textarea"
+            placeholder="请输入节点说明"
+            rows="3"
+          />
+        </div>
+
+        <div class="form-item checkbox-row">
+          <el-checkbox v-model="formData.limitRows">限制输入行数</el-checkbox>
+          <span class="help-icon" title="勾选后可限制本步骤输出的日志最大行数">?</span>
+        </div>
+
+        <div v-show="formData.limitRows" class="form-item">
+          <label class="form-label required">最大输出日志行数：</label>
+          <input
+            v-model.number="formData.limitRowsNumber"
+            type="number"
+            min="1"
+            class="form-input"
+            placeholder="1000"
+          >
+        </div>
+
+        <div class="section-header" @click="sectionOpen.logFields = !sectionOpen.logFields">
+          <h4>需要打印日志的字段</h4>
+          <div class="section-toggle">
+            <i :class="sectionOpen.logFields ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
           </div>
         </div>
-      </div>
+
+        <div v-show="sectionOpen.logFields" class="section-content">
+          <div class="aligned-block">
+            <div class="field-table-wrap">
+              <el-table :data="formData.fieldList" border style="width: 100%" max-height="260">
+                <el-table-column type="index" label="#" width="60" />
+                <el-table-column prop="name" label="输入字段名称" min-width="200" show-overflow-tooltip />
+              </el-table>
+            </div>
+            <div class="field-actions">
+              <button type="button" class="dash-btn" @click="openFieldEditor">
+                <i class="el-icon-edit" /> 编辑字段
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-show="activeTab === 'advanced'" class="advanced-layout">

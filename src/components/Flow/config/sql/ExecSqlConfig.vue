@@ -138,33 +138,33 @@
 
       <template v-else>
         <div class="advanced-layout">
-        <div class="section-header" @click="sectionOpen.distribution = !sectionOpen.distribution">
-          <h4>数据分发</h4>
-          <div class="section-toggle">
-            <i :class="sectionOpen.distribution ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          <div class="section-header" @click="sectionOpen.distribution = !sectionOpen.distribution">
+            <h4>数据分发</h4>
+            <div class="section-toggle">
+              <i :class="sectionOpen.distribution ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+            </div>
           </div>
-        </div>
-        <div v-show="sectionOpen.distribution" class="section-content">
-          <div class="advanced-row">
-            <span class="advanced-label">数据分发模式：</span>
-            <el-radio-group v-model="distributionMode">
-              <el-radio :label="'copy'">复制</el-radio>
-              <el-radio :label="'distribute'">分发</el-radio>
-            </el-radio-group>
+          <div v-show="sectionOpen.distribution" class="section-content">
+            <div class="advanced-row">
+              <span class="advanced-label">数据分发模式：</span>
+              <el-radio-group v-model="distributionMode">
+                <el-radio :label="'copy'">复制</el-radio>
+                <el-radio :label="'distribute'">分发</el-radio>
+              </el-radio-group>
+            </div>
           </div>
-        </div>
-        <div class="section-header" @click="sectionOpen.parallel = !sectionOpen.parallel">
-          <h4>并发配置</h4>
-          <div class="section-toggle">
-            <i :class="sectionOpen.parallel ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          <div class="section-header" @click="sectionOpen.parallel = !sectionOpen.parallel">
+            <h4>并发配置</h4>
+            <div class="section-toggle">
+              <i :class="sectionOpen.parallel ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+            </div>
           </div>
-        </div>
-        <div v-show="sectionOpen.parallel" class="section-content">
-          <div class="form-item">
-            <label class="form-label">并发数量：</label>
-            <el-input v-model.number="formData.copiesCache" type="number" min="1" placeholder="1" />
+          <div v-show="sectionOpen.parallel" class="section-content">
+            <div class="form-item">
+              <label class="form-label">并发数量：</label>
+              <el-input v-model.number="formData.copiesCache" type="number" min="1" placeholder="1" />
+            </div>
           </div>
-        </div>
         </div>
       </template>
     </div>

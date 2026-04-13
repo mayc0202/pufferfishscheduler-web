@@ -347,7 +347,7 @@ export default {
     flattenDatabaseNodes(nodes) {
       const out = []
       const walk = (arr) => {
-        ;(arr || []).forEach((n) => {
+        (arr || []).forEach((n) => {
           if (!n) return
           if (String(n.type || '').toUpperCase() === 'DATABASE') {
             out.push({ id: n.id, name: n.name || String(n.id) })

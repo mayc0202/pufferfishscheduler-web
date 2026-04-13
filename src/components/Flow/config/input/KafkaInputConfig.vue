@@ -524,22 +524,6 @@ export default {
       return options
     }
   },
-  mounted() {
-    this.initDefaults()
-    this.loadDataSourceTree()
-    this.bootstrapPropertiesFromForm()
-    // 若已有选中值，提前加载级联 options 以便回显 label
-    if (this.formData.transId != null && this.formData.transId !== '') {
-      this.loadFlowCascaderOptions()
-    }
-    if (
-      this.formData.dataSource != null &&
-      String(this.formData.dataSource) !== '' &&
-      this.getMqDbNodeType(this.formData.dataSource) !== 'GROUP'
-    ) {
-      this.loadTopicOptions(this.formData.dataSource)
-    }
-  },
   watch: {
     'formData.dataSource': {
       handler(v, oldV) {
@@ -557,6 +541,22 @@ export default {
           this.loadTopicOptions(v)
         }
       }
+    }
+  },
+  mounted() {
+    this.initDefaults()
+    this.loadDataSourceTree()
+    this.bootstrapPropertiesFromForm()
+    // 若已有选中值，提前加载级联 options 以便回显 label
+    if (this.formData.transId != null && this.formData.transId !== '') {
+      this.loadFlowCascaderOptions()
+    }
+    if (
+      this.formData.dataSource != null &&
+      String(this.formData.dataSource) !== '' &&
+      this.getMqDbNodeType(this.formData.dataSource) !== 'GROUP'
+    ) {
+      this.loadTopicOptions(this.formData.dataSource)
     }
   },
   methods: {
@@ -651,7 +651,7 @@ export default {
     flattenMqDbNodes(nodes) {
       const out = []
       const walk = (arr) => {
-        ;(arr || []).forEach((n) => {
+        (arr || []).forEach((n) => {
           if (!n) return
           // kafkaService.mqDbTree() 的节点结构在不同环境可能略有差异，尽量兼容：
           // - 叶子节点：id/name 或 dbId/dbName

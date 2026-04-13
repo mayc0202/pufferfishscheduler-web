@@ -14,161 +14,39 @@
       </el-tabs>
 
       <div v-show="activeTab === 'basic'" class="basic-form">
-      <div class="form-field">
-        <label class="field-label required">步骤名称</label>
-        <input
-          v-model="formData.name"
-          type="text"
-          class="form-control"
-          placeholder="关系库表输入"
-        >
-      </div>
-
-      <div class="form-field">
-        <label class="field-label">说明</label>
-        <textarea
-          v-model="formData.description"
-          class="form-control form-textarea"
-          placeholder="请输入说明"
-          rows="3"
-        />
-      </div>
-
-      <div class="form-field">
-        <label class="field-label required">数据源</label>
-        <el-cascader
-          v-model="formData.dataSourceId"
-          class="relation-db-cascader"
-          :options="dbCascaderOptions"
-          :props="dbCascaderProps"
-          filterable
-          clearable
-          placeholder="请选择数据源"
-          separator=" / "
-          popper-class="relation-db-cascader-popper"
-          @visible-change="onDbCascaderVisible"
-        >
-          <template slot-scope="{ data }">
-            <span class="mq-node">
-              <i :class="data.type === 'GROUP' ? 'el-icon-folder' : 'el-icon-link'" class="mq-node-icon" />
-              <span class="mq-node-label">{{ data.label }}</span>
-            </span>
-          </template>
-        </el-cascader>
-      </div>
-
-      <div class="form-field">
-        <label class="field-label required">配置方式</label>
-        <el-select
-          v-model="formData.configMode"
-          class="config-mode-select"
-          placeholder="请选择配置方式"
-          :clearable="false"
-        >
-          <el-option label="自定义SQL" value="custom" />
-        </el-select>
-      </div>
-
-      <!-- 参考稿：自定义 SQL 与两个复选框为表单末尾一组 -->
-      <div class="form-field sql-field">
-        <div class="sql-field-head">
-          <label class="field-label required sql-field-label">自定义sql</label>
-          <button type="button" class="sql-fullscreen-btn" @click="sqlFullscreenVisible = true">
-            <i class="el-icon-full-screen" />
-            <span>全屏</span>
-          </button>
-        </div>
-        <div class="sql-block">
-          <div class="sql-editor-panel">
-            <div class="sql-editor-body">
-              <div ref="sqlGutter" class="sql-gutter" @scroll.prevent>
-                <div
-                  v-for="n in sqlLineCount"
-                  :key="'ln-' + n"
-                  class="sql-gutter-line"
-                >{{ n }}</div>
-              </div>
-              <textarea
-                ref="sqlTextarea"
-                v-model="formData.sql"
-                class="sql-editor"
-                placeholder="请输入 SQL，例如：select * from user limit 10"
-                rows="10"
-                spellcheck="false"
-                @scroll="syncSqlScroll"
-              />
-            </div>
-            <div class="sql-options-bar">
-              <div class="sql-options-row">
-                <div class="sql-option">
-                  <el-checkbox v-model="formData.replaceVariables">替换SQL语句里的变量</el-checkbox>
-                  <el-tooltip
-                    content="开启后，将按流程变量替换 SQL 中的占位符（如 ${name}）。"
-                    placement="top"
-                    effect="dark"
-                  >
-                    <span class="help-icon" tabindex="0" role="button" aria-label="变量替换说明">?</span>
-                  </el-tooltip>
-                </div>
-                <div class="sql-option">
-                  <el-checkbox v-model="formData.isIncrement">是否增量</el-checkbox>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <template v-if="formData.isIncrement">
         <div class="form-field">
-          <label class="field-label required">增量方式</label>
-          <el-select
-            v-model="formData.incrementType"
-            class="config-mode-select"
-            placeholder="请选择增量方式"
-            clearable
+          <label class="field-label required">步骤名称</label>
+          <input
+            v-model="formData.name"
+            type="text"
+            class="form-control"
+            placeholder="关系库表输入"
           >
-            <el-option
-              v-for="opt in incrementTypeOptions"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
         </div>
 
         <div class="form-field">
-          <label class="field-label required">增量字段</label>
-          <el-select
-            v-model="formData.incrementField"
-            class="config-mode-select"
-            placeholder="请选择增量字段"
-            filterable
-            clearable
-            :disabled="!incrementColumnOptions.length"
-          >
-            <el-option
-              v-for="name in incrementColumnOptions"
-              :key="name"
-              :label="name"
-              :value="name"
-            />
-          </el-select>
+          <label class="field-label">说明</label>
+          <textarea
+            v-model="formData.description"
+            class="form-control form-textarea"
+            placeholder="请输入说明"
+            rows="3"
+          />
         </div>
 
         <div class="form-field">
-          <label class="field-label required">目标库</label>
+          <label class="field-label required">数据源</label>
           <el-cascader
-            v-model="formData.incrementTargetDataSourceId"
+            v-model="formData.dataSourceId"
             class="relation-db-cascader"
             :options="dbCascaderOptions"
             :props="dbCascaderProps"
             filterable
             clearable
-            placeholder="请选择目标库"
+            placeholder="请选择数据源"
             separator=" / "
             popper-class="relation-db-cascader-popper"
-            @change="onIncrementTargetDbChange"
+            @visible-change="onDbCascaderVisible"
           >
             <template slot-scope="{ data }">
               <span class="mq-node">
@@ -180,44 +58,166 @@
         </div>
 
         <div class="form-field">
-          <label class="field-label required">目标表</label>
+          <label class="field-label required">配置方式</label>
           <el-select
-            v-model="formData.incrementTargetTable"
+            v-model="formData.configMode"
             class="config-mode-select"
-            placeholder="请选择目标表"
-            filterable
-            clearable
-            :disabled="!formData.incrementTargetDataSourceId || !incrementTargetTableList.length"
-            @change="onIncrementTargetTableChange"
+            placeholder="请选择配置方式"
+            :clearable="false"
           >
-            <el-option
-              v-for="t in incrementTargetTableList"
-              :key="tableRowKey(t)"
-              :label="t.name || t"
-              :value="t.name || t"
-            />
+            <el-option label="自定义SQL" value="custom" />
           </el-select>
         </div>
 
-        <div class="form-field">
-          <label class="field-label required">目标表字段</label>
-          <el-select
-            v-model="formData.incrementTargetTableField"
-            class="config-mode-select"
-            placeholder="请选择目标表字段"
-            filterable
-            clearable
-            :disabled="!incrementColumnOptions.length"
-          >
-            <el-option
-              v-for="name in incrementColumnOptions"
-              :key="'tf-' + name"
-              :label="name"
-              :value="name"
-            />
-          </el-select>
+        <!-- 参考稿：自定义 SQL 与两个复选框为表单末尾一组 -->
+        <div class="form-field sql-field">
+          <div class="sql-field-head">
+            <label class="field-label required sql-field-label">自定义sql</label>
+            <button type="button" class="sql-fullscreen-btn" @click="sqlFullscreenVisible = true">
+              <i class="el-icon-full-screen" />
+              <span>全屏</span>
+            </button>
+          </div>
+          <div class="sql-block">
+            <div class="sql-editor-panel">
+              <div class="sql-editor-body">
+                <div ref="sqlGutter" class="sql-gutter" @scroll.prevent>
+                  <div
+                    v-for="n in sqlLineCount"
+                    :key="'ln-' + n"
+                    class="sql-gutter-line"
+                  >{{ n }}</div>
+                </div>
+                <textarea
+                  ref="sqlTextarea"
+                  v-model="formData.sql"
+                  class="sql-editor"
+                  placeholder="请输入 SQL，例如：select * from user limit 10"
+                  rows="10"
+                  spellcheck="false"
+                  @scroll="syncSqlScroll"
+                />
+              </div>
+              <div class="sql-options-bar">
+                <div class="sql-options-row">
+                  <div class="sql-option">
+                    <el-checkbox v-model="formData.replaceVariables">替换SQL语句里的变量</el-checkbox>
+                    <el-tooltip
+                      content="开启后，将按流程变量替换 SQL 中的占位符（如 ${name}）。"
+                      placement="top"
+                      effect="dark"
+                    >
+                      <span class="help-icon" tabindex="0" role="button" aria-label="变量替换说明">?</span>
+                    </el-tooltip>
+                  </div>
+                  <div class="sql-option">
+                    <el-checkbox v-model="formData.isIncrement">是否增量</el-checkbox>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </template>
+
+        <template v-if="formData.isIncrement">
+          <div class="form-field">
+            <label class="field-label required">增量方式</label>
+            <el-select
+              v-model="formData.incrementType"
+              class="config-mode-select"
+              placeholder="请选择增量方式"
+              clearable
+            >
+              <el-option
+                v-for="opt in incrementTypeOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label required">增量字段</label>
+            <el-select
+              v-model="formData.incrementField"
+              class="config-mode-select"
+              placeholder="请选择增量字段"
+              filterable
+              clearable
+              :disabled="!incrementColumnOptions.length"
+            >
+              <el-option
+                v-for="name in incrementColumnOptions"
+                :key="name"
+                :label="name"
+                :value="name"
+              />
+            </el-select>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label required">目标库</label>
+            <el-cascader
+              v-model="formData.incrementTargetDataSourceId"
+              class="relation-db-cascader"
+              :options="dbCascaderOptions"
+              :props="dbCascaderProps"
+              filterable
+              clearable
+              placeholder="请选择目标库"
+              separator=" / "
+              popper-class="relation-db-cascader-popper"
+              @change="onIncrementTargetDbChange"
+            >
+              <template slot-scope="{ data }">
+                <span class="mq-node">
+                  <i :class="data.type === 'GROUP' ? 'el-icon-folder' : 'el-icon-link'" class="mq-node-icon" />
+                  <span class="mq-node-label">{{ data.label }}</span>
+                </span>
+              </template>
+            </el-cascader>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label required">目标表</label>
+            <el-select
+              v-model="formData.incrementTargetTable"
+              class="config-mode-select"
+              placeholder="请选择目标表"
+              filterable
+              clearable
+              :disabled="!formData.incrementTargetDataSourceId || !incrementTargetTableList.length"
+              @change="onIncrementTargetTableChange"
+            >
+              <el-option
+                v-for="t in incrementTargetTableList"
+                :key="tableRowKey(t)"
+                :label="t.name || t"
+                :value="t.name || t"
+              />
+            </el-select>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label required">目标表字段</label>
+            <el-select
+              v-model="formData.incrementTargetTableField"
+              class="config-mode-select"
+              placeholder="请选择目标表字段"
+              filterable
+              clearable
+              :disabled="!incrementColumnOptions.length"
+            >
+              <el-option
+                v-for="name in incrementColumnOptions"
+                :key="'tf-' + name"
+                :label="name"
+                :value="name"
+              />
+            </el-select>
+          </div>
+        </template>
       </div>
 
       <div v-show="activeTab === 'advanced'" class="advanced-layout">

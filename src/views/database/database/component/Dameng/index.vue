@@ -357,7 +357,7 @@ export default {
     },
 
     async testConnect() {
-      this.$refs.databaseInfo.validate(async (valid) => {
+      this.$refs.databaseInfo.validate(async(valid) => {
         if (!valid) return
         const database = JSON.parse(JSON.stringify(this.databaseInfo))
         database.password = await encrypt(database.password)
@@ -369,7 +369,7 @@ export default {
     },
 
     async save() {
-      this.$refs.databaseInfo.validate(async (valid) => {
+      this.$refs.databaseInfo.validate(async(valid) => {
         if (!valid) return
         const database = JSON.parse(JSON.stringify(this.databaseInfo))
         database.password = await encrypt(database.password)

@@ -16,132 +16,132 @@
       <!-- 基础配置 -->
 
       <div v-show="activeTab === 'basic'">
-      <div class="form-item">
-        <label class="form-label required">节点名称：</label>
-        <input v-model="formData.name" type="text" class="form-input" placeholder="输出到治理库">
-      </div>
-
-      <div class="form-item">
-        <label class="form-label">节点说明：</label>
-        <textarea v-model="formData.description" type="text" class="form-textarea" placeholder="请输入说明" />
-      </div>
-
-      <div class="section-header">
-        <h4>通用配置</h4>
-        <div class="section-toggle" @click="toggleSection('general')">
-          <i :class="sectionOpen.general ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
-        </div>
-      </div>
-      <div v-show="sectionOpen.general" class="section-content">
         <div class="form-item">
-          <label class="form-label required">数据源连接：</label>
-          <el-cascader
-            v-model="formData.dataSourceId"
-            class="relation-db-cascader"
-            :options="cascaderDbOptions"
-            :props="dbCascaderProps"
-            filterable
-            clearable
-            placeholder="请选择数据源"
-            separator=" / "
-            popper-class="relation-db-cascader-popper"
-            @visible-change="onRelationalDbTreeVisible"
-          >
-            <template slot-scope="{ data }">
-              <span class="mq-node">
-                <i :class="data.type === 'GROUP' ? 'el-icon-folder' : 'el-icon-link'" class="mq-node-icon" />
-                <span class="mq-node-label">{{ data.label }}</span>
-              </span>
-            </template>
-          </el-cascader>
+          <label class="form-label required">节点名称：</label>
+          <input v-model="formData.name" type="text" class="form-input" placeholder="输出到治理库">
         </div>
 
         <div class="form-item">
-          <label class="form-label">目标模式：</label>
-          <input v-model="formData.schemaName" type="text" class="form-input" placeholder="请输入模式名称 (schema)">
+          <label class="form-label">节点说明：</label>
+          <textarea v-model="formData.description" type="text" class="form-textarea" placeholder="请输入说明" />
         </div>
 
-        <div class="form-item">
-          <label class="form-label required">目标表：</label>
-          <div v-click-outside="closeTableDropdown" class="custom-select table-name-select">
-            <div
-              class="select-input"
-              :class="{ 'is-open': tableDropdownOpen }"
-              role="button"
-              tabindex="0"
-              @click="tableDropdownOpen = !tableDropdownOpen"
-              @keydown.enter.prevent="tableDropdownOpen = !tableDropdownOpen"
-              @keydown.space.prevent="tableDropdownOpen = !tableDropdownOpen"
+        <div class="section-header">
+          <h4>通用配置</h4>
+          <div class="section-toggle" @click="toggleSection('general')">
+            <i :class="sectionOpen.general ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          </div>
+        </div>
+        <div v-show="sectionOpen.general" class="section-content">
+          <div class="form-item">
+            <label class="form-label required">数据源连接：</label>
+            <el-cascader
+              v-model="formData.dataSourceId"
+              class="relation-db-cascader"
+              :options="cascaderDbOptions"
+              :props="dbCascaderProps"
+              filterable
+              clearable
+              placeholder="请选择数据源"
+              separator=" / "
+              popper-class="relation-db-cascader-popper"
+              @visible-change="onRelationalDbTreeVisible"
             >
-              <span v-if="formData.tableName" class="select-value-text">{{ formData.tableName }}</span>
-              <span v-else class="placeholder">请选择表名称</span>
-              <i class="el-icon-arrow-down arrow" :class="{ open: tableDropdownOpen }" />
-            </div>
-            <div v-show="tableDropdownOpen" class="select-dropdown">
+              <template slot-scope="{ data }">
+                <span class="mq-node">
+                  <i :class="data.type === 'GROUP' ? 'el-icon-folder' : 'el-icon-link'" class="mq-node-icon" />
+                  <span class="mq-node-label">{{ data.label }}</span>
+                </span>
+              </template>
+            </el-cascader>
+          </div>
+
+          <div class="form-item">
+            <label class="form-label">目标模式：</label>
+            <input v-model="formData.schemaName" type="text" class="form-input" placeholder="请输入模式名称 (schema)">
+          </div>
+
+          <div class="form-item">
+            <label class="form-label required">目标表：</label>
+            <div v-click-outside="closeTableDropdown" class="custom-select table-name-select">
               <div
-                v-for="table in tableList"
-                :key="table.id || table"
-                class="select-option"
-                :class="{ selected: formData.tableName === (table.name || table) }"
-                @click="selectTableItem(table)"
+                class="select-input"
+                :class="{ 'is-open': tableDropdownOpen }"
+                role="button"
+                tabindex="0"
+                @click="tableDropdownOpen = !tableDropdownOpen"
+                @keydown.enter.prevent="tableDropdownOpen = !tableDropdownOpen"
+                @keydown.space.prevent="tableDropdownOpen = !tableDropdownOpen"
               >
-                {{ table.name || table }}
+                <span v-if="formData.tableName" class="select-value-text">{{ formData.tableName }}</span>
+                <span v-else class="placeholder">请选择表名称</span>
+                <i class="el-icon-arrow-down arrow" :class="{ open: tableDropdownOpen }" />
               </div>
-              <div v-if="tableList.length === 0" class="select-empty">{{ formData.dataSourceId ? '暂无数据' : '请先选择数据源' }}</div>
+              <div v-show="tableDropdownOpen" class="select-dropdown">
+                <div
+                  v-for="table in tableList"
+                  :key="table.id || table"
+                  class="select-option"
+                  :class="{ selected: formData.tableName === (table.name || table) }"
+                  @click="selectTableItem(table)"
+                >
+                  {{ table.name || table }}
+                </div>
+                <div v-if="tableList.length === 0" class="select-empty">{{ formData.dataSourceId ? '暂无数据' : '请先选择数据源' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-item">
+            <label class="form-label">提交记录数量：</label>
+            <input v-model="formData.commitSize" type="number" class="form-input" placeholder="1000" min="1">
+          </div>
+
+          <div class="form-item form-item-checkbox">
+            <span class="form-label-spacer" aria-hidden="true" />
+            <div class="form-control-block">
+              <el-checkbox v-model="formData.truncateTable" class="to-checkbox">写入之前清空表</el-checkbox>
             </div>
           </div>
         </div>
 
-        <div class="form-item">
-          <label class="form-label">提交记录数量：</label>
-          <input v-model="formData.commitSize" type="number" class="form-input" placeholder="1000" min="1">
+        <div class="section-header">
+          <h4>数据库字段</h4>
+          <div class="section-toggle" @click="toggleSection('fields')">
+            <i :class="sectionOpen.fields ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          </div>
         </div>
+        <div v-show="sectionOpen.fields" class="section-content">
+          <div class="form-item form-item-checkbox">
+            <span class="form-label-spacer" aria-hidden="true" />
+            <div class="form-control-block">
+              <el-checkbox v-model="formData.specifyFields" class="to-checkbox">指定数据库字段</el-checkbox>
+            </div>
+          </div>
 
-        <div class="form-item form-item-checkbox">
-          <span class="form-label-spacer" aria-hidden="true" />
-          <div class="form-control-block">
-            <el-checkbox v-model="formData.truncateTable" class="to-checkbox">写入之前清空表</el-checkbox>
+          <div v-if="formData.specifyFields" class="field-mapping aligned-block">
+            <div class="field-table-wrap">
+              <el-table :data="formData.fieldList" border style="width: 100%" max-height="260">
+                <el-table-column type="index" label="#" width="60" />
+                <el-table-column label="流字段" min-width="180">
+                  <template slot-scope="scope">
+                    <div class="wrap-cell">{{ scope.row.fieldStream }}</div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="表字段" min-width="180">
+                  <template slot-scope="scope">
+                    <div class="wrap-cell">{{ scope.row.fieldDatabase }}</div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+            <div class="field-actions">
+              <button type="button" class="dash-btn" @click="editFields">
+                <i class="el-icon-edit" /> 编辑字段
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="section-header">
-        <h4>数据库字段</h4>
-        <div class="section-toggle" @click="toggleSection('fields')">
-          <i :class="sectionOpen.fields ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
-        </div>
-      </div>
-      <div v-show="sectionOpen.fields" class="section-content">
-        <div class="form-item form-item-checkbox">
-          <span class="form-label-spacer" aria-hidden="true" />
-          <div class="form-control-block">
-            <el-checkbox v-model="formData.specifyFields" class="to-checkbox">指定数据库字段</el-checkbox>
-          </div>
-        </div>
-
-        <div v-if="formData.specifyFields" class="field-mapping aligned-block">
-          <div class="field-table-wrap">
-            <el-table :data="formData.fieldList" border style="width: 100%" max-height="260">
-              <el-table-column type="index" label="#" width="60" />
-              <el-table-column label="流字段" min-width="180">
-                <template slot-scope="scope">
-                  <div class="wrap-cell">{{ scope.row.fieldStream }}</div>
-                </template>
-              </el-table-column>
-              <el-table-column label="表字段" min-width="180">
-                <template slot-scope="scope">
-                  <div class="wrap-cell">{{ scope.row.fieldDatabase }}</div>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <div class="field-actions">
-            <button type="button" class="dash-btn" @click="editFields">
-              <i class="el-icon-edit" /> 编辑字段
-            </button>
-          </div>
-        </div>
-      </div>
       </div>
 
       <div v-show="activeTab === 'advanced'" class="advanced-layout">

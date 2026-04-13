@@ -91,8 +91,7 @@ export function downloadResource(downloadParams, config = {}) {
     downloadParams,
     {
       ...config,
-      responseType: 'blob',
-      timeout: 60000
+      responseType: 'blob'
     }
   )
 }

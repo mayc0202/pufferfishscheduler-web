@@ -290,6 +290,7 @@
       </div>
     </move-dialog>
     <upload-dialog
+      ref="uploadDialogRef"
       :title="uploadDialog.title"
       :prompt="uploadDialog.prompt"
       :visible="uploadDialog.visible"
@@ -651,7 +652,10 @@ export default {
      * 确认上传
      */
     confirmUpload() {
-      // 确认上传逻辑
+      if (this.$refs.uploadDialogRef && this.$refs.uploadDialogRef.uploading) {
+        this.$message.warning('文件上传中，请稍候')
+        return
+      }
       this.uploadDialog.visible = false
     },
 
@@ -659,6 +663,10 @@ export default {
      * 取消上传
      */
     cancelUpload() {
+      if (this.$refs.uploadDialogRef && this.$refs.uploadDialogRef.uploading) {
+        this.$message.warning('文件上传中，请稍候')
+        return
+      }
       this.uploadDialog.visible = false
     },
 
@@ -779,7 +787,7 @@ export default {
         return data
       } catch (error) {
         if (error.message.includes('timeout')) {
-          this.$message.error('网络请求超时...')
+          this.$message.warning('网络请求超时...')
         } else {
           this.$message.error(error.message || '获取目录树失败')
         }

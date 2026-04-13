@@ -63,12 +63,6 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>全局状态占比</h3>
-        </div>
-        <div ref="statusDonutChart" class="chart" />
-      </div>
-      <div class="chart-card">
-        <div class="chart-header">
           <h3>模块健康度</h3>
         </div>
         <div class="health-list">
@@ -104,11 +98,11 @@
           <div class="value">{{ knowledgeBaseStats.tags }}</div>
         </div>
         <div class="knowledge-kpi">
-          <div class="label">今日更新</div>
-          <div class="value">{{ knowledgeBaseStats.updatedToday }}</div>
+          <div class="label">关联关系</div>
+          <div class="value">{{ knowledgeBaseStats.relations }}</div>
         </div>
       </div>
-      <el-table :data="knowledgeBaseMockList" stripe class="knowledge-table">
+      <el-table :data="knowledgeTableData" stripe class="knowledge-table" empty-text="暂无知识条目">
         <el-table-column prop="title" label="标题" min-width="260" />
         <el-table-column prop="category" label="分类" width="120" />
         <el-table-column prop="tag" label="标签" width="160" />
@@ -121,12 +115,28 @@
 
 <script>
 import echarts from 'echarts'
-import dictCode from '@/api/dict/dictCode'
-import { getDict } from '@/api/dict/dict'
-import { getDbList } from '@/api/database/database/database'
-import { list as metadataList } from '@/api/database/metadata/metadata'
-import { list as cleanTaskList } from '@/api/collect/task/transtask'
-import { list as realtimeTaskList } from '@/api/collect/realtime/realtime'
+import { getDashboardSummary } from '@/api/dashboard/dashboard'
+
+/** 任务状态码 -> 中文（与字典常见枚举对齐，避免额外请求字典接口） */
+const TASK_STATUS_LABELS = {
+  INIT: '初始化',
+  PENDING: '待处理',
+  RUNNING: '运行中',
+  STARTING: '启动中',
+  STOPPING: '停止中',
+  STOPPED: '已停止',
+  SUCCESS: '成功',
+  FAILED: '失败',
+  ERROR: '错误',
+  COMPLETED: '已完成',
+  CANCELLED: '已取消',
+  PAUSED: '已暂停',
+  RESUMING: '恢复中',
+  SCHEDULED: '已调度',
+  QUEUED: '排队中',
+  PROCESSING: '处理中',
+  EXECUTING: '执行中'
+}
 
 export default {
   name: 'DashboardAdmin',
@@ -134,16 +144,9 @@ export default {
     return {
       loading: false,
       lastUpdate: null,
-      taskStatusOptions: [],
-      summaries: {
-        dataSource: { total: 0, statuses: [] },
-        metadata: { total: 0, statuses: [] },
-        cleanTask: { total: 0, statuses: [] },
-        realtimeTask: { total: 0, statuses: [] },
-        knowledgeBase: { total: 0, statuses: [] }
-      },
-      statusStackChart: null,
-      statusDonutChart: null
+      /** 后端 /dashboard/summary.do 返回的 data */
+      dashboard: null,
+      statusStackChart: null
     }
   },
   computed: {
@@ -152,118 +155,100 @@ export default {
       return this.lastUpdate
     },
     moduleCards() {
+      const tc = (this.dashboard && this.dashboard.taskCards) || {}
+      const sd = (this.dashboard && this.dashboard.statusDistributions) || {}
+      const statusFor = key => this.takeTopStatuses(this.countsToStatuses(sd[key] && sd[key].counts))
       return [
-        {
-          key: 'dataSource',
-          title: '数据源接入',
-          total: this.summaries.dataSource.total,
-          desc: '数据资产入口规模',
-          icon: 'el-icon-coin',
-          iconClass: 'icon-datasource',
-          topStatuses: this.takeTopStatuses(this.summaries.dataSource.statuses)
-        },
         {
           key: 'metadata',
           title: '元数据同步任务',
-          total: this.summaries.metadata.total,
+          total: Number(tc.metadataTasks || 0),
           desc: '元数据采集执行状态',
           icon: 'el-icon-s-operation',
           iconClass: 'icon-metadata',
-          topStatuses: this.takeTopStatuses(this.summaries.metadata.statuses)
+          topStatuses: statusFor('metadata')
         },
         {
           key: 'cleanTask',
           title: '清洗任务',
-          total: this.summaries.cleanTask.total,
+          total: Number(tc.cleanTasks || 0),
           desc: '离线清洗任务运行概览',
           icon: 'el-icon-magic-stick',
           iconClass: 'icon-clean',
-          topStatuses: this.takeTopStatuses(this.summaries.cleanTask.statuses)
+          topStatuses: statusFor('clean')
         },
         {
           key: 'realtimeTask',
           title: '实时归集任务',
-          total: this.summaries.realtimeTask.total,
+          total: Number(tc.realtimeTasks || 0),
           desc: 'CDC 归集链路健康度',
           icon: 'el-icon-connection',
           iconClass: 'icon-realtime',
-          topStatuses: this.takeTopStatuses(this.summaries.realtimeTask.statuses)
+          topStatuses: statusFor('realtime')
+        },
+        {
+          key: 'transTask',
+          title: '传输任务',
+          total: Number(tc.transTasks || 0),
+          desc: '离线传输任务运行概览',
+          icon: 'el-icon-sort',
+          iconClass: 'icon-trans',
+          topStatuses: statusFor('trans')
         }
       ]
     },
     globalMetrics() {
-      const statusPool = [
-        ...(this.summaries.metadata.statuses || []),
-        ...(this.summaries.cleanTask.statuses || []),
-        ...(this.summaries.realtimeTask.statuses || [])
-      ]
-      const totalTasks = this.summaries.metadata.total + this.summaries.cleanTask.total + this.summaries.realtimeTask.total
-      const runningTasks = statusPool
-        .filter(item => /运行|执行中|启动|处理中/i.test(item.label))
-        .reduce((sum, cur) => sum + Number(cur.count || 0), 0)
-      const failedTasks = statusPool
-        .filter(item => /失败|异常|错误|终止/i.test(item.label))
-        .reduce((sum, cur) => sum + Number(cur.count || 0), 0)
+      const tc = (this.dashboard && this.dashboard.taskCards) || {}
+      const totalTasks = Number(tc.totalTasks || 0)
+      const prog = (this.dashboard && this.dashboard.progress) || {}
+      const failedTasks = ['metadata', 'trans', 'realtime', 'clean'].reduce(
+        (sum, k) => sum + Number((prog[k] && prog[k].failureCount) || 0),
+        0
+      )
+      const runningTasks = this.sumRunningAcrossDistributions()
       const failureRate = totalTasks ? ((failedTasks / totalTasks) * 100).toFixed(1) : '0.0'
       return {
         totalTasks,
         runningTasks,
         failedTasks,
         failureRate,
-        moduleCount: 5
+        moduleCount: 4
       }
     },
     healthRows() {
-      const rows = [
-        { name: '元数据同步', summary: this.summaries.metadata, color: '#2F54EB' },
-        { name: '清洗任务', summary: this.summaries.cleanTask, color: '#13C2C2' },
-        { name: '实时归集', summary: this.summaries.realtimeTask, color: '#722ED1' }
+      const p = (this.dashboard && this.dashboard.progress) || {}
+      const sd = (this.dashboard && this.dashboard.statusDistributions) || {}
+      const defs = [
+        { name: '元数据同步', progKey: 'metadata', distKey: 'metadata', color: '#2F54EB' },
+        { name: '清洗任务', progKey: 'clean', distKey: 'clean', color: '#13C2C2' },
+        { name: '实时归集', progKey: 'realtime', distKey: 'realtime', color: '#722ED1' },
+        { name: '传输任务', progKey: 'trans', distKey: 'trans', color: '#EB2F96' }
       ]
-      return rows.map(row => {
-        const statuses = row.summary.statuses || []
-        const total = Number(row.summary.total || 0)
-        const running = statuses
-          .filter(s => /运行|执行中|启动|处理中/i.test(s.label))
-          .reduce((sum, cur) => sum + Number(cur.count || 0), 0)
-        const failed = statuses
-          .filter(s => /失败|异常|错误|终止/i.test(s.label))
-          .reduce((sum, cur) => sum + Number(cur.count || 0), 0)
-        const score = total > 0 ? Math.max(0, Math.min(100, Math.round(((total - failed) / total) * 100))) : 0
-        return { name: row.name, score, running, failed, total, color: row.color }
+      return defs.map(d => {
+        const prog = p[d.progKey] || {}
+        const counts = (sd[d.distKey] && sd[d.distKey].counts) || {}
+        return {
+          name: d.name,
+          score: Math.max(0, Math.min(100, Number(prog.percent || 0))),
+          running: this.sumRunningCount(counts),
+          failed: Number(prog.failureCount || 0),
+          total: Number(prog.totalCount || 0),
+          color: d.color
+        }
       })
     },
     knowledgeBaseStats() {
+      const k = (this.dashboard && this.dashboard.knowledgeOverview) || {}
       return {
-        total: this.summaries.knowledgeBase.total || 0,
-        categories: 2,
-        tags: 3,
-        updatedToday: 3
+        total: Number(k.knowledgeCount || 0),
+        categories: Number(k.categoryCount || 0),
+        tags: Number(k.tagCount || 0),
+        relations: Number(k.relationCount || 0)
       }
     },
-    knowledgeBaseMockList() {
-      return [
-        {
-          title: 'Kafka输入输出组件使用技巧',
-          category: '技术文档',
-          tag: 'Kafka',
-          uploader: '当前用户',
-          updateTime: '2026/03/27 01:15:04'
-        },
-        {
-          title: '清洗规则预览生成案例',
-          category: '技术文档',
-          tag: '清洗规则',
-          uploader: '当前用户',
-          updateTime: '2026/03/27 01:14:26'
-        },
-        {
-          title: 'PufferfishScheduler产品使用手册1.0',
-          category: '操作指南',
-          tag: 'PufferfishScheduler',
-          uploader: '当前用户',
-          updateTime: '2026/03/27 01:13:34'
-        }
-      ]
+    /** 列表暂无独立接口，仅占位；有数据后再对接列表 API */
+    knowledgeTableData() {
+      return []
     }
   },
   mounted() {
@@ -273,25 +258,14 @@ export default {
   beforeDestroy() {
     window.removeEventListener('resize', this.handleResize)
     this.statusStackChart && this.statusStackChart.dispose()
-    this.statusDonutChart && this.statusDonutChart.dispose()
   },
   methods: {
     initCharts() {
       this.statusStackChart = echarts.init(this.$refs.statusStackChart)
-      this.statusDonutChart = echarts.init(this.$refs.statusDonutChart)
       window.addEventListener('resize', this.handleResize)
     },
     handleResize() {
       this.statusStackChart && this.statusStackChart.resize()
-      this.statusDonutChart && this.statusDonutChart.resize()
-    },
-    toDictOption(item) {
-      const labelRaw = item && (item.value != null ? item.value : (item.label != null ? item.label : (item.name != null ? item.name : item.code)))
-      const valueRaw = item && (item.code != null ? item.code : (item.id != null ? item.id : item.value))
-      return {
-        label: labelRaw != null ? String(labelRaw) : '',
-        value: valueRaw != null ? String(valueRaw) : ''
-      }
     },
     isApiSuccess(res) {
       if (!res || typeof res !== 'object') return false
@@ -299,84 +273,49 @@ export default {
       if (!code) return true
       return code !== '999999'
     },
-    getPageData(res) {
-      const data = (res && res.data) || {}
-      return {
-        total: Number(data.total || 0),
-        records: Array.isArray(data.records) ? data.records : []
-      }
-    },
     takeTopStatuses(statuses) {
       const list = Array.isArray(statuses) ? statuses.filter(item => Number(item.count) > 0) : []
       return (list.length ? list : [{ label: '暂无状态数据', count: 0 }]).slice(0, 3)
     },
-    getLabelByCode(code) {
-      const text = String(code)
-      const hit = (this.taskStatusOptions || []).find(item => item.value === text)
-      return hit ? hit.label : text
+    taskStatusLabel(code) {
+      const c = String(code || '').toUpperCase()
+      return TASK_STATUS_LABELS[c] || String(code || '')
     },
-    async loadTaskStatusDict() {
-      try {
-        const res = await getDict(dictCode.TASK_STATUS)
-        if (!this.isApiSuccess(res) || !Array.isArray(res.data)) return
-        this.taskStatusOptions = res.data.map(this.toDictOption)
-      } catch (e) {
-        this.taskStatusOptions = []
-      }
+    countsToStatuses(counts) {
+      const obj = counts && typeof counts === 'object' ? counts : {}
+      return Object.keys(obj)
+        .map(code => ({
+          label: this.taskStatusLabel(code),
+          count: Number(obj[code] || 0)
+        }))
+        .sort((a, b) => b.count - a.count)
     },
-    async buildTaskSummary(fetcher, statusKey, baseParams) {
-      const queryBase = Object.assign({}, baseParams || {})
-      const totalRes = await fetcher(Object.assign({}, queryBase, { pageNo: 1, pageSize: 1 }))
-      if (!this.isApiSuccess(totalRes)) return { total: 0, statuses: [] }
-      const total = this.getPageData(totalRes).total
-
-      if (!this.taskStatusOptions.length) {
-        return { total, statuses: [{ label: '总量', count: total }] }
-      }
-
-      const statusReq = this.taskStatusOptions.map(async opt => {
-        try {
-          const params = Object.assign({}, queryBase, { pageNo: 1, pageSize: 1 })
-          params[statusKey] = opt.value
-          const res = await fetcher(params)
-          if (!this.isApiSuccess(res)) return null
-          const count = this.getPageData(res).total
-          return { label: opt.label, count }
-        } catch (e) {
-          return null
-        }
-      })
-      const statuses = (await Promise.all(statusReq)).filter(Boolean)
-      return { total, statuses }
+    isRunningStatusCode(code) {
+      return /^(RUNNING|STARTING|EXECUTING|RUN|PROCESSING|RESUMING)$/i.test(String(code || ''))
+    },
+    sumRunningCount(counts) {
+      const obj = counts && typeof counts === 'object' ? counts : {}
+      return Object.keys(obj).reduce((sum, code) => {
+        if (!this.isRunningStatusCode(code)) return sum
+        return sum + Number(obj[code] || 0)
+      }, 0)
+    },
+    sumRunningAcrossDistributions() {
+      const sd = (this.dashboard && this.dashboard.statusDistributions) || {}
+      return ['metadata', 'trans', 'realtime', 'clean'].reduce(
+        (sum, k) => sum + this.sumRunningCount(sd[k] && sd[k].counts),
+        0
+      )
     },
     async refreshDashboard() {
       this.loading = true
       try {
-        await this.loadTaskStatusDict()
-        const [dbRes, metadataSummary, cleanSummary, realtimeSummary] = await Promise.all([
-          getDbList({ groupId: '', dbId: '', name: '', pageNo: 1, pageSize: 1 }),
-          this.buildTaskSummary(metadataList, 'status', { groupId: '', dbId: '', dbName: '', enable: '', status: '' }),
-          this.buildTaskSummary(cleanTaskList, 'status', { groupId: '', name: '', enable: '' }),
-          this.buildTaskSummary(realtimeTaskList, 'taskStatus', { taskName: '', sourceDbId: '', targetDbId: '', taskStatus: '' })
-        ])
-
-        const dbTotal = this.isApiSuccess(dbRes) ? this.getPageData(dbRes).total : 0
-        this.summaries.dataSource = {
-          total: dbTotal,
-          statuses: [{ label: '已接入', count: dbTotal }]
+        const res = await getDashboardSummary()
+        if (!this.isApiSuccess(res) || res.data == null) {
+          this.$message.error('首页统计数据加载失败，请稍后重试')
+          return
         }
-        this.summaries.metadata = metadataSummary
-        this.summaries.cleanTask = cleanSummary
-        this.summaries.realtimeTask = realtimeSummary
-        // 知识库模块先使用演示数据，后续可替换为真实接口
-        this.summaries.knowledgeBase = {
-          total: 168,
-          statuses: [
-            { label: '已发布', count: 132 },
-            { label: '审核中', count: 24 },
-            { label: '草稿', count: 12 }
-          ]
-        }
+        this.dashboard = res.data
         this.lastUpdate = this.$moment ? this.$moment().format('YYYY-MM-DD HH:mm:ss') : new Date().toLocaleString()
         this.updateCharts()
       } catch (e) {
@@ -386,10 +325,12 @@ export default {
       }
     },
     buildStackSeriesData() {
+      const sd = (this.dashboard && this.dashboard.statusDistributions) || {}
       const moduleDefs = [
-        { name: '元数据同步', statuses: this.summaries.metadata.statuses || [] },
-        { name: '清洗任务', statuses: this.summaries.cleanTask.statuses || [] },
-        { name: '实时归集', statuses: this.summaries.realtimeTask.statuses || [] }
+        { name: '元数据同步', statuses: this.countsToStatuses(sd.metadata && sd.metadata.counts) },
+        { name: '清洗任务', statuses: this.countsToStatuses(sd.clean && sd.clean.counts) },
+        { name: '实时归集', statuses: this.countsToStatuses(sd.realtime && sd.realtime.counts) },
+        { name: '传输任务', statuses: this.countsToStatuses(sd.trans && sd.trans.counts) }
       ]
       const counter = {}
       moduleDefs.forEach(m => {
@@ -422,38 +363,6 @@ export default {
         xAxis: { type: 'category', data: stackData.categories },
         yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed', color: '#E7EDF6' }}},
         series: stackData.series
-      })
-
-      const statusPool = [
-        ...(this.summaries.metadata.statuses || []),
-        ...(this.summaries.cleanTask.statuses || []),
-        ...(this.summaries.realtimeTask.statuses || [])
-      ]
-      const statusMap = {}
-      statusPool.forEach(item => {
-        const k = item.label || '未知'
-        statusMap[k] = (statusMap[k] || 0) + Number(item.count || 0)
-      })
-      const donutData = Object.keys(statusMap)
-        .map(key => ({ name: key, value: statusMap[key] }))
-        .filter(item => item.value > 0)
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 8)
-
-      this.statusDonutChart.setOption({
-        tooltip: { trigger: 'item' },
-        legend: { type: 'scroll', bottom: 0, icon: 'circle' },
-        series: [{
-          name: '状态占比',
-          type: 'pie',
-          radius: ['36%', '68%'],
-          center: ['50%', '45%'],
-          avoidLabelOverlap: true,
-          itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
-          label: { formatter: '{b}\n{d}%', fontSize: 12 },
-          labelLine: { length: 12, length2: 10 },
-          data: donutData
-        }]
       })
     }
   }
@@ -527,10 +436,10 @@ export default {
     font-size: 20px;
   }
 
-  .icon-datasource { background: linear-gradient(135deg, #36cfc9, #13c2c2); }
   .icon-metadata { background: linear-gradient(135deg, #3d8cff, #69b1ff); }
   .icon-clean { background: linear-gradient(135deg, #fa8c16, #ffc069); }
   .icon-realtime { background: linear-gradient(135deg, #722ed1, #b37feb); }
+  .icon-trans { background: linear-gradient(135deg, #eb2f96, #ff85c0); }
 
   .card-content {
     flex: 1;

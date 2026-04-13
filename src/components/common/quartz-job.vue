@@ -16,13 +16,20 @@
           v-model="selectedValue"
           :options="cascaderOptions"
           :props="cascaderProps"
-          :show-all-levels="false"
           placeholder="请选择数据源"
           clearable
           filterable
-          class="full-width"
-          @change="handleChange"
-        />
+          separator=" / "
+          popper-class="relation-db-cascader-popper"
+          class="full-width quartz-relation-db-cascader"
+        >
+          <template slot-scope="{ data }">
+            <span class="mq-node">
+              <i :class="data.type === 'GROUP' ? 'el-icon-folder' : 'el-icon-link'" class="mq-node-icon" />
+              <span class="mq-node-label">{{ data.label }}</span>
+            </span>
+          </template>
+        </el-cascader>
       </div>
 
       <div class="form-group">
@@ -159,7 +166,9 @@ export default {
       cascaderProps: {
         emitPath: false,
         expandTrigger: 'hover',
-        checkStrictly: false
+        value: 'value',
+        label: 'label',
+        children: 'children'
       },
       // 失败策略
       failurePolicyOptions: [],
@@ -174,6 +183,14 @@ export default {
     }
   },
   watch: {
+    selectedValue(val) {
+      if (val == null || val === '') {
+        this.formData.dbId = null
+        return
+      }
+      const n = Number(val)
+      this.formData.dbId = Number.isFinite(n) ? n : val
+    },
     // 监听editData变化
     editData: {
       immediate: true,
@@ -208,18 +225,23 @@ export default {
       if (!data || !Array.isArray(data)) return []
       return data
         .filter(item => item.type === 'GROUP' && item.children && item.children.length > 0)
-        .map(group => ({
-          value: group.id,
-          label: group.name,
-          disabled: false,
-          children: group.children
+        .map((group) => {
+          const children = group.children
             .filter(child => child.type === 'DATABASE')
             .map(db => ({
-              value: db.id,
-              label: db.name
+              value: String(db.id),
+              label: db.name || '未命名',
+              type: 'DATABASE'
             }))
-        }))
-        .filter(group => group.children.length > 0) // 过滤掉没有有效子节点的分组
+          if (!children.length) return null
+          return {
+            value: String(group.id),
+            label: group.name || '未知分组',
+            type: 'GROUP',
+            children
+          }
+        })
+        .filter(Boolean)
     },
 
     // 获取数据
@@ -230,15 +252,6 @@ export default {
       } catch (error) {
         console.error('获取数据失败:', error)
         this.$message.error('获取数据源列表失败')
-      }
-    },
-
-    // 选择变化处理
-    handleChange(value) {
-      this.formData.dbId = value
-      // 如果是编辑模式，确保级联选择器选中正确的值
-      if (value && this.cascaderOptions.length > 0) {
-        // 可以在这里添加额外的逻辑来处理级联选择器的回填
       }
     },
 
@@ -304,8 +317,9 @@ export default {
           enable: this.isEnabled(taskData.enable) ? '0' : '1'
         }
 
-        // 设置级联选择器选中的值
-        this.selectedValue = taskData.dbId
+        // 设置级联选择器选中的值（与 option.value 字符串一致）
+        this.selectedValue =
+          taskData.dbId != null && taskData.dbId !== '' ? String(taskData.dbId) : null
       } catch (error) {
         console.error('加载任务详情失败:', error)
         this.$message.error('加载任务详情失败')
@@ -321,7 +335,8 @@ export default {
         ...this.formData,
         ...data
       }
-      this.selectedValue = data.dbId
+      this.selectedValue =
+        data.dbId != null && data.dbId !== '' ? String(data.dbId) : null
     },
 
     /**
@@ -402,5 +417,56 @@ export default {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 30px;
+}
+
+.quartz-relation-db-cascader ::v-deep .el-input {
+  width: 100%;
+}
+
+.quartz-relation-db-cascader ::v-deep .el-input__inner {
+  height: 40px;
+  line-height: 40px;
+  border-radius: 4px;
+  padding: 0 12px;
+  color: #303133;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.quartz-relation-db-cascader ::v-deep .el-input__inner:focus {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.12);
+}
+
+.mq-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mq-node-icon {
+  color: #909399;
+  font-size: 14px;
+}
+
+.mq-node-label {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
+
+<style>
+.relation-db-cascader-popper.el-popper[x-placement^='bottom'] {
+  margin-top: 6px;
+}
+
+.relation-db-cascader-popper {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.relation-db-cascader-popper .el-cascader-menu {
+  min-width: 200px;
 }
 </style>

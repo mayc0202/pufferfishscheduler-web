@@ -1,0 +1,498 @@
+<template>
+  <div class="system-date-config">
+    <div class="config-content">
+      <FlowConfigHero
+        badge="输入"
+        title="获取系统时间"
+        description="向数据流注入系统时间等时间类字段，便于打标或增量逻辑。"
+        tone="azure"
+        icon="el-icon-time"
+      />
+      <el-tabs v-model="activeTab" class="config-tabs">
+        <el-tab-pane label="基础配置" name="basic" />
+        <el-tab-pane label="高级配置" name="advanced" />
+      </el-tabs>
+
+      <template v-if="activeTab === 'basic'">
+        <div class="form-item">
+          <label class="form-label required">步骤名称：</label>
+          <input v-model="formData.name" type="text" class="form-input" placeholder="获取系统时间">
+        </div>
+
+        <div class="form-item">
+          <label class="form-label">说明：</label>
+          <textarea v-model="formData.description" class="form-textarea" rows="3" placeholder="请输入说明" />
+        </div>
+
+        <div class="section-header">
+          <h4>字段</h4>
+        </div>
+        <div class="section-content">
+          <div class="field-table-wrap">
+            <el-table :data="displayFieldList" border style="width: 100%" max-height="260">
+              <el-table-column type="index" label="#" width="56" />
+              <el-table-column prop="name" label="字段名称" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="typeLabel" label="时间类型" min-width="260" show-overflow-tooltip />
+            </el-table>
+          </div>
+          <button type="button" class="dash-btn" @click="openFieldEditor">
+            <i class="el-icon-edit" /> 编辑字段
+          </button>
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="advanced-layout">
+          <div class="section-header" @click="sectionOpen.distribution = !sectionOpen.distribution">
+            <h4>数据分发</h4>
+            <div class="section-toggle">
+              <i :class="sectionOpen.distribution ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+            </div>
+          </div>
+          <div v-show="sectionOpen.distribution" class="section-content">
+            <div class="advanced-row">
+              <span class="advanced-label">数据分发模式：</span>
+              <el-radio-group v-model="distributionMode">
+                <el-radio :label="'copy'">复制</el-radio>
+                <el-radio :label="'distribute'">分发</el-radio>
+              </el-radio-group>
+            </div>
+          </div>
+
+          <div class="section-header" @click="sectionOpen.parallel = !sectionOpen.parallel">
+            <h4>并发配置</h4>
+            <div class="section-toggle">
+              <i :class="sectionOpen.parallel ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+            </div>
+          </div>
+          <div v-show="sectionOpen.parallel" class="section-content">
+            <div class="form-item">
+              <label class="form-label">并发数量：</label>
+              <input v-model.number="formData.copiesCache" type="number" min="1" class="form-input" placeholder="1">
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <div class="form-actions">
+        <button type="button" class="btn primary-btn" @click="handleSubmit">确认</button>
+        <button type="button" class="btn secondary-btn" @click="$emit('cancel')">取消</button>
+      </div>
+    </div>
+
+    <el-dialog
+      :visible.sync="fieldDialog.visible"
+      title="编辑字段"
+      width="1000px"
+      append-to-body
+      :close-on-click-modal="false"
+      custom-class="system-date-field-dialog"
+      @open="onFieldDialogOpen"
+    >
+      <div class="field-required"><span class="req">*</span> 字段：</div>
+      <el-table :data="fieldDialog.rows" border style="width: 100%" max-height="400">
+        <el-table-column type="index" label="#" width="44" />
+        <el-table-column label="字段名称" min-width="260">
+          <template slot-scope="scope">
+            <el-input v-model="scope.row.name" size="small" placeholder="请输入字段名称" />
+          </template>
+        </el-table-column>
+        <el-table-column label="时间类型" min-width="380">
+          <template slot-scope="scope">
+            <el-select
+              v-model="scope.row.type"
+              size="small"
+              class="w-100"
+              placeholder="请选择时间类型"
+              filterable
+              allow-create
+              default-first-option
+            >
+              <el-option
+                v-for="opt in timeTypeOptions"
+                :key="String(opt.value)"
+                :label="opt.label"
+                :value="String(opt.value)"
+              />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="72" align="center">
+          <template slot-scope="scope">
+            <el-button type="text" @click="removeRow(scope.$index)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <button type="button" class="dash-btn add-row-btn" @click="addRow">
+        <i class="el-icon-plus" /> 添加行
+      </button>
+
+      <span slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="confirmFieldEditor">确定</el-button>
+        <el-button @click="fieldDialog.visible = false">取消</el-button>
+      </span>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import FlowConfigHero from '../common/FlowConfigHero.vue'
+
+const DEFAULT_TIME_TYPE_OPTIONS = [
+  { label: '系统时间（时间精确到时分秒）', value: '系统时间（时间精确到时分秒）' }
+]
+
+function safeParseJson(raw) {
+  if (raw == null || raw === '') return null
+  if (typeof raw === 'object') return raw
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw)
+    } catch (e) {
+      return null
+    }
+  }
+  return null
+}
+
+function mapOptions(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((x) => {
+      if (x == null) return null
+      if (typeof x === 'string' || typeof x === 'number') {
+        return { label: String(x), value: String(x) }
+      }
+      const code = x.code != null ? String(x.code) : ''
+      const value = x.value != null ? String(x.value) : ''
+      const label = value || (x.label != null ? String(x.label) : '') || (x.name != null ? String(x.name) : '') || code
+      const realValue = code || value || (x.key != null ? String(x.key) : '')
+      if (!realValue) return null
+      return { label: label || realValue, value: realValue }
+    })
+    .filter(Boolean)
+}
+
+function parseTimeTypeOptions(raw) {
+  const parsed = safeParseJson(raw)
+  if (!parsed) return DEFAULT_TIME_TYPE_OPTIONS
+
+  const rows = (() => {
+    if (Array.isArray(parsed)) return parsed
+    if (parsed && Array.isArray(parsed.list)) return parsed.list
+    if (parsed && Array.isArray(parsed.data)) return parsed.data
+    return []
+  })()
+
+  if (!rows.length) return DEFAULT_TIME_TYPE_OPTIONS
+
+  const dictRows = rows.filter(x => x && Array.isArray(x.list))
+  if (dictRows.length) {
+    const preferred = dictRows.find((x) => {
+      const dc = String(x.dictCode || x.code || '').toLowerCase()
+      return dc.includes('system') || dc.includes('time')
+    }) || dictRows[0]
+    const options = mapOptions(preferred.list)
+    return options.length ? options : DEFAULT_TIME_TYPE_OPTIONS
+  }
+
+  const direct = mapOptions(rows)
+  return direct.length ? direct : DEFAULT_TIME_TYPE_OPTIONS
+}
+
+export default {
+  name: 'SystemDateConfig',
+  components: { FlowConfigHero },
+  props: {
+    formData: {
+      type: Object,
+      required: true
+    },
+    componentTreeConfig: {
+      type: [Object, String, Array],
+      default: null
+    }
+  },
+  data() {
+    return {
+      activeTab: 'basic',
+      sectionOpen: {
+        distribution: false,
+        parallel: false
+      },
+      fieldDialog: {
+        visible: false,
+        rows: []
+      }
+    }
+  },
+  computed: {
+    timeTypeOptions() {
+      return parseTimeTypeOptions(this.componentTreeConfig)
+    },
+    distributionMode: {
+      get() {
+        return this.formData.distributeType ? 'copy' : 'distribute'
+      },
+      set(v) {
+        this.$set(this.formData, 'distributeType', v === 'copy')
+      }
+    },
+    displayFieldList() {
+      const list = Array.isArray(this.formData.fieldList) ? this.formData.fieldList : []
+      return list.map((r) => ({
+        name: r?.name != null ? String(r.name) : '',
+        type: r?.type != null ? String(r.type) : '',
+        typeLabel: this.timeTypeLabel(r?.type)
+      }))
+    }
+  },
+  mounted() {
+    this.initDefaults()
+  },
+  methods: {
+    initDefaults() {
+      if (this.formData.code === undefined || this.formData.code === '') this.$set(this.formData, 'code', 'SystemDate')
+      if (!this.formData.name) this.$set(this.formData, 'name', '获取系统时间')
+      if (this.formData.description === undefined) this.$set(this.formData, 'description', '')
+      if (!Array.isArray(this.formData.fieldList)) this.$set(this.formData, 'fieldList', [])
+      if (this.formData.copiesCache === undefined || this.formData.copiesCache === '') this.$set(this.formData, 'copiesCache', 1)
+      if (this.formData.distributeType === undefined) this.$set(this.formData, 'distributeType', false)
+    },
+    timeTypeLabel(type) {
+      const value = String(type != null ? type : '')
+      const hit = this.timeTypeOptions.find(x => String(x.value) === value)
+      return hit ? hit.label : value
+    },
+    openFieldEditor() {
+      this.fieldDialog.visible = true
+    },
+    onFieldDialogOpen() {
+      const list = Array.isArray(this.formData.fieldList) ? this.formData.fieldList : []
+      this.fieldDialog.rows = list.length
+        ? list.map(r => ({
+          name: r?.name != null ? String(r.name) : '',
+          type: r?.type != null ? String(r.type) : (this.timeTypeOptions[0] ? String(this.timeTypeOptions[0].value) : '')
+        }))
+        : [{
+          name: '',
+          type: this.timeTypeOptions[0] ? String(this.timeTypeOptions[0].value) : ''
+        }]
+    },
+    addRow() {
+      this.fieldDialog.rows.push({
+        name: '',
+        type: this.timeTypeOptions[0] ? String(this.timeTypeOptions[0].value) : ''
+      })
+    },
+    removeRow(index) {
+      this.fieldDialog.rows.splice(index, 1)
+    },
+    confirmFieldEditor() {
+      const rows = Array.isArray(this.fieldDialog.rows) ? this.fieldDialog.rows : []
+      const invalid = rows.some(r => !String(r?.name || '').trim() || !String(r?.type || '').trim())
+      if (rows.length && invalid) {
+        this.$message.warning('请填写每一行的字段名称和时间类型')
+        return
+      }
+      const normalized = rows
+        .filter(r => r && String(r.name || '').trim())
+        .map((r) => ({
+          name: String(r.name).trim(),
+          type: String(r.type)
+        }))
+      this.$set(this.formData, 'fieldList', normalized)
+      this.fieldDialog.visible = false
+    },
+    buildPayloadForSave() {
+      const raw = { ...this.formData }
+      raw.name = String(raw.name || '').trim()
+      raw.description = raw.description != null ? String(raw.description) : ''
+      raw.copiesCache = raw.copiesCache != null && raw.copiesCache !== ''
+        ? Math.max(1, Math.trunc(Number(raw.copiesCache)))
+        : 1
+      raw.distributeType = !!raw.distributeType
+      raw.fieldList = Array.isArray(raw.fieldList)
+        ? raw.fieldList
+          .filter(r => r && String(r.name || '').trim())
+          .map((r) => ({
+            name: String(r.name).trim(),
+            type: String(r.type || '')
+          }))
+        : []
+      return raw
+    },
+    handleSubmit() {
+      if (!String(this.formData.name || '').trim()) {
+        this.$message.warning('请填写步骤名称')
+        return
+      }
+      this.$emit('save', this.buildPayloadForSave())
+    }
+  }
+}
+</script>
+
+<style scoped>
+.system-date-config {
+  width: 100%;
+}
+
+.config-content {
+  padding: 20px;
+}
+
+.config-tabs {
+  margin: 0 0 8px;
+}
+
+.form-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.form-item {
+  margin-bottom: 16px;
+  display: block;
+}
+
+.form-label {
+  display: block;
+  width: 100%;
+  text-align: left;
+  line-height: 20px;
+  color: #606266;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.form-label.required::before {
+  content: '*';
+  color: #f56c6c;
+  margin-right: 4px;
+}
+
+.form-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px solid #ebeef5;
+}
+
+.section-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.section-toggle {
+  color: #909399;
+  cursor: pointer;
+}
+
+.section-content {
+  padding-top: 8px;
+  margin-bottom: 8px;
+}
+
+.field-table-wrap {
+  margin-bottom: 10px;
+}
+
+.dash-btn {
+  width: 100%;
+  height: 40px;
+  border: 1px dashed #409eff;
+  background: #fff;
+  color: #409eff;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dash-btn:hover {
+  background: #ecf5ff;
+}
+
+.advanced-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.advanced-label {
+  color: #606266;
+  font-size: 14px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #ebeef5;
+}
+
+.btn {
+  padding: 0 20px;
+  height: 36px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  background: #fff;
+  color: #606266;
+}
+
+.primary-btn {
+  background: #409eff;
+  color: #fff;
+  border-color: #409eff;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.field-required {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.req {
+  color: #f56c6c;
+}
+
+.add-row-btn {
+  margin-top: 12px;
+}
+</style>

@@ -88,6 +88,7 @@ const actions = {
         const data = response.data
         if (!data) {
           reject('验证失败，请重新登录!')
+          return
         }
 
         // 确保角色是数组
@@ -96,6 +97,7 @@ const actions = {
         // roles must be a non-empty array
         if (isEmpty(roles)) {
           reject('getUserInfo: roles must be a non-null array!')
+          return
         }
 
         commit('SET_ROLES', roles)

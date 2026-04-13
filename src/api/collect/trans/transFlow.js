@@ -151,7 +151,7 @@ export function getFieldStream(flowIdOrForm, config) {
       // config 必填，兜底给空对象字符串而不是空字符串
       config: config == null ? '{}' : config,
       // stepName 为必填，这里用默认值避免必填校验失败
-      stepName: '清洗转换步骤',
+      stepName: '转换步骤',
       code: ''
     },
     { bizErrorAsMessage: true }

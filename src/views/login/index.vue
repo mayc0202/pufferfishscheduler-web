@@ -166,7 +166,8 @@ export default {
               router.addRoutes(accessRoutes)
               // 处理跳转
               const redirect = this.$route.query.redirect || '/'
-              this.$router.push(redirect).catch(() => {})
+              // vue-router@3.0.x 的 push 可能不返回 Promise，不能直接 .catch
+              Promise.resolve(this.$router.push(redirect)).catch(() => {})
             })
             .catch(err => {
               this.$message.error(err || 'Login failed!')

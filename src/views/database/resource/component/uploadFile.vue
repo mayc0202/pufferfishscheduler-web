@@ -5,9 +5,16 @@
     :title="title"
     :width="width + 'px'"
     :height="height + 'px'"
-    :before-close="handleClose"
+    :before-close="handleBeforeClose"
+    :close-on-click-modal="!uploading"
+    :close-on-press-escape="!uploading"
+    :show-close="!uploading"
   >
-    <div :style="{ height: height + 'px' }">
+    <div
+      ref="uploadPanel"
+      :style="{ height: height + 'px', position: 'relative' }"
+      class="resource-upload-panel"
+    >
       <div class="upload-wrap">
         <el-upload
           ref="upload"
@@ -16,6 +23,7 @@
           action=""
           :show-file-list="false"
           :auto-upload="false"
+          :disabled="uploading"
           :on-change="handleFileChange"
           :on-progress="null"
           :on-success="handleSuccess"
@@ -37,6 +45,9 @@
 
 <script>
 import { upload } from '@/api/database/resource/resource.js'
+
+/** 与 api 层上传超时一致（毫秒） */
+const UPLOAD_TIMEOUT_MS = 2 * 60 * 1000
 
 export default {
   name: 'UploadDialog',
@@ -78,15 +89,30 @@ export default {
     return {
       formData: null,
       progress: 0,
-      loadingInstance: null
+      uploading: false,
+      uploadLoadingText: '正在上传文件...',
+      panelLoadingInstance: null
+    }
+  },
+  beforeDestroy() {
+    if (this.panelLoadingInstance) {
+      this.panelLoadingInstance.close()
+      this.panelLoadingInstance = null
     }
   },
   methods: {
     /**
-     * 关闭对话框
+     * 弹窗关闭前（含右上角 X）：上传中禁止关闭，避免遮罩残留
      */
-    handleClose() {
+    handleBeforeClose(done) {
+      if (this.uploading) {
+        this.$message.warning('文件上传中，请稍候')
+        return
+      }
       this.$emit('close')
+      if (typeof done === 'function') {
+        done()
+      }
     },
 
     /**
@@ -94,6 +120,10 @@ export default {
      * @param {File} file - 选择的文件
      */
     async handleFileChange(file) {
+      if (this.uploading) {
+        return false
+      }
+
       // 验证文件大小
       const isSizeValid = file.size / 1024 / 1024 <= this.maxFileSizeMB
       if (!isSizeValid) {
@@ -101,47 +131,81 @@ export default {
         return false
       }
 
-      this.loadingInstance = this.$loading({
-        lock: true,
-        text: `正在上传文件 (${this.progress}%)`,
-        spinner: 'el-icon-loading',
-        background: 'rgba(0, 0, 0, 0.5)'
-      })
+      let timeoutId = null
+      this.uploading = true
+      this.progress = 0
+      this.uploadLoadingText = '正在传到服务器 (0%)'
 
       try {
+        await this.$nextTick()
+        if (this.$refs.uploadPanel) {
+          this.panelLoadingInstance = this.$loading({
+            target: this.$refs.uploadPanel,
+            lock: true,
+            text: this.uploadLoadingText,
+            spinner: 'el-icon-loading',
+            background: 'rgba(255, 255, 255, 0.85)',
+            customClass: 'resource-upload-panel-loading'
+          })
+        }
+
         const formData = new FormData()
         formData.append('files', file.raw)
         formData.append('dbId', this.dbId)
         formData.append('path', this.currentPath)
 
-        // 设置30秒超时
-        var timeout = 3 * 10 * 1000
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), timeout)
+        timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS)
+
+        const setPanelLoadingText = (text) => {
+          this.uploadLoadingText = text
+          if (this.panelLoadingInstance) {
+            this.panelLoadingInstance.setText(text)
+          }
+        }
 
         const res = await upload(formData, (progressEvent) => {
-          if (progressEvent.lengthComputable) {
-            this.progress = Math.round((progressEvent.loaded / progressEvent.total) * 100)
-            this.loadingInstance.setText(`正在上传文件 (${this.progress}%)`)
+          const e = progressEvent
+          // axios 进度只表示「浏览器 → 应用服务器」发完请求体；服务端写 FTP 等仍在进行，不能显示 100% 即结束
+          if (!e.lengthComputable || !e.total) {
+            setPanelLoadingText('正在上传文件，请稍候...')
+            return
           }
-        }, controller.signal, timeout)
+          if (e.loaded >= e.total) {
+            setPanelLoadingText('已传至服务器，正在写入存储（请稍候）...')
+            return
+          }
+          const pct = Math.min(99, Math.round((e.loaded / e.total) * 100))
+          this.progress = pct
+          setPanelLoadingText(`正在传到服务器 (${pct}%)`)
+        }, controller.signal, UPLOAD_TIMEOUT_MS)
 
-        // 清除超时定时器
-        clearTimeout(timeoutId)
+        if (timeoutId != null) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
 
         this.$message.success(res.data)
         this.$emit('success', true)
-        this.handleClose()
+        this.$emit('close')
       } catch (error) {
         console.error(error)
-        this.$message.error(
-          error.name === 'AbortError'
-            ? '文件上传超时，后台断点续传中...'
-            : '文件上传异常！'
-        )
+        if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+          this.$message.warning('文件上传超时（2 分钟），请稍后重试或联系管理员')
+        } else {
+          this.$message.error('文件上传异常！')
+        }
         console.error('上传错误:', error)
       } finally {
-        this.loadingInstance?.close()
+        if (timeoutId != null) {
+          clearTimeout(timeoutId)
+        }
+        if (this.panelLoadingInstance) {
+          this.panelLoadingInstance.close()
+          this.panelLoadingInstance = null
+        }
+        this.uploading = false
+        this.uploadLoadingText = '正在上传文件...'
         this.$emit('back') // 触发返回事件
       }
     },
@@ -194,6 +258,11 @@ export default {
   &:hover {
     background-color: mix($light-blue, #000, 85%);
   }
+}
+
+/* 面板内 Loading 盖住上传区与底部按钮（相对 resource-upload-panel 定位） */
+::v-deep .resource-upload-panel-loading {
+  z-index: 20;
 }
 
 ::v-deep .el-dialog {

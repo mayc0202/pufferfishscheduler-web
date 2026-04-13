@@ -1,7 +1,10 @@
 import { PUFFERFISH_SERVICE } from '@/api/request'
 
-// 全局超时时间（30秒）
-const DEFAULT_TIMEOUT = 30000
+// 普通 JSON 等业务接口超时（60 秒）
+const DEFAULT_TIMEOUT = 60000
+
+// 文件上传 / Blob 下载等传输类请求单独超时（2 分钟）
+const FILE_TRANSFER_TIMEOUT = 120000
 
 /**
  * HTTP 服务工厂类
@@ -103,7 +106,7 @@ class HttpServiceFactory {
           method: 'get',
           url,
           params,
-          timeout: DEFAULT_TIMEOUT // 设置30秒超时
+          timeout: DEFAULT_TIMEOUT
         })
       },
 
@@ -117,7 +120,7 @@ class HttpServiceFactory {
       uploadFile(url, formData, config = {}) {
         return this._request({
           method: 'post',
-          timeout: DEFAULT_TIMEOUT,
+          timeout: FILE_TRANSFER_TIMEOUT,
           url,
           data: formData,
           upload: true,
@@ -156,7 +159,7 @@ class HttpServiceFactory {
           url,
           params,
           responseType: 'blob', // 关键：指定响应类型为 blob
-          timeout: config.timeout || DEFAULT_TIMEOUT, // 下载超时时间默认60秒
+          timeout: config.timeout != null ? config.timeout : FILE_TRANSFER_TIMEOUT,
           onDownloadProgress: config.onDownloadProgress, // 下载进度回调
           headers: {
             ...config.headers

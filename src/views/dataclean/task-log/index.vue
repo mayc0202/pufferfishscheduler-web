@@ -133,7 +133,7 @@
     <el-dialog
       v-el-drag-dialog
       :visible.sync="detailVisible"
-      title="清洗详情"
+      title="清洗任务日志详情"
       width="860px"
       top="4vh"
       class="log-detail-dialog"
@@ -199,8 +199,11 @@
         </table>
       </div>
 
-      <div class="detail-section">
-        <div class="section-title">流程图预览</div>
+      <div class="detail-section detail-section-flow">
+        <div class="section-title flow-preview-heading">
+          <span>流程图预览</span>
+          <span class="flow-preview-hint">按住左键拖拽画布可平移查看</span>
+        </div>
         <div ref="flowPreviewRef" class="flow-preview" />
       </div>
     </el-dialog>
@@ -427,16 +430,19 @@ export default {
       this.destroyPreviewGraph()
       container.innerHTML = ''
 
+      const w = Math.max(320, Math.floor(container.clientWidth || 0) || 800)
+      const h = 280
+
       this.previewGraph = new Graph({
         container,
-        width: 760,
-        height: 280,
+        width: w,
+        height: h,
         background: { color: '#ffffff' },
         grid: false,
         interacting: false,
         selecting: false,
         connecting: false,
-        panning: false,
+        panning: true,
         mousewheel: false,
         keyboard: false
       })
@@ -490,7 +496,6 @@ export default {
 
       this.previewGraph.fromJSON(flowConfig)
       this.previewGraph.centerContent({ padding: 20 })
-      container.style.pointerEvents = 'none'
     },
     buildMockFlowConfig() {
       return {
@@ -698,12 +703,41 @@ export default {
   white-space: pre-wrap;
   word-break: break-word;
 }
+.detail-section-flow .flow-preview-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.flow-preview-hint {
+  font-size: 12px;
+  font-weight: normal;
+  color: #909399;
+}
+
 .flow-preview {
-  height: 260px;
-  border: 1px solid #ebeef5;
+  height: 280px;
+  border: 1px solid #e4e7ed;
   border-radius: 4px;
   background: #fff;
   overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.flow-preview:active {
+  cursor: grabbing;
+}
+
+/* X6 平移时由库切换 class，同步抓手光标 */
+.flow-preview ::v-deep .x6-graph-pannable {
+  cursor: grab;
+}
+
+.flow-preview ::v-deep .x6-graph-panning {
+  cursor: grabbing !important;
 }
 
 .info-table {

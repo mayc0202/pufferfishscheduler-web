@@ -7,6 +7,7 @@ import 'normalize.css/normalize.css' // a modern alternative to CSS resets
 import Element from 'element-ui'
 import './styles/element-variables.scss'
 import znLang from 'element-ui/lib/locale/lang/zh-CN'// 如果使用中文语言包请默认支持，无需额外引入，请删除该依赖
+import Message from '@/utils/compatible-message'
 
 import '@/styles/index.scss' // global css
 
@@ -38,6 +39,8 @@ Vue.use(Element, {
   size: Cookies.get('size') || 'medium', // set element-ui default size
   locale: znLang // 如果使用中文，无需设置，请删除
 })
+
+Vue.prototype.$message = Message
 
 Vue.use(elDragDialog)
 

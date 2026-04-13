@@ -2,9 +2,20 @@
   <div class="table-output-config">
     <!-- 配置内容 -->
     <div class="config-content">
+      <FlowConfigHero
+        badge="输出"
+        title="关系库表输出"
+        description="将当前数据流写入关系型数据库目标表，支持字段映射与写入策略。"
+        tone="jade"
+        icon="el-icon-upload2"
+      />
+      <el-tabs v-model="activeTab" class="config-tabs">
+        <el-tab-pane label="基础配置" name="basic" />
+        <el-tab-pane label="高级配置" name="advanced" />
+      </el-tabs>
       <!-- 基础配置 -->
-      <div class="form-title">关系库表输出</div>
 
+      <div v-show="activeTab === 'basic'">
       <div class="form-item">
         <label class="form-label required">节点名称：</label>
         <input v-model="formData.name" type="text" class="form-input" placeholder="输出到治理库">
@@ -24,28 +35,25 @@
       <div v-show="sectionOpen.general" class="section-content">
         <div class="form-item">
           <label class="form-label required">数据源连接：</label>
-          <div v-click-outside="closeDbDropdown" class="custom-select">
-            <div class="select-input" @click="dbDropdownOpen = !dbDropdownOpen">
-              <span v-if="selectedLabel">{{ selectedLabel }}</span>
-              <span v-else class="placeholder">请选择数据源</span>
-              <i class="el-icon-arrow-down arrow" :class="{ open: dbDropdownOpen }" />
-            </div>
-            <div v-show="dbDropdownOpen" class="select-dropdown">
-              <div v-for="group in processedDbOptions" :key="group.label" class="select-group">
-                <div class="select-group-title">{{ group.label }}</div>
-                <div
-                  v-for="item in group.children"
-                  :key="item.value"
-                  class="select-option"
-                  :class="{ selected: selectedValue === item.value }"
-                  @click="selectDbItem(item)"
-                >
-                  {{ item.label }}
-                </div>
-              </div>
-              <div v-if="processedDbOptions.length === 0" class="select-empty">暂无数据</div>
-            </div>
-          </div>
+          <el-cascader
+            v-model="formData.dataSourceId"
+            class="relation-db-cascader"
+            :options="cascaderDbOptions"
+            :props="dbCascaderProps"
+            filterable
+            clearable
+            placeholder="请选择数据源"
+            separator=" / "
+            popper-class="relation-db-cascader-popper"
+            @visible-change="onRelationalDbTreeVisible"
+          >
+            <template slot-scope="{ data }">
+              <span class="mq-node">
+                <i :class="data.type === 'GROUP' ? 'el-icon-folder' : 'el-icon-link'" class="mq-node-icon" />
+                <span class="mq-node-label">{{ data.label }}</span>
+              </span>
+            </template>
+          </el-cascader>
         </div>
 
         <div class="form-item">
@@ -55,9 +63,17 @@
 
         <div class="form-item">
           <label class="form-label required">目标表：</label>
-          <div v-click-outside="closeTableDropdown" class="custom-select">
-            <div class="select-input" @click="tableDropdownOpen = !tableDropdownOpen">
-              <span v-if="formData.tableName">{{ formData.tableName }}</span>
+          <div v-click-outside="closeTableDropdown" class="custom-select table-name-select">
+            <div
+              class="select-input"
+              :class="{ 'is-open': tableDropdownOpen }"
+              role="button"
+              tabindex="0"
+              @click="tableDropdownOpen = !tableDropdownOpen"
+              @keydown.enter.prevent="tableDropdownOpen = !tableDropdownOpen"
+              @keydown.space.prevent="tableDropdownOpen = !tableDropdownOpen"
+            >
+              <span v-if="formData.tableName" class="select-value-text">{{ formData.tableName }}</span>
               <span v-else class="placeholder">请选择表名称</span>
               <i class="el-icon-arrow-down arrow" :class="{ open: tableDropdownOpen }" />
             </div>
@@ -71,7 +87,7 @@
               >
                 {{ table.name || table }}
               </div>
-              <div v-if="tableList.length === 0" class="select-empty">{{ selectedValue ? '暂无数据' : '请先选择数据源' }}</div>
+              <div v-if="tableList.length === 0" class="select-empty">{{ formData.dataSourceId ? '暂无数据' : '请先选择数据源' }}</div>
             </div>
           </div>
         </div>
@@ -81,8 +97,11 @@
           <input v-model="formData.commitSize" type="number" class="form-input" placeholder="1000" min="1">
         </div>
 
-        <div class="form-item checkbox-item">
-          <el-checkbox v-model="formData.truncateTable">写入之前清空表</el-checkbox>
+        <div class="form-item form-item-checkbox">
+          <span class="form-label-spacer" aria-hidden="true" />
+          <div class="form-control-block">
+            <el-checkbox v-model="formData.truncateTable" class="to-checkbox">写入之前清空表</el-checkbox>
+          </div>
         </div>
       </div>
 
@@ -93,33 +112,65 @@
         </div>
       </div>
       <div v-show="sectionOpen.fields" class="section-content">
-        <div class="form-item checkbox-item">
-          <el-checkbox v-model="formData.specifyFields">指定数据库字段</el-checkbox>
+        <div class="form-item form-item-checkbox">
+          <span class="form-label-spacer" aria-hidden="true" />
+          <div class="form-control-block">
+            <el-checkbox v-model="formData.specifyFields" class="to-checkbox">指定数据库字段</el-checkbox>
+          </div>
         </div>
 
-        <div v-if="formData.specifyFields" class="field-mapping">
-          <table class="field-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>流字段</th>
-                <th>表字段</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(field, index) in formData.fieldList" :key="index">
-                <td>{{ index + 1 }}</td>
-                <td>
-                  <span class="field-text" :title="field.fieldStream">{{ field.fieldStream }}</span>
-                </td>
-                <td>
-                  <span class="field-text" :title="field.fieldDatabase">{{ field.fieldDatabase }}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-if="formData.specifyFields" class="field-mapping aligned-block">
+          <div class="field-table-wrap">
+            <el-table :data="formData.fieldList" border style="width: 100%" max-height="260">
+              <el-table-column type="index" label="#" width="60" />
+              <el-table-column label="流字段" min-width="180">
+                <template slot-scope="scope">
+                  <div class="wrap-cell">{{ scope.row.fieldStream }}</div>
+                </template>
+              </el-table-column>
+              <el-table-column label="表字段" min-width="180">
+                <template slot-scope="scope">
+                  <div class="wrap-cell">{{ scope.row.fieldDatabase }}</div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
           <div class="field-actions">
-            <a href="#" @click.prevent="editFields">编辑字段</a>
+            <button type="button" class="dash-btn" @click="editFields">
+              <i class="el-icon-edit" /> 编辑字段
+            </button>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <div v-show="activeTab === 'advanced'" class="advanced-layout">
+        <div class="section-header" @click="sectionOpen.distribution = !sectionOpen.distribution">
+          <h4>数据分发</h4>
+          <div class="section-toggle">
+            <i :class="sectionOpen.distribution ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          </div>
+        </div>
+        <div v-show="sectionOpen.distribution" class="section-content">
+          <div class="advanced-row">
+            <span class="advanced-label">数据分发模式：</span>
+            <el-radio-group v-model="distributionMode">
+              <el-radio :label="'copy'">复制</el-radio>
+              <el-radio :label="'distribute'">分发</el-radio>
+            </el-radio-group>
+          </div>
+        </div>
+
+        <div class="section-header" @click="sectionOpen.parallel = !sectionOpen.parallel">
+          <h4>并发配置</h4>
+          <div class="section-toggle">
+            <i :class="sectionOpen.parallel ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          </div>
+        </div>
+        <div v-show="sectionOpen.parallel" class="section-content">
+          <div class="form-item">
+            <label class="form-label">并发数量：</label>
+            <input v-model.number="formData.copiesCache" type="number" class="form-input" min="1" placeholder="1">
           </div>
         </div>
       </div>
@@ -217,9 +268,11 @@ import { relationalDbTree } from '@/api/database/database/dbGroup'
 import { dbTableList, fieldList as dbFieldList } from '@/api/database/database/database'
 import { getFieldStream } from '@/api/collect/plugin/tableoutput'
 import { getFieldStream as getFlowFieldStream } from '@/api/collect/trans/transFlow'
+import FlowConfigHero from '../common/FlowConfigHero.vue'
 
 export default {
   name: 'TableOutputConfig',
+  components: { FlowConfigHero },
   directives: {
     'click-outside': {
       bind(el, binding) {
@@ -247,21 +300,25 @@ export default {
     flowConfig: {
       type: Object,
       default: null
+    },
+    /** 画布节点 id，用于把当前表单合并进 flowConfig 中对应节点（避免仅用打开抽屉时的旧快照） */
+    currentNodeId: {
+      type: String,
+      default: ''
     }
   },
   data() {
     return {
+      activeTab: 'basic',
       sectionOpen: {
         general: true,
-        fields: true
+        fields: true,
+        distribution: false,
+        parallel: false
       },
       dbList: [],
       tableList: [],
-      dbDropdownOpen: false,
       tableDropdownOpen: false,
-      processedDbOptions: [],
-      selectedValue: '',
-      selectedLabel: '',
       editFieldsVisible: false,
       editFieldList: [],
       getFieldsLoading: false,
@@ -280,6 +337,14 @@ export default {
     }
   },
   computed: {
+    distributionMode: {
+      get() {
+        return this.formData.distributeType ? 'copy' : 'distribute'
+      },
+      set(v) {
+        this.$set(this.formData, 'distributeType', v === 'copy')
+      }
+    },
     editDialogStyle() {
       if (!this.editDialogDrag.moved) return {}
       return {
@@ -296,27 +361,36 @@ export default {
         value: 'value',
         label: 'label',
         children: 'children',
-        expandTrigger: 'hover'
+        expandTrigger: 'hover',
+        emitPath: false
       }
     }
   },
   watch: {
     'formData.dataSourceId': {
-      handler(val) {
-        if (val) {
-          this.selectedValue = String(val)
-          this.updateSelectedLabel(val)
-          this.loadTableList(val)
+      handler(val, oldVal) {
+        const id = val != null && val !== '' ? String(val) : ''
+        const prev =
+          oldVal !== undefined && oldVal !== null && oldVal !== ''
+            ? String(oldVal)
+            : null
+        if (prev !== null && id !== prev) {
+          this.$set(this.formData, 'tableName', '')
+          this.$set(this.formData, 'tableId', null)
+          this.tableList = []
+        }
+        if (id) {
+          this.loadTableList(id)
+        } else if (prev !== null) {
+          this.tableList = []
+          this.$set(this.formData, 'tableName', '')
+          this.$set(this.formData, 'tableId', null)
         }
       },
       immediate: true
     },
     formData: {
       handler(val) {
-        if (val && val.dataSourceId) {
-          this.selectedValue = String(val.dataSourceId)
-          this.updateSelectedLabel(val.dataSourceId)
-        }
         // 确保 fieldList 是数组
         if (val && !Array.isArray(val.fieldList)) {
           this.$set(this.formData, 'fieldList', [])
@@ -366,6 +440,12 @@ export default {
       if (this.formData.useBatchUpdate === undefined) {
         this.formData.useBatchUpdate = false
       }
+      if (this.formData.copiesCache === undefined || this.formData.copiesCache === '') {
+        this.formData.copiesCache = 1
+      }
+      if (this.formData.distributeType === undefined) {
+        this.formData.distributeType = false
+      }
     },
     /**
      * 切换段落展开状态
@@ -382,76 +462,184 @@ export default {
         const res = await relationalDbTree()
         if (res && res.code === '000000' && res.data) {
           this.$set(this, 'dbList', res.data)
-          this.processDbOptions()
+          this.normalizeDataSourceIdForCascader()
         } else {
           console.error('加载数据库列表失败，返回数据异常：', res)
           this.$set(this, 'dbList', [])
-          this.$set(this, 'processedDbOptions', [])
         }
       } catch (error) {
         console.error('加载数据库列表失败:', error)
         this.$set(this, 'dbList', [])
-        this.$set(this, 'processedDbOptions', [])
       }
     },
-    /**
-     * 处理数据库选项，生成自定义下拉所需结构
-     */
-    processDbOptions() {
-      if (!this.dbList || !this.dbList.length) {
-        this.processedDbOptions = []
-        return
-      }
-
+    transformToCascader(dbList) {
+      if (!dbList || !dbList.length) return []
       const result = []
-      for (const group of this.dbList) {
+      for (const group of dbList) {
         if (!group || group.type !== 'GROUP') continue
         if (!group.children || !Array.isArray(group.children)) continue
-
         const children = []
         for (const child of group.children) {
           if (child && child.type === 'DATABASE') {
             children.push({
               value: String(child.id),
-              label: child.name
+              label: child.name || '未命名',
+              type: 'DATABASE'
             })
           }
         }
-
-        if (children.length > 0) {
+        if (children.length) {
+          const gid = group.id != null ? String(group.id) : `group:${group.name || ''}`
           result.push({
+            value: gid,
             label: group.name || '未知分组',
+            type: 'GROUP',
             children
           })
         }
       }
-
-      this.processedDbOptions = result
-
-      // 回显已选
-      if (this.selectedValue) {
-        this.updateSelectedLabel(this.selectedValue)
+      return result
+    },
+    normalizeDataSourceIdForCascader() {
+      const raw = this.formData.dataSourceId
+      if (raw != null && raw !== '') {
+        this.$set(this.formData, 'dataSourceId', String(raw))
       }
     },
     /**
-     * 选择数据库项
+     * 从节点 data 上取出插件参数字典（兼容 data.data 嵌套与历史扁平结构）
      */
-    selectDbItem(item) {
-      this.selectedValue = item.value
-      this.selectedLabel = item.label
-      this.formData.dataSourceId = item.value
-      // 重置表相关
-      this.formData.tableName = ''
-      this.formData.tableId = null
-      this.tableList = []
-      this.dbDropdownOpen = false
-      this.loadTableList(item.value)
+    extractTableOutputPayloadFromCellData(cellData) {
+      if (!cellData || typeof cellData !== 'object') return {}
+      const nested = cellData.data
+      if (nested != null && typeof nested === 'object' && !Array.isArray(nested)) {
+        return { ...nested }
+      }
+      const { name, code, ...rest } = cellData
+      return { ...rest }
     },
     /**
-     * 关闭数据库下拉菜单
+     * 当前步骤写入后端的插件参数（与画布 replaceData 的 data 子对象对齐）
+     * @param {Array} fieldListOverride 编辑弹窗内映射列表，默认用 formData.fieldList
      */
-    closeDbDropdown() {
-      this.dbDropdownOpen = false
+    buildTableOutputInnerPayload(fieldListOverride) {
+      const ds =
+        this.formData.dataSourceId != null && this.formData.dataSourceId !== ''
+          ? String(this.formData.dataSourceId).trim()
+          : ''
+      const list = Array.isArray(fieldListOverride)
+        ? fieldListOverride
+        : Array.isArray(this.formData.fieldList)
+          ? this.formData.fieldList
+          : []
+      return {
+        name: this.formData.name,
+        description: this.formData.description != null ? String(this.formData.description) : '',
+        dataSourceId: ds,
+        dbConnection: ds,
+        dataSource: ds,
+        schemaName:
+          this.formData.schemaName != null && this.formData.schemaName !== ''
+            ? String(this.formData.schemaName)
+            : '',
+        tableId: this.formData.tableId,
+        tableName: this.formData.tableName != null ? String(this.formData.tableName) : '',
+        commitSize: this.formData.commitSize != null && this.formData.commitSize !== '' ? String(this.formData.commitSize) : '1000',
+        truncateTable: !!this.formData.truncateTable,
+        specifyFields: !!this.formData.specifyFields,
+        preSql: this.formData.preSql,
+        postSql: this.formData.postSql,
+        fieldList: list,
+        updateField: this.formData.updateField,
+        updatePolicy: this.formData.updatePolicy,
+        skipHeader: this.formData.skipHeader,
+        ignoreError: this.formData.ignoreError,
+        retryTimes: this.formData.retryTimes,
+        retryInterval: this.formData.retryInterval,
+        distributeType: !!this.formData.distributeType,
+        copiesCache:
+          this.formData.copiesCache != null && this.formData.copiesCache !== ''
+            ? this.formData.copiesCache
+            : 1
+      }
+    },
+    buildTempFlowPayloadForFieldApi(fieldListOverride) {
+      const inner = this.buildTableOutputInnerPayload(fieldListOverride)
+      return {
+        cells: [
+          {
+            id: this.currentNodeId || 'temp-table-output-step',
+            shape: 'rect',
+            data: {
+              name: this.formData.name,
+              code: 'TableOutput',
+              data: inner
+            }
+          }
+        ]
+      }
+    },
+    /**
+     * 供「获取字段 / 流字段」接口使用：在完整流程 JSON 中合并当前表单，避免仍用打开抽屉时的旧 dataSourceId。
+     */
+    resolveFlowConfigForFieldApi(fieldListOverride) {
+      const inner = this.buildTableOutputInnerPayload(fieldListOverride)
+      const base = this.flowConfig
+      if (!base || typeof base !== 'object') {
+        return this.buildTempFlowPayloadForFieldApi(fieldListOverride)
+      }
+      let cfg
+      try {
+        cfg = JSON.parse(JSON.stringify(base))
+      } catch (e) {
+        return this.buildTempFlowPayloadForFieldApi(fieldListOverride)
+      }
+      const cells = Array.isArray(cfg.cells) ? cfg.cells : []
+      if (!cells.length) {
+        return this.buildTempFlowPayloadForFieldApi(fieldListOverride)
+      }
+      const nid = this.currentNodeId ? String(this.currentNodeId) : ''
+      let idx = nid ? cells.findIndex((c) => c && c.id === nid) : -1
+      if (idx < 0) {
+        idx = cells.findIndex(
+          (c) =>
+            c &&
+            c.data &&
+            c.data.code === 'TableOutput' &&
+            c.data.name === this.formData.name
+        )
+      }
+      if (idx < 0) {
+        return this.buildTempFlowPayloadForFieldApi(fieldListOverride)
+      }
+      const cell = cells[idx]
+      if (!cell.data || typeof cell.data !== 'object') {
+        cell.data = {}
+      }
+      const prev = this.extractTableOutputPayloadFromCellData(cell.data)
+      cell.data = {
+        ...cell.data,
+        name: this.formData.name,
+        code: 'TableOutput',
+        data: { ...prev, ...inner }
+      }
+      return cfg
+    },
+    parseDbIdForApi() {
+      const ds =
+        this.formData.dataSourceId != null && this.formData.dataSourceId !== ''
+          ? String(this.formData.dataSourceId).trim()
+          : ''
+      if (!ds) return { ok: false, dbId: null }
+      const n = Number(ds)
+      if (!Number.isFinite(n)) return { ok: false, dbId: null }
+      return { ok: true, dbId: n }
+    },
+    onRelationalDbTreeVisible(visible) {
+      if (!visible) return
+      if (!this.dbList.length) {
+        this.loadDbList()
+      }
     },
     /**
      * 选择表项
@@ -482,25 +670,6 @@ export default {
         console.error('加载表列表失败:', error)
         this.$set(this, 'tableList', [])
       }
-    },
-    /**
-     * 根据 dataSourceId 更新已选标签
-     */
-    updateSelectedLabel(dataSourceId) {
-      if (!dataSourceId || !this.processedDbOptions || !this.processedDbOptions.length) {
-        this.selectedLabel = ''
-        return
-      }
-      const target = String(dataSourceId)
-      for (const group of this.processedDbOptions) {
-        if (!group.children) continue
-        const item = group.children.find(opt => opt.value === target)
-        if (item) {
-          this.selectedLabel = `${group.label} / ${item.label}`
-          return
-        }
-      }
-      this.selectedLabel = ''
     },
     /**
      * 编辑字段
@@ -553,6 +722,11 @@ export default {
         this.$message.warning('请选择数据源')
         return
       }
+      const { ok: dbOk, dbId } = this.parseDbIdForApi()
+      if (!dbOk) {
+        this.$message.warning('数据源 ID 无效，请重新选择数据源')
+        return
+      }
       if (!this.formData.tableName) {
         this.$message.warning('请选择表名称')
         return
@@ -560,49 +734,15 @@ export default {
 
       this.getFieldsLoading = true
       try {
-        // 使用父组件传入的完整流程配置
-        let flowData = this.flowConfig
-
-        // 如果没有传入配置，构建临时配置
-        if (!flowData) {
-          // 构建临时的流程配置
-          flowData = {
-            cells: [
-              {
-                id: 'temp-output-step',
-                shape: 'rect',
-                data: {
-                  name: this.formData.name,
-                  code: 'TableOutput',
-                  data: {
-                    name: this.formData.name,
-                    description: this.formData.description,
-                    dataSourceId: this.formData.dataSourceId,
-                    tableId: this.formData.tableId,
-                    tableName: this.formData.tableName,
-                    commitSize: this.formData.commitSize || '1000',
-                    preSql: this.formData.preSql,
-                    postSql: this.formData.postSql,
-                    fieldList: this.editFieldList,
-                    updateField: this.formData.updateField,
-                    updatePolicy: this.formData.updatePolicy,
-                    skipHeader: this.formData.skipHeader,
-                    ignoreError: this.formData.ignoreError,
-                    retryTimes: this.formData.retryTimes,
-                    retryInterval: this.formData.retryInterval
-                  }
-                }
-              }
-            ]
-          }
-        }
+        const flowData = this.resolveFlowConfigForFieldApi(this.editFieldList)
 
         var data = {
           flowId: Number(this.flowId),
           stepName: this.formData.name,
           config: JSON.stringify(flowData),
           type: 1,
-          dbId: Number(this.formData.dataSourceId),
+          code: 'TableOutput',
+          dbId,
           tableId: this.formData.tableId ? Number(this.formData.tableId) : null
         }
 
@@ -653,46 +793,15 @@ export default {
     async loadStreamFieldOptions() {
       if (!this.flowId) return
       try {
-        // 优先使用父组件传入的完整流程配置；没有的话构建临时配置
-        let flowData = this.flowConfig
-        if (!flowData) {
-          flowData = {
-            cells: [
-              {
-                id: 'temp-output-step',
-                shape: 'rect',
-                data: {
-                  name: this.formData.name,
-                  code: 'TableOutput',
-                  data: {
-                    name: this.formData.name,
-                    description: this.formData.description,
-                    dataSourceId: this.formData.dataSourceId,
-                    tableId: this.formData.tableId,
-                    tableName: this.formData.tableName,
-                    commitSize: this.formData.commitSize || '1000',
-                    preSql: this.formData.preSql,
-                    postSql: this.formData.postSql,
-                    fieldList: this.editFieldList,
-                    updateField: this.formData.updateField,
-                    updatePolicy: this.formData.updatePolicy,
-                    skipHeader: this.formData.skipHeader,
-                    ignoreError: this.formData.ignoreError,
-                    retryTimes: this.formData.retryTimes,
-                    retryInterval: this.formData.retryInterval
-                  }
-                }
-              }
-            ]
-          }
-        }
+        const flowData = this.resolveFlowConfigForFieldApi(this.editFieldList)
+        const dsParsed = this.parseDbIdForApi()
 
         const res = await getFlowFieldStream({
           flowId: Number(this.flowId),
           config: JSON.stringify(flowData),
           stepName: this.formData.name || '关系库表输出',
           code: 'TableOutput',
-          dbId: this.formData.dataSourceId ? Number(this.formData.dataSourceId) : undefined,
+          dbId: dsParsed.ok ? dsParsed.dbId : undefined,
           tableId: this.formData.tableId ? Number(this.formData.tableId) : undefined
         })
 
@@ -794,6 +903,8 @@ export default {
 
 <style scoped>
 .table-output-config {
+  --to-label-width: 112px;
+  --to-label-gap: 12px;
   width: 100%;
   height: 100%;
   display: flex;
@@ -835,11 +946,31 @@ export default {
   background: #409EFF;
 }
 
-/* 配置内容 */
+/* 配置内容（内边距由 ConfigDrawer .drawer-body 统一提供，避免双重留白） */
 .config-content {
   flex: 1;
-  padding: 20px;
+  padding: 0;
   overflow-y: auto;
+}
+
+.config-tabs {
+  margin: 0 0 8px;
+}
+
+.aligned-block {
+  margin-left: calc(var(--to-label-width) + var(--to-label-gap));
+}
+
+.advanced-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.advanced-label {
+  color: #606266;
+  font-size: 14px;
 }
 
 .tab-content {
@@ -853,8 +984,8 @@ export default {
   font-size: 14px;
   font-weight: 500;
   color: #303133;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid #EBEEF5;
 }
 
@@ -869,10 +1000,10 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
+  padding: 6px 0;
   border-bottom: 1px solid #EBEEF5;
-  margin-top: 20px;
-  margin-bottom: 15px;
+  margin-top: 12px;
+  margin-bottom: 8px;
 }
 
 .section-header h4 {
@@ -889,51 +1020,72 @@ export default {
 }
 
 .section-content {
-  padding: 15px 0;
+  padding: 4px 0 8px;
 }
 
 /* 表单样式 */
 .form-item {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   display: flex;
   align-items: flex-start;
 }
 
-.form-item.checkbox-item {
+.form-item-checkbox {
   align-items: center;
-  margin-left: 112px;
+  min-height: 28px;
+  margin-bottom: 8px;
+}
+
+.form-label-spacer {
+  width: var(--to-label-width);
+  margin-right: var(--to-label-gap);
+  flex-shrink: 0;
+}
+
+.form-control-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .form-label {
-  width: 100px;
+  width: var(--to-label-width);
   font-weight: 400;
-  color: #606266;
-  margin-right: 12px;
+  color: #303133;
+  margin-right: var(--to-label-gap);
   text-align: right;
   flex-shrink: 0;
   font-size: 14px;
-  padding-top: 8px;
+  line-height: 22px;
+  padding-top: 9px;
 }
 
 .form-label.required::before {
   content: '*';
-  color: #F56C6C;
+  color: #f56c6c;
   margin-right: 4px;
+  vertical-align: middle;
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: #c0c4cc;
 }
 
 .form-input,
 .form-select {
   flex: 1;
-  padding: 0 15px;
+  padding: 0 12px;
   height: 40px;
-  border: 1px solid #DCDFE6;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
-  color: #606266;
-  background: #FFF;
-  transition: border-color 0.2s;
+  color: #303133;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-input:hover,
@@ -943,21 +1095,22 @@ export default {
 
 .form-input:focus,
 .form-select:focus {
-  border-color: #409EFF;
+  border-color: #409eff;
   outline: none;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.12);
 }
 
 .form-textarea {
   flex: 1;
-  padding: 8px 15px;
-  border: 1px solid #DCDFE6;
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
-  color: #606266;
-  background: #FFF;
-  transition: border-color 0.2s;
+  color: #303133;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
   resize: none;
 }
 
@@ -966,13 +1119,24 @@ export default {
 }
 
 .form-textarea:focus {
-  border-color: #409EFF;
+  border-color: #409eff;
   outline: none;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.12);
 }
 
-.checkbox-item {
-  align-items: center;
-  margin-left: 112px;
+.table-output-config ::v-deep .to-checkbox.el-checkbox {
+  line-height: 1;
+}
+
+.table-output-config ::v-deep .to-checkbox .el-checkbox__label {
+  font-size: 14px;
+  color: #303133;
+  padding-left: 8px;
+  line-height: 22px;
+}
+
+.table-output-config ::v-deep .to-checkbox .el-checkbox__input {
+  line-height: 1;
 }
 
 .help-icon {
@@ -993,8 +1157,8 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid #EBEEF5;
 }
 
@@ -1072,6 +1236,49 @@ export default {
   color: #409EFF;
 }
 
+.relation-db-cascader {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+}
+
+.table-output-config ::v-deep .relation-db-cascader .el-input {
+  width: 100%;
+}
+
+.table-output-config ::v-deep .relation-db-cascader .el-input__inner {
+  height: 40px;
+  line-height: 40px;
+  border-radius: 4px;
+  padding: 0 12px;
+  color: #303133;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.table-output-config ::v-deep .relation-db-cascader .el-input__inner:focus {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.12);
+}
+
+.mq-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mq-node-icon {
+  color: #909399;
+  font-size: 14px;
+}
+
+.mq-node-label {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 自定义下拉框 */
 .custom-select {
   flex: 1;
@@ -1080,22 +1287,44 @@ export default {
 }
 
 .select-input {
-  padding: 0 30px 0 15px;
+  position: relative;
+  padding: 0 32px 0 12px;
   height: 40px;
   line-height: 40px;
-  border: 1px solid #DCDFE6;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
   cursor: pointer;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
-  background: #FFF;
-  color: #606266;
-  transition: border-color 0.2s;
+  background: #fff;
+  color: #303133;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
 }
 
 .select-input:hover {
-  border-color: #C0C4CC;
+  border-color: #c0c4cc;
+}
+
+.select-input.is-open {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.12);
+}
+
+.select-input:focus-visible {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.12);
+}
+
+.select-value-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: #303133;
 }
 
 .placeholder {
@@ -1105,50 +1334,62 @@ export default {
 .arrow {
   position: absolute;
   right: 10px;
+  top: 50%;
+  margin-top: -6px;
   font-size: 12px;
-  color: #C0C4CC;
-  transition: transform 0.3s;
-  line-height: 40px;
+  color: #c0c4cc;
+  transition: transform 0.2s, color 0.2s;
+  line-height: 1;
+}
+
+.select-input.is-open .arrow {
+  color: #409eff;
 }
 
 .arrow.open {
   transform: rotate(180deg);
 }
 
+.table-name-select .select-dropdown {
+  margin-top: 6px;
+}
+
 .select-dropdown {
   position: absolute;
-  top: calc(100% + 5px);
+  top: 100%;
   left: 0;
   right: 0;
-  background: #FFF;
-  border: 1px solid #E4E7ED;
+  background: #fff;
+  border: 1px solid #e4e7ed;
   border-radius: 4px;
-  max-height: 200px;
+  max-height: 280px;
   overflow-y: auto;
   z-index: 9999;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .select-option {
-  padding: 0 15px;
-  height: 34px;
-  line-height: 34px;
+  padding: 0 12px;
+  min-height: 36px;
+  line-height: 36px;
   cursor: pointer;
   font-size: 14px;
   color: #606266;
-  transition: background-color 0.2s;
+  transition: background-color 0.15s, color 0.15s;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .select-option:hover {
-  background-color: #F5F7FA;
+  background-color: #f5f7fa;
+  color: #303133;
 }
 
 .select-option.selected {
-  color: #409EFF;
+  color: #409eff;
   font-weight: 500;
+  background-color: #ecf5ff;
 }
 
 .select-empty {
@@ -1185,83 +1426,50 @@ export default {
 
 /* 字段映射 */
 .field-mapping {
-  margin-top: 15px;
-  border: 1px solid #EBEEF5;
-  border-radius: 4px;
-  overflow: hidden;
+  margin-top: 8px;
 }
 
-.field-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.field-table th,
-.field-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #EBEEF5;
-  font-size: 12px;
-}
-
-.field-table th {
-  background: #F5F7FA;
-  font-size: 12px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.field-input {
-  width: 100%;
-  padding: 0 15px;
-  height: 32px;
-  border: 1px solid #DCDFE6;
-  border-radius: 4px;
-  font-size: 14px;
+.field-mapping.aligned-block {
+  width: calc(100% - (var(--to-label-width) + var(--to-label-gap)));
+  max-width: 640px;
   box-sizing: border-box;
-  color: #606266;
-  background: #FFF;
-  transition: border-color 0.2s;
 }
 
-.field-input:hover {
-  border-color: #C0C4CC;
+.field-table-wrap {
+  margin-bottom: 10px;
 }
 
-.field-input:focus {
-  border-color: #409EFF;
-  outline: none;
-}
-
-.field-text {
-  display: inline-block;
-  width: 100%;
-  min-height: 32px;
-  line-height: 32px;
-  color: #606266;
-  font-size: 12px;
-  padding: 0 6px;
-  box-sizing: border-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.wrap-cell {
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.4;
 }
 
 .field-actions {
-  padding: 12px;
-  text-align: right;
-  background: #F5F7FA;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.field-actions a {
-  color: #409EFF;
-  text-decoration: none;
+.dash-btn {
+  width: 100%;
+  margin-top: 0;
+  height: 40px;
+  border: 1px dashed #409eff;
+  background: #fff;
+  color: #409eff;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.2s, border-color 0.2s;
 }
 
-.field-actions a:hover {
-  text-decoration: underline;
+.dash-btn:hover {
+  background: #ecf5ff;
 }
 
 /* 编辑字段对话框 */
@@ -1352,8 +1560,12 @@ export default {
     padding-top: 0;
   }
 
-  .form-item.checkbox-item {
-    margin-left: 0;
+  .form-label-spacer {
+    display: none;
+  }
+
+  .form-item-checkbox .form-control-block {
+    width: 100%;
   }
 
   .custom-select {
@@ -1507,5 +1719,45 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+</style>
+
+<style>
+/* 配置抽屉内覆盖 ConfigDrawer 的 !important 间距，压缩大块竖向留白 */
+.config-drawer .drawer-body .table-output-config .form-item {
+  margin-bottom: 10px !important;
+}
+
+.config-drawer .drawer-body .table-output-config .form-item-checkbox {
+  margin-bottom: 6px !important;
+}
+
+.config-drawer .drawer-body .table-output-config .section-header {
+  margin-top: 10px !important;
+  margin-bottom: 6px !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.config-drawer .drawer-body .table-output-config .section-content {
+  padding-top: 2px !important;
+  padding-bottom: 6px !important;
+}
+
+.config-drawer .drawer-body .table-output-config .form-actions {
+  margin-top: 12px !important;
+  padding-top: 10px !important;
+}
+
+.relation-db-cascader-popper.el-popper[x-placement^='bottom'] {
+  margin-top: 6px;
+}
+
+.relation-db-cascader-popper {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.relation-db-cascader-popper .el-cascader-menu {
+  min-width: 200px;
 }
 </style>

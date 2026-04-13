@@ -1,10 +1,11 @@
 import store from '@/store'
 import axios from 'axios'
-import { Message, MessageBox } from 'element-ui'
+import { MessageBox } from 'element-ui'
+import Message from '@/utils/compatible-message'
 import router from '@/router'
 
-// 全局默认超时时间（10秒）
-const DEFAULT_TIMEOUT = 10000
+// 全局默认超时时间（60 秒，与 PUFFERFISH 业务接口一致；上传/Blob 在 http.js 中单独覆盖）
+const DEFAULT_TIMEOUT = 60000
 
 // 统一错误状态码
 const SYSTEM_ERROR = '999999'
@@ -52,7 +53,7 @@ function handleSessionExpired() {
 // 处理网络异常
 function handleNetworkError(error) {
   const timeout = error.config && error.config.timeout || DEFAULT_TIMEOUT
-  Message.error(`请求超时（${timeout / 1000}秒），请检查网络或稍后重试`)
+  Message.warning(`请求超时（${timeout / 1000}秒），请检查网络或稍后重试`)
 }
 
 // 处理未授权（复用会话过期逻辑，避免出现两种弹窗）
@@ -139,6 +140,8 @@ const setupInterceptors = (instance) => {
         const message = httpErrorMap[status] || `请求错误（${status}）`
         if (status === 401) {
           handleUnauthorized()
+        } else if (status === 408 || status === 504) {
+          Message.warning(message)
         } else {
           Message.error(message)
         }

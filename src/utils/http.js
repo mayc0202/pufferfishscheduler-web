@@ -4,14 +4,15 @@ import { getToken } from '@/utils/auth'
 // 导入axios
 import axios from 'axios'
 // 使用element-ui Message做消息提醒
-import { Message, MessageBox } from 'element-ui'
+import { MessageBox } from 'element-ui'
+import Message from '@/utils/compatible-message'
 
 // 1. 创建新的axios实例，
 const service = axios.create({
   // // 公共接口
   // baseURL: process.env.VUE_APP_BASE_API_CLIENT,
-  // 超时时间 单位是ms，这里设置了5s的超时时间
-  timeout: 5 * 1000
+  // 超时时间（毫秒），与主站业务接口默认 60s 对齐（本实例多用于非文件类请求）
+  timeout: 60 * 1000
 })
 // 2.请求拦截器
 service.interceptors.request.use(config => {

@@ -1,6 +1,6 @@
 // src/utils/fileExport.js
 
-import { Message } from 'element-ui'
+import Message from '@/utils/compatible-message'
 
 /**
  * 从响应对象导出文件

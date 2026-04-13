@@ -46,6 +46,11 @@
   }
 }
 
+// Tooltip 默认挂到 body，z-index 可能早于弹窗分配而偏低，导致提示被 el-dialog 挡住
+.el-tooltip__popper {
+  z-index: 4000 !important;
+}
+
 // to fixed https://github.com/ElemeFE/element/issues/2461
 .el-dialog {
   transform: none;

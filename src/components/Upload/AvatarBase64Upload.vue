@@ -55,7 +55,7 @@
 </template>
 
 <script>
-import { Message } from 'element-ui'
+import Message from '@/utils/compatible-message'
 
 export default {
   name: 'AvatarBase64Upload',

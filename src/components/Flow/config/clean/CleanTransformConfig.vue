@@ -1,16 +1,27 @@
 <template>
   <div class="clean-transform-config">
     <div class="config-content">
-      <div class="form-title">数据清洗转换</div>
+      <FlowConfigHero
+        badge="清洗"
+        title="数据清洗转换"
+        description="按规则对字段做校验、脱敏与格式化处理，并输出清洗后的字段结构。"
+        tone="teal"
+        icon="el-icon-magic-stick"
+      />
+      <el-tabs v-model="activeTab" class="config-tabs">
+        <el-tab-pane label="基础配置" name="basic" />
+        <el-tab-pane label="高级配置" name="advanced" />
+      </el-tabs>
 
+      <div v-show="activeTab === 'basic'">
       <div class="form-item">
-        <label class="form-label required">步骤名称：</label>
+        <label class="form-label required">节点名称：</label>
         <input v-model="formData.name" type="text" class="form-input" placeholder="数据清洗转换">
       </div>
 
       <div class="form-item">
-        <label class="form-label">说明：</label>
-        <textarea v-model="formData.description" class="form-textarea" placeholder="请输入说明" rows="3" />
+        <label class="form-label">节点说明：</label>
+        <textarea v-model="formData.description" class="form-textarea" placeholder="请输入节点说明" rows="3" />
       </div>
 
       <div class="section-header" @click="sectionOpen.fields = !sectionOpen.fields">
@@ -21,11 +32,17 @@
       </div>
 
       <div v-show="sectionOpen.fields" class="section-content">
-        <div class="field-table-wrap">
-          <el-table :data="formData.fieldList" border style="width: 100%" max-height="260">
-            <el-table-column type="index" label="#" width="60" />
-            <el-table-column prop="name" label="清洗字段名称" min-width="180" show-overflow-tooltip />
-            <el-table-column label="清洗规则" min-width="260">
+        <div class="field-table-wrap clean-fields-summary-wrap">
+          <el-table
+            :data="formData.fieldList"
+            class="clean-fields-summary-table"
+            border
+            style="width: 100%"
+            max-height="200"
+          >
+            <el-table-column type="index" label="#" width="52" align="center" />
+            <el-table-column prop="name" label="清洗字段名称" min-width="72" show-overflow-tooltip />
+            <el-table-column label="清洗规则" min-width="72">
               <template slot-scope="scope">
                 <div class="rule-tags">
                   <el-tag
@@ -44,13 +61,50 @@
         </div>
 
         <div class="field-actions">
-          <button type="button" class="btn edit-btn" @click="openRuleEditor">编辑清洗规则</button>
+          <button type="button" class="dash-btn" @click="openRuleEditor">
+            <i class="el-icon-edit" /> 编辑清洗规则
+          </button>
         </div>
       </div>
 
       <div class="form-actions">
         <button type="button" class="btn primary-btn" @click="handleSubmit">确认</button>
         <button type="button" class="btn secondary-btn" @click="$emit('cancel')">取消</button>
+      </div>
+      </div>
+
+      <div v-show="activeTab === 'advanced'" class="advanced-layout">
+        <div class="section-header" @click="sectionOpen.distribution = !sectionOpen.distribution">
+          <h4>数据分发</h4>
+          <div class="section-toggle">
+            <i :class="sectionOpen.distribution ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          </div>
+        </div>
+        <div v-show="sectionOpen.distribution" class="section-content">
+          <div class="advanced-row">
+            <span class="advanced-label">数据分发模式：</span>
+            <el-radio-group v-model="distributionMode">
+              <el-radio :label="'copy'">复制</el-radio>
+              <el-radio :label="'distribute'">分发</el-radio>
+            </el-radio-group>
+          </div>
+        </div>
+        <div class="section-header" @click="sectionOpen.parallel = !sectionOpen.parallel">
+          <h4>并发配置</h4>
+          <div class="section-toggle">
+            <i :class="sectionOpen.parallel ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+          </div>
+        </div>
+        <div v-show="sectionOpen.parallel" class="section-content">
+          <div class="form-item">
+            <label class="form-label">并发数量：</label>
+            <input v-model.number="formData.copiesCache" type="number" min="1" class="form-input" placeholder="1">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn primary-btn" @click="handleSubmit">确认</button>
+          <button type="button" class="btn secondary-btn" @click="$emit('cancel')">取消</button>
+        </div>
       </div>
     </div>
 
@@ -338,6 +392,7 @@
 import { tree as ruleTree, detail as ruleDetail } from '@/api/collect/rule/rule'
 import { detail as processorDetail } from '@/api/collect/rule/ruleProcessor'
 import { getFieldStream as getFlowFieldStream } from '@/api/collect/trans/transFlow'
+import FlowConfigHero from '../common/FlowConfigHero.vue'
 
 function genFrontUuid() {
   const rnd = Math.random().toString(16).slice(2)
@@ -346,6 +401,7 @@ function genFrontUuid() {
 
 export default {
   name: 'CleanTransformConfig',
+  components: { FlowConfigHero },
   directives: {
     /**
      * ElementUI el-dialog 拖拽（仅本组件使用）
@@ -455,8 +511,11 @@ export default {
   },
   data() {
     return {
+      activeTab: 'basic',
       sectionOpen: {
-        fields: true
+        fields: true,
+        distribution: false,
+        parallel: false
       },
       ruleTreeOptions: [],
       availableFieldOptions: [],
@@ -474,6 +533,14 @@ export default {
     }
   },
   computed: {
+    distributionMode: {
+      get() {
+        return this.formData.distributeType ? 'copy' : 'distribute'
+      },
+      set(v) {
+        this.$set(this.formData, 'distributeType', v === 'copy')
+      }
+    },
     ruleCascaderProps() {
       return {
         value: 'value',
@@ -966,11 +1033,48 @@ export default {
     },
     syncRuleEditorToForm() {
       const list = Array.isArray(this.ruleEditor.fields) ? this.ruleEditor.fields : []
-      this.$set(this.formData, 'fieldList', JSON.parse(JSON.stringify(list)))
+      const snapshot = JSON.parse(JSON.stringify(list))
+      this.$set(this.formData, 'fieldList', snapshot)
+
+      // 关键：确认后重建编辑态，避免出现 activeRule 引用失效导致输入无法继续编辑
+      if (!this.ruleEditor.visible) return
+
+      const prevField = list[this.ruleEditor.activeFieldIndex] || null
+      const prevRule = prevField && Array.isArray(prevField.ruleList)
+        ? (prevField.ruleList[this.ruleEditor.activeRuleIndex] || null)
+        : null
+      const prevFieldName = prevField ? prevField.name : ''
+      const prevRuleKey = prevRule ? (prevRule.uuId || prevRule.ruleId || '') : ''
+
+      this.ruleEditor.fields = JSON.parse(JSON.stringify(this.formData.fieldList || []))
+
+      if (!this.ruleEditor.fields.length) {
+        this.ruleEditor.activeFieldIndex = 0
+        this.ruleEditor.activeRuleIndex = 0
+        this.ruleEditor.rulePickerValue = null
+        return
+      }
+
+      let nextFieldIndex = this.ruleEditor.fields.findIndex(f => f && f.name === prevFieldName)
+      if (nextFieldIndex < 0) {
+        nextFieldIndex = Math.min(this.ruleEditor.activeFieldIndex, this.ruleEditor.fields.length - 1)
+      }
+      this.ruleEditor.activeFieldIndex = Math.max(0, nextFieldIndex)
+
+      const nextRules = Array.isArray(this.ruleEditor.fields[this.ruleEditor.activeFieldIndex].ruleList)
+        ? this.ruleEditor.fields[this.ruleEditor.activeFieldIndex].ruleList
+        : []
+
+      let nextRuleIndex = nextRules.findIndex(r => (r.uuId || r.ruleId || '') === prevRuleKey)
+      if (nextRuleIndex < 0) {
+        nextRuleIndex = Math.min(this.ruleEditor.activeRuleIndex, Math.max(0, nextRules.length - 1))
+      }
+      this.ruleEditor.activeRuleIndex = Math.max(0, nextRuleIndex)
+      this.ruleEditor.rulePickerValue = this.activeRule ? String(this.activeRule.ruleId || '') : null
     },
     handleSubmit() {
       if (!this.formData.name) {
-        this.$message.warning('请输入步骤名称')
+        this.$message.warning('请输入节点名称')
         return
       }
       // 若弹窗仍开着，先将编辑态同步回表单
@@ -1003,6 +1107,10 @@ export default {
 
 .config-content {
   padding: 20px;
+}
+
+.config-tabs {
+  margin: 0 0 8px;
 }
 
 .form-title {
@@ -1112,6 +1220,27 @@ export default {
   padding: 8px 0 0;
 }
 
+/* 清洗字段摘要表：控制高度、避免抽屉内出现多余横向滚动条 */
+.clean-fields-summary-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.clean-fields-summary-table ::v-deep .el-table__body-wrapper,
+.clean-fields-summary-table ::v-deep .el-table__header-wrapper {
+  overflow-x: hidden !important;
+}
+
+.clean-fields-summary-table ::v-deep table {
+  width: 100% !important;
+}
+
+.clean-fields-summary-table ::v-deep .el-table__body td .cell,
+.clean-fields-summary-table ::v-deep .el-table__header th .cell {
+  word-break: break-word;
+}
+
 .field-actions {
   display: flex;
   justify-content: center;
@@ -1131,18 +1260,25 @@ export default {
   transition: all 0.2s;
 }
 
-.edit-btn {
+.dash-btn {
   width: 100%;
   max-width: 520px;
-  border-style: dashed;
-  color: #409EFF;
-  border-color: #B3D8FF;
-  background: #ECF5FF;
+  height: 40px;
+  border: 1px dashed #409eff;
+  background: #fff;
+  color: #409eff;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
 }
 
-.edit-btn:hover {
-  border-color: #409EFF;
-  background: #D9ECFF;
+.dash-btn:hover {
+  border-color: #409eff;
+  background: #ecf5ff;
 }
 
 .primary-btn {
@@ -1189,6 +1325,42 @@ export default {
 .required-dot {
   color: #F56C6C;
   margin-right: 6px;
+}
+
+.advanced-card {
+  border: 1px solid #EBEEF5;
+  border-radius: 8px;
+  padding: 14px 14px 2px;
+  background: #FFF;
+}
+
+.advanced-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.advanced-label {
+  color: #606266;
+  font-size: 14px;
+}
+
+/* 高级配置区块强制对齐 Debezium 间距 */
+.advanced-layout {
+  margin-top: 0 !important;
+}
+
+.advanced-layout .section-header {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border-bottom: none !important;
+  padding: 10px 0 !important;
+}
+
+.advanced-layout .section-content {
+  padding-top: 8px;
+  margin-bottom: 8px;
 }
 
 .help-icon {

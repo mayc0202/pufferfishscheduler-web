@@ -165,6 +165,48 @@
           @save-to-list="handleSaveToList"
           @back-to-list="handleBackToList"
         />
+        <postgresql-component
+          v-if="componentType == 'PostgreSQL'"
+          ref="postgresqlComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
+        <oracle-component
+          v-if="componentType == 'Oracle' || componentType == 'ORACLE'"
+          ref="oracleComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
+        <sqlserver-component
+          v-if="componentType == 'SQLServer' || componentType == 'SqlServer' || componentType == 'Sqlserver'"
+          ref="sqlserverComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
+        <dameng-component
+          v-if="componentType == 'DM8' || componentType == 'Dameng' || componentType == 'DM'"
+          ref="damengComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
+        <kafka-component
+          v-if="componentType == 'Kafka'"
+          ref="kafkaComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
+        <rabbitmq-component
+          v-if="componentType == 'RabbitMQ' || componentType == 'Rabbitmq'"
+          ref="rabbitmqComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
+        <redis-component
+          v-if="componentType == 'Redis' || componentType == 'REDIS'"
+          ref="redisComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
         <doris-component
           v-if="componentType == 'Doris'"
           ref="dorisComponent"
@@ -313,6 +355,13 @@ import DynamicDialog from '@/components/common/dynamic-dialog.vue'
 import DetailDialog from '@/components/common/dynamic-detail.vue'
 import DatabaseSelectDialog from './component/database-select.vue'
 import MysqlComponent from './component/Mysql/index'
+import PostgresqlComponent from './component/Postgresql/index'
+import OracleComponent from './component/Oracle/index'
+import SqlserverComponent from './component/Sqlserver/index'
+import DamengComponent from './component/Dameng/index'
+import KafkaComponent from './component/Kafka/index'
+import RabbitmqComponent from './component/Rabbitmq/index'
+import RedisComponent from './component/Redis/index'
 import DorisComponent from './component/Doris/index'
 import FTPComponent from './component/FTP/index'
 
@@ -343,6 +392,13 @@ export default {
     'database-select-dialog': DatabaseSelectDialog,
 
     'mysql-component': MysqlComponent,
+    'postgresql-component': PostgresqlComponent,
+    'oracle-component': OracleComponent,
+    'sqlserver-component': SqlserverComponent,
+    'dameng-component': DamengComponent,
+    'kafka-component': KafkaComponent,
+    'rabbitmq-component': RabbitmqComponent,
+    'redis-component': RedisComponent,
     'doris-component': DorisComponent,
     'ftp-component': FTPComponent
   },
@@ -692,7 +748,24 @@ export default {
      * @param item
      */
     handleSelectDatabase(item) {
-      this.componentType = item.name
+      if (item && item.enabled === false) {
+        return
+      }
+      // 兼容后端可能返回 ORACLE / SqlServer / 达梦数据库 等命名
+      const raw = item?.name
+      if (raw === 'ORACLE') {
+        this.componentType = 'ORACLE'
+      } else if (raw === 'SqlServer' || raw === 'Sqlserver') {
+        this.componentType = 'SqlServer'
+      } else if (raw === 'DM8' || raw === 'DM' || raw === 'Dameng' || raw === '达梦数据库') {
+        this.componentType = 'DM8'
+      } else if (raw === 'Rabbitmq') {
+        this.componentType = 'RabbitMQ'
+      } else if (raw === 'REDIS') {
+        this.componentType = 'REDIS'
+      } else {
+        this.componentType = raw
+      }
       this.databaseDialog.visible = false
       this.databaseList = []
       this.cacheDatabaseList = []
@@ -734,6 +807,34 @@ export default {
           case 'MySQL':
             // 通过ref调用子组件方法加载数据
             this.$refs.mysqlComponent.loadDetail(data.id)
+            break
+          case 'PostgreSQL':
+            this.$refs.postgresqlComponent.loadDetail(data.id)
+            break
+          case 'Oracle':
+          case 'ORACLE':
+            this.$refs.oracleComponent.loadDetail(data.id)
+            break
+          case 'SQLServer':
+          case 'SqlServer':
+          case 'Sqlserver':
+            this.$refs.sqlserverComponent.loadDetail(data.id)
+            break
+          case 'DM8':
+          case 'Dameng':
+          case 'DM':
+            this.$refs.damengComponent.loadDetail(data.id)
+            break
+          case 'Kafka':
+            this.$refs.kafkaComponent.loadDetail(data.id)
+            break
+          case 'RabbitMQ':
+          case 'Rabbitmq':
+            this.$refs.rabbitmqComponent.loadDetail(data.id)
+            break
+          case 'Redis':
+          case 'REDIS':
+            this.$refs.redisComponent.loadDetail(data.id)
             break
           case 'Doris':
             this.$refs.dorisComponent.loadDetail(data.id)

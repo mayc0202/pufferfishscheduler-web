@@ -18,7 +18,8 @@
         ref="databaseInfo"
         :model="databaseInfo"
         :rules="rules"
-        label-width="0"
+        label-position="top"
+        class="db-access-form"
       >
         <el-row>
           <el-col :span="24">
@@ -28,37 +29,31 @@
             </div>
           </el-col>
         </el-row>
-        <el-row>
+        <el-row :gutter="16">
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">数据源名称</div>
-              <el-form-item prop="name">
-                <el-input
-                  ref="name"
-                  v-model="databaseInfo.name"
-                  size="mini"
-                  placeholder="请输入数据源名称"
-                  clearable
-                />
-              </el-form-item>
-            </div>
+            <el-form-item label="数据源名称" prop="name" class="db-form-item">
+              <el-input
+                ref="name"
+                v-model="databaseInfo.name"
+                size="mini"
+                placeholder="请输入数据源名称"
+                clearable
+              />
+            </el-form-item>
           </el-col>
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">数据库类型</div>
+            <el-form-item label="数据库类型" class="db-form-item">
               <el-input
                 v-model="databaseInfo.type"
                 size="mini"
-                placeholder="Mysql"
-                :disabled="true"
+                disabled
               />
-            </div>
+            </el-form-item>
           </el-col>
         </el-row>
-        <el-row>
+        <el-row :gutter="16">
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">数据源分组</div>
+            <el-form-item label="数据源分组" prop="groupId" class="db-form-item">
               <el-select
                 v-model="databaseInfo.groupId"
                 size="mini"
@@ -72,11 +67,10 @@
                   :value="item.id"
                 />
               </el-select>
-            </div>
+            </el-form-item>
           </el-col>
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">数据源分层</div>
+            <el-form-item label="数据源分层" prop="label" class="db-form-item">
               <el-select
                 v-model="databaseInfo.label"
                 size="mini"
@@ -90,7 +84,7 @@
                   :value="String(item.code)"
                 />
               </el-select>
-            </div>
+            </el-form-item>
           </el-col>
         </el-row>
         <el-row>
@@ -101,70 +95,64 @@
             </div>
           </el-col>
         </el-row>
-        <el-row>
+        <el-row :gutter="16">
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">主机地址</div>
+            <el-form-item label="主机地址" prop="dbHost" class="db-form-item">
               <el-input
                 v-model="databaseInfo.dbHost"
                 size="mini"
                 placeholder="请输入主机地址"
                 clearable
               />
-            </div>
+            </el-form-item>
           </el-col>
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">主机端口</div>
+            <el-form-item label="主机端口" prop="dbPort" class="db-form-item">
               <el-input
                 v-model="databaseInfo.dbPort"
                 size="mini"
                 placeholder="请输入主机端口"
                 clearable
               />
-            </div>
+            </el-form-item>
           </el-col>
         </el-row>
-        <el-row>
+        <el-row :gutter="16">
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">数据库名称</div>
+            <el-form-item label="数据库名称" prop="dbName" class="db-form-item">
               <el-input
                 v-model="databaseInfo.dbName"
                 size="mini"
                 placeholder="请输入数据库名称"
                 clearable
               />
-            </div>
+            </el-form-item>
           </el-col>
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">模式/Schema</div>
+            <el-form-item label="模式/Schema" class="db-form-item">
               <el-input
-                v-model="databaseInfo.dbScheam"
+                v-model="databaseInfo.dbSchema"
                 size="mini"
                 placeholder="请输入模式/Schema"
-                :disabled="true"
+                disabled
                 clearable
               />
-            </div>
+            </el-form-item>
           </el-col>
         </el-row>
-        <el-row>
+        <el-row :gutter="16">
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">用户名</div>
+            <el-form-item label="用户名" prop="username" class="db-form-item">
               <el-input
                 v-model="databaseInfo.username"
                 size="mini"
                 placeholder="请输入数据库用户名"
                 clearable
               />
-            </div>
+            </el-form-item>
           </el-col>
           <el-col :span="12">
-            <div class="wrap row">
-              <div class="label">密码</div>
+            <el-form-item label="密码" prop="password" class="db-form-item">
               <el-input
                 v-model="databaseInfo.password"
                 size="mini"
@@ -172,7 +160,7 @@
                 show-password
                 clearable
               />
-            </div>
+            </el-form-item>
           </el-col>
         </el-row>
         <el-row>
@@ -304,7 +292,27 @@ export default {
         name: [
           { required: true, trigger: 'blur', message: '请输入数据源名称!' }
         ],
-        groupId: [{ required: true, trigger: 'blur', message: '请选择分组!' }]
+        groupId: [
+          { required: true, trigger: 'change', message: '请选择数据源分组!' }
+        ],
+        label: [
+          { required: true, trigger: 'change', message: '请选择数据源分层!' }
+        ],
+        dbHost: [
+          { required: true, trigger: 'blur', message: '请输入主机地址!' }
+        ],
+        dbPort: [
+          { required: true, trigger: 'blur', message: '请输入主机端口!' }
+        ],
+        dbName: [
+          { required: true, trigger: 'blur', message: '请输入数据库名称!' }
+        ],
+        username: [
+          { required: true, trigger: 'blur', message: '请输入数据库用户名!' }
+        ],
+        password: [
+          { required: true, trigger: 'blur', message: '请输入密码!' }
+        ]
       }
     }
   },
@@ -367,26 +375,29 @@ export default {
 
     // 测试连接
     async testConnect() {
-      // 深拷贝 databaseInfo，避免修改原始对象
-      const database = JSON.parse(JSON.stringify(this.databaseInfo))
-      database.password = await encrypt(database.password)
+      this.$refs.databaseInfo.validate(async (valid) => {
+        if (!valid) return
+        const database = JSON.parse(JSON.stringify(this.databaseInfo))
+        database.password = await encrypt(database.password)
 
-      connect(database).then((res) => {
-        this.$message.success(res.data)
+        connect(database).then((res) => {
+          this.$message.success(res.data)
+        })
       })
     },
 
     // 保存
     async save() {
-      // 深拷贝 databaseInfo，避免修改原始对象
-      const database = JSON.parse(JSON.stringify(this.databaseInfo))
-      database.password = await encrypt(database.password)
+      this.$refs.databaseInfo.validate(async (valid) => {
+        if (!valid) return
+        const database = JSON.parse(JSON.stringify(this.databaseInfo))
+        database.password = await encrypt(database.password)
 
-      saveDb(database).then((res) => {
-        this.$message.success(res.data)
-        // 保存成功后
-        this.reset()
-        this.$emit('save-to-list')
+        saveDb(database).then((res) => {
+          this.$message.success(res.data)
+          this.reset()
+          this.$emit('save-to-list')
+        })
       })
     },
 
@@ -481,14 +492,15 @@ export default {
     margin-top: 10px;
     margin-bottom: 10px;
   }
+}
 
-  .row {
-    margin: 10px 0 10px 10px;
+.db-access-form ::v-deep .el-form-item__label {
+  padding: 0 0 6px 0;
+  line-height: 1.4;
+}
 
-    .label {
-      margin-bottom: 10px;
-    }
-  }
+.db-form-item {
+  margin: 10px 0 10px 10px;
 }
 
 // 页脚样式

@@ -50,14 +50,25 @@
               :key="item.id || rowIndex + '-' + item.name"
               :span="8"
             >
-              <div class="database-block hand" @dblclick="handleDatabaseSelect(item)">
-                <img
-                  :src="item.img"
-                  :width="item.width || 48"
-                  :height="item.height || 48"
-                  :alt="item.name"
+              <el-tooltip
+                content="暂未开放"
+                placement="top"
+                effect="dark"
+                :disabled="!isDatabaseDisabled(item)"
+              >
+                <div
+                  class="database-block"
+                  :class="{ hand: !isDatabaseDisabled(item), 'is-disabled': isDatabaseDisabled(item) }"
+                  @dblclick.stop="handleDatabaseActivate(item)"
                 >
-              </div>
+                  <img
+                    :src="item.img"
+                    :width="item.width || 48"
+                    :height="item.height || 48"
+                    :alt="item.name"
+                  >
+                </div>
+              </el-tooltip>
             </el-col>
           </el-row>
         </el-main>
@@ -136,6 +147,13 @@ export default {
   },
   methods: {
     /**
+     * 接口 enabled === false 时视为未开放，不可进入编辑流程
+     */
+    isDatabaseDisabled(item) {
+      return item && item.enabled === false
+    },
+
+    /**
      * 1. 选择数据库类型（向父组件传递选中的类型）
      */
     handleDbTypeSelect(type) {
@@ -144,12 +162,13 @@ export default {
     },
 
     /**
-     * 2. 双击选择数据库（向父组件传递选中的数据库）
+     * 双击：选择数据库并进入接入流程（未开放类型不响应；单击仍无操作，与原先一致）
      */
-    handleDatabaseSelect(database) {
-      this.$emit('select-database', database) // 向父组件发送"选中数据库"事件
-      // 可选：选中后自动关闭弹窗（如需手动控制可删除）
-      // this.$emit('update:visible', false)
+    handleDatabaseActivate(database) {
+      if (this.isDatabaseDisabled(database)) {
+        return
+      }
+      this.$emit('select-database', database)
     },
 
     /**
@@ -246,6 +265,16 @@ export default {
 
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  &.is-disabled {
+    opacity: 0.45;
+    filter: grayscale(0.9);
+    cursor: not-allowed;
+
+    &:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
   }
 
   img {

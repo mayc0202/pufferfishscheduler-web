@@ -458,8 +458,8 @@ export default {
   color: $label;
   font-size: 14px;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  max-height: calc(100vh - 100px);
 
   .title {
     font-size: 14px;

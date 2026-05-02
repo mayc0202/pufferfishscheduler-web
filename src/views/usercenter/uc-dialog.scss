@@ -1,6 +1,6 @@
 /* el-dialog 挂载到 body，与用户中心两页共用 */
 .uc-manage-dialog {
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid #ebeef5;
   box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
@@ -18,21 +18,30 @@
 }
 
 .uc-manage-dialog .el-dialog__header {
-  padding: 14px 20px;
-  border-bottom: 1px solid #ebeef5;
-  background: #fff;
+  background: #f8faff;
+  border-bottom: 1px solid #e9eef8;
+  padding: 16px 20px;
 }
 
 .uc-manage-dialog .el-dialog__title {
-  color: #303133;
-  font-size: 15px;
+  color: #1f3358;
   font-weight: 600;
+  font-size: 16px;
   line-height: 1.4;
 }
 
+.uc-manage-dialog .el-dialog__headerbtn .el-dialog__close {
+  color: #6a7486;
+}
+
+.uc-manage-dialog .el-dialog__headerbtn .el-dialog__close:hover {
+  color: #1f3358;
+  font-weight: bold;
+}
+
 .uc-manage-dialog .el-dialog__body {
-  padding: 16px 20px 8px;
-  background: #fafafa;
+  padding: 24px 24px 20px;
+  background: #fff;
 }
 
 .uc-manage-dialog .el-dialog__footer {
@@ -43,17 +52,17 @@
 
 /* 联系人弹窗：白底表单区 + 标签在上 */
 .uc-manage-dialog .contact-dialog-form {
-  padding: 12px 14px;
+  padding: 0;
   background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
+  border: none;
 }
 
 .uc-manage-dialog .contact-dialog-form .el-form-item__label {
   line-height: 1.45;
   padding-bottom: 6px;
-  color: #606266;
+  color: #6a7486;
   font-weight: 500;
+  font-size: 13px;
 }
 
 .uc-manage-dialog .contact-dialog-footer {

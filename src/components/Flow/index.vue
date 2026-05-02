@@ -362,12 +362,44 @@ export default {
       return code === 'FieldSplitter'
     },
 
+    /** 公式（Kettle Formula / FormulaMeta） */
+    isFormulaType(code) {
+      return code === 'Formula'
+    },
+
+    /** 分组统计（Kettle GroupBy），与后端标识 GroupBy 一致 */
+    isGroupByType(code) {
+      return code === 'GroupBy'
+    },
+
     isFtpUploadType(code) {
       return code === 'FtpUpload' || code === 'FTPUpload'
     },
 
     isFtpDownloadType(code) {
       return code === 'FtpDownload' || code === 'FTPDownload'
+    },
+
+    /** 阿里云 OSS 上传（后端标识 AliYunOSSUpload；兼容历史 code） */
+    isAliYunOssUploadType(code) {
+      return (
+        code === 'AliYunOSSUpload' ||
+        code === 'AlibabaOSSUpload' ||
+        code === 'AlibabaOssUpload' ||
+        code === 'OSSUpload' ||
+        code === 'OssUpload'
+      )
+    },
+
+    /** 阿里云 OSS 下载（后端标识 AliYunOSSDownload；兼容历史 code） */
+    isAliYunOssDownloadType(code) {
+      return (
+        code === 'AliYunOSSDownload' ||
+        code === 'AlibabaOSSDownload' ||
+        code === 'AlibabaOssDownload' ||
+        code === 'OSSDownload' ||
+        code === 'OssDownload'
+      )
     },
 
     isRowGeneratorType(code) {
@@ -450,6 +482,102 @@ export default {
     },
 
     /**
+     * 将「插入/更新」步骤参数整理为与 InsertOrUpdateConstructor 一致的结构（就地修改）。
+     * 与表输出一致：dataSourceId 为主键，并同步 dbId、dbConnection 便于接口/旧逻辑读取；去掉多余嵌套 data。
+     */
+    normalizeInsertOrUpdatePluginData(flatData) {
+      if (!flatData || typeof flatData !== 'object') return
+      if (flatData.data != null && typeof flatData.data === 'object' && !Array.isArray(flatData.data)) {
+        delete flatData.data
+      }
+      let ds =
+        flatData.dataSourceId != null && flatData.dataSourceId !== ''
+          ? String(flatData.dataSourceId).trim()
+          : ''
+      if (!ds && flatData.dataSource != null && flatData.dataSource !== '') {
+        const raw = flatData.dataSource
+        ds = Array.isArray(raw) ? String(raw[raw.length - 1] || '').trim() : String(raw).trim()
+      }
+      if (!ds && flatData.dbId != null && flatData.dbId !== '') {
+        ds = String(flatData.dbId).trim()
+      }
+      if (!ds && flatData.dbConnection != null && flatData.dbConnection !== '') {
+        ds = String(flatData.dbConnection).trim()
+      }
+      flatData.dataSourceId = ds
+      flatData.dbId = ds
+      flatData.dbConnection = ds
+      delete flatData.dataSource
+
+      flatData.tableName = String(flatData.tableName || '').trim()
+      flatData.commitSize =
+        flatData.commitSize != null && flatData.commitSize !== ''
+          ? String(flatData.commitSize)
+          : '1000'
+
+      const ub = flatData.updateBypassed
+      flatData.updateBypassed = ub === true || ub === 'true' || ub === 1 || ub === '1'
+
+      if (Array.isArray(flatData.selectField)) {
+        flatData.selectField = flatData.selectField.map((r) => {
+          const keyCondition = r && r.keyCondition != null ? String(r.keyCondition) : '='
+          const isBetween = keyCondition === 'BETWEEN'
+          return {
+            keyLookup: r && r.keyLookup != null ? String(r.keyLookup) : '',
+            keyCondition,
+            keyStream: r && r.keyStream != null ? String(r.keyStream) : '',
+            keyStream2:
+              isBetween && r && r.keyStream2 != null && r.keyStream2 !== '' ? String(r.keyStream2) : ''
+          }
+        })
+      } else {
+        flatData.selectField = []
+      }
+
+      if (Array.isArray(flatData.updateField)) {
+        flatData.updateField = flatData.updateField.map((r) => {
+          const up = r && r.update
+          const updateBool = up === true || up === 'true' || up === 1 || up === '1'
+          return {
+            updateLookup: r && r.updateLookup != null ? String(r.updateLookup) : '',
+            updateStream: r && r.updateStream != null ? String(r.updateStream) : '',
+            update: updateBool
+          }
+        })
+      } else {
+        flatData.updateField = []
+      }
+
+      if (flatData.copiesCache === undefined || flatData.copiesCache === '') flatData.copiesCache = 1
+      if (flatData.distributeType === undefined) flatData.distributeType = false
+    },
+
+    /**
+     * 流程落库前：规范化画布 JSON 中的插入/更新节点（与 saveFlow 提交内容一致）。
+     */
+    applyInsertOrUpdatePersistNormalization(flowPayload) {
+      if (!flowPayload || !Array.isArray(flowPayload.cells)) return
+      flowPayload.cells.forEach((cell) => {
+        if (!cell || cell.shape === 'edge') return
+        const d = cell.data
+        if (!d || d.code !== 'InsertOrUpdate') return
+        const merged = this.resolveNodePluginFormData(d)
+        const flat = this.unwrapChainedPluginData({ ...merged })
+        this.normalizeInsertOrUpdatePluginData(flat)
+        // 与表输出 TableOutput 一致：插件参数放在 cell.data.data，便于后端按「name + data」解析
+        cell.data = {
+          name: flat.name != null ? String(flat.name) : (d.name || ''),
+          code: flat.code != null ? String(flat.code) : 'InsertOrUpdate',
+          description:
+            flat.description != null
+              ? String(flat.description)
+              : (d.description != null ? String(d.description) : ''),
+          data: flat
+        }
+      })
+    },
+
+    /**
      * 解析节点上的「插件表单」数据。
      * - 保存配置后：参数在 cell.data.data 内，根上可能残留同名字段（旧值）。
      * - 新拖入节点：参数扁平在 cell.data 根上，无内层 data。
@@ -471,6 +599,7 @@ export default {
         'dataSource',
         'databaseId',
         'dbId',
+        'dbConnection',
         'resourceDbId',
         'outputPath',
         'ftpDirectory',
@@ -480,6 +609,10 @@ export default {
         'extension',
         'ifFileExists',
         'fieldList',
+        'tableName',
+        'tableId',
+        'commitSize',
+        'updateBypassed',
         'headerList',
         'xFormList',
         'url',
@@ -504,6 +637,13 @@ export default {
       if (Array.isArray(merged.fieldList) && merged.fieldList.length === 0 && Array.isArray(flatLayer.fieldList) && flatLayer.fieldList.length) {
         merged.fieldList = flatLayer.fieldList
       }
+      // 插入/更新：内层 data 与根上历史残留不一致时，从根补齐关键字/更新字段映射（对齐 TableOutput fieldList 处理）
+      ['selectField', 'updateField'].forEach((k) => {
+        if (!Array.isArray(merged[k]) || merged[k].length === 0) {
+          const fv = flatLayer[k]
+          if (Array.isArray(fv) && fv.length) merged[k] = fv
+        }
+      })
       return this.unwrapChainedPluginData(merged)
     },
 
@@ -697,6 +837,21 @@ export default {
           copiesCache: 1,
           distributeType: false
         }
+      } else if (this.isFormulaType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          fieldList: [],
+          copiesCache: 1,
+          distributeType: false
+        }
+      } else if (this.isGroupByType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          groupField: [],
+          fieldList: [],
+          copiesCache: 1,
+          distributeType: false
+        }
       } else if (this.isFtpUploadType(code)) {
         initialFormData = {
           ...initialFormData,
@@ -717,6 +872,26 @@ export default {
           distributeType: false,
           copiesCache: 1
         }
+      } else if (this.isAliYunOssUploadType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          localDirectory: '',
+          wildCard: '',
+          dataSource: '',
+          bucketName: '',
+          outFiledList: [
+            { name: '源文件目录', fieldName: 'upload_src_dir' },
+            { name: '目标文件目录', fieldName: 'upload_target_dir' },
+            { name: '文件名', fieldName: 'upload_file_name' },
+            { name: '文件类型', fieldName: 'upload_file_type' }
+          ],
+          binaryMode: true,
+          removeLocalFile: true,
+          overwriteFile: true,
+          timeOut: 60000,
+          distributeType: false,
+          copiesCache: 1
+        }
       } else if (this.isFtpDownloadType(code)) {
         initialFormData = {
           ...initialFormData,
@@ -724,6 +899,31 @@ export default {
           wildCard: '',
           dataSource: '',
           remoteDirectory: '',
+          outFiledList: [
+            { name: '源文件目录', fieldName: 'download_src_dir' },
+            { name: '目标文件目录', fieldName: 'download_target_dir' },
+            { name: '文件名', fieldName: 'download_file_name' },
+            { name: '文件类型', fieldName: 'download_file_type' },
+            { name: '文件大小', fieldName: 'download_file_size' }
+          ],
+          binaryMode: true,
+          timeOut: 60000,
+          removeAfterDownload: true,
+          moveAfterDownload: false,
+          moveToFolder: '',
+          createMoveFolderIfNotExist: false,
+          fileNameContainsDate: false,
+          dateTimeFormat: '',
+          distributeType: false,
+          copiesCache: 1
+        }
+      } else if (this.isAliYunOssDownloadType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          localDirectory: '',
+          wildCard: '',
+          dataSource: '',
+          bucketName: '',
           outFiledList: [
             { name: '源文件目录', fieldName: 'download_src_dir' },
             { name: '目标文件目录', fieldName: 'download_target_dir' },
@@ -959,7 +1159,9 @@ export default {
       } else if (code === 'InsertOrUpdate') {
         initialFormData = {
           ...initialFormData,
-          dataSource: '',
+          dataSourceId: '',
+          dbId: '',
+          dbConnection: '',
           tableId: null,
           tableName: '',
           commitSize: '1000',
@@ -1184,14 +1386,27 @@ export default {
       }
       try {
         const flowData = this.graph.toJSON()
+        const persistPayload = JSON.parse(JSON.stringify(flowData))
+        this.applyInsertOrUpdatePersistNormalization(persistPayload)
         // 检查画布上是否有组件
-        const hasComponents = flowData.cells && flowData.cells.length > 0
+        const hasComponents = persistPayload.cells && persistPayload.cells.length > 0
         const configData = {
           id: this.flowId,
-          config: hasComponents ? JSON.stringify(flowData) : null
+          config: hasComponents ? JSON.stringify(persistPayload) : null
         }
         const res = await setConfig(configData)
         if (res.code === '000000') {
+          // 与落库 payload 一致：更新画布节点上的插入/更新数据（去掉 dataSource 等）
+          if (this.graph && persistPayload.cells) {
+            const byId = new Map(persistPayload.cells.map((c) => [c.id, c]))
+            this.graph.getNodes().forEach((node) => {
+              const cell = byId.get(node.id)
+              const next = cell && cell.data
+              if (next && next.code === 'InsertOrUpdate') {
+                node.replaceData(next)
+              }
+            })
+          }
           this.$message.success('流程保存成功')
           this.hasChange = false
           return true
@@ -1930,6 +2145,66 @@ export default {
           copiesCache: realFormData.copiesCache != null && realFormData.copiesCache !== '' ? Number(realFormData.copiesCache) : 1,
           distributeType: !!realFormData.distributeType
         }
+        const normalizeFormulaFieldRow = (r) => {
+          if (!r || typeof r !== 'object') {
+            return { fieldName: '', formula: '', valueType: 0, valueLength: 0, valuePrecision: 0 }
+          }
+          const vt = Math.trunc(Number(r.valueType))
+          const vl = Math.trunc(Number(r.valueLength))
+          const vp = Math.trunc(Number(r.valuePrecision))
+          return {
+            fieldName: r.fieldName != null ? String(r.fieldName).trim() : '',
+            formula: r.formula != null ? String(r.formula) : '',
+            valueType: Number.isFinite(vt) ? vt : 0,
+            valueLength: Number.isFinite(vl) && vl >= 0 ? vl : 0,
+            valuePrecision: Number.isFinite(vp) && vp >= 0 ? vp : 0
+          }
+        }
+        const formulaFormSlice = {
+          fieldList: Array.isArray(realFormData.fieldList)
+            ? realFormData.fieldList.map(normalizeFormulaFieldRow)
+            : [],
+          copiesCache: realFormData.copiesCache != null && realFormData.copiesCache !== '' ? Number(realFormData.copiesCache) : 1,
+          distributeType: !!realFormData.distributeType
+        }
+        const normalizeGroupByFieldList = (raw) => {
+          if (raw == null) return []
+          if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean)
+          if (typeof raw === 'string') {
+            const t = raw.trim()
+            if (!t) return []
+            try {
+              const p = JSON.parse(t)
+              if (Array.isArray(p)) return p.map((x) => String(x).trim()).filter(Boolean)
+            } catch (e) {
+              /* 单字段 */
+            }
+            return [t]
+          }
+          return []
+        }
+        const normalizeGroupByAggRow = (r) => {
+          if (!r || typeof r !== 'object') {
+            return { aggregateField: '', subjectField: '', aggregateType: NaN, valueField: '' }
+          }
+          const at = Math.trunc(Number(r.aggregateType))
+          return {
+            aggregateField: r.aggregateField != null ? String(r.aggregateField).trim() : '',
+            subjectField: r.subjectField != null ? String(r.subjectField).trim() : '',
+            aggregateType: Number.isFinite(at) ? at : NaN,
+            valueField: r.valueField != null ? String(r.valueField) : ''
+          }
+        }
+        const groupByFormSlice = {
+          groupField: normalizeGroupByFieldList(realFormData.groupField),
+          fieldList: Array.isArray(realFormData.fieldList)
+            ? realFormData.fieldList
+              .map(normalizeGroupByAggRow)
+              .filter((x) => x.subjectField && x.aggregateField && Number.isFinite(x.aggregateType))
+            : [],
+          copiesCache: realFormData.copiesCache != null && realFormData.copiesCache !== '' ? Number(realFormData.copiesCache) : 1,
+          distributeType: !!realFormData.distributeType
+        }
         const recordsFromStreamFields = {
           fieldList: Array.isArray(realFormData.fieldList) ? realFormData.fieldList : [],
           copiesCache: realFormData.copiesCache != null && realFormData.copiesCache !== '' ? Number(realFormData.copiesCache) : 1,
@@ -2226,6 +2501,63 @@ export default {
           copiesCache: 1
         }
 
+        const ossResolvedBucket =
+          realFormData.bucketName ||
+          realFormData.remoteDirectory ||
+          realFormData.ftpDirectory ||
+          ''
+
+        const aliYunOssUploadFields = {
+          localDirectory: realFormData.localDirectory || '',
+          wildCard: realFormData.wildCard || '',
+          dataSource: ftpResolvedDataSource,
+          bucketName: ossResolvedBucket,
+          outFiledList: Array.isArray(realFormData.outFiledList) ? realFormData.outFiledList : [
+            { name: '源文件目录', fieldName: 'upload_src_dir' },
+            { name: '目标文件目录', fieldName: 'upload_target_dir' },
+            { name: '文件名', fieldName: 'upload_file_name' },
+            { name: '文件类型', fieldName: 'upload_file_type' }
+          ],
+          binaryMode: parseFtpBool(realFormData.binaryMode, true),
+          removeLocalFile: parseFtpBool(realFormData.removeLocalFile, true),
+          overwriteFile: parseFtpBool(realFormData.overwriteFile, true),
+          timeOut: realFormData.timeOut != null && realFormData.timeOut !== '' ? Number(realFormData.timeOut) : 60000,
+          distributeType: false,
+          copiesCache: 1
+        }
+
+        const aliYunOssDownloadFields = {
+          localDirectory: realFormData.localDirectory || '',
+          wildCard: realFormData.wildCard || '',
+          dataSource: ftpResolvedDataSource,
+          bucketName: ossResolvedBucket,
+          outFiledList: Array.isArray(realFormData.outFiledList) ? realFormData.outFiledList : [
+            { name: '源文件目录', fieldName: 'download_src_dir' },
+            { name: '目标文件目录', fieldName: 'download_target_dir' },
+            { name: '文件名', fieldName: 'download_file_name' },
+            { name: '文件类型', fieldName: 'download_file_type' },
+            { name: '文件大小', fieldName: 'download_file_size' }
+          ],
+          binaryMode: parseFtpBool(realFormData.binaryMode, true),
+          timeOut: realFormData.timeOut != null && realFormData.timeOut !== '' ? Number(realFormData.timeOut) : 60000,
+          removeAfterDownload: realFormData.removeAfterDownload !== undefined
+            ? parseFtpBool(realFormData.removeAfterDownload, true)
+            : parseFtpBool(realFormData.removeFile, true),
+          moveAfterDownload: realFormData.moveAfterDownload !== undefined
+            ? parseFtpBool(realFormData.moveAfterDownload, false)
+            : parseFtpBool(realFormData.moveFile, false),
+          moveToFolder: realFormData.moveToFolder || realFormData.moveToDirectory || '',
+          createMoveFolderIfNotExist: realFormData.createMoveFolderIfNotExist !== undefined
+            ? parseFtpBool(realFormData.createMoveFolderIfNotExist, false)
+            : parseFtpBool(realFormData.createNewFolder, false),
+          fileNameContainsDate: realFormData.fileNameContainsDate !== undefined
+            ? parseFtpBool(realFormData.fileNameContainsDate, false)
+            : parseFtpBool(realFormData.dateInFilename, false),
+          dateTimeFormat: realFormData.dateTimeFormat || '',
+          distributeType: false,
+          copiesCache: 1
+        }
+
         // 根据组件类型构建表单数据
         let formData
         if (componentType === 'TableInput') {
@@ -2234,9 +2566,10 @@ export default {
           formData = { ...formDataToEdit, ...tableOutputFields }
         } else if (componentType === 'InsertOrUpdate') {
           const dsRaw =
-            realFormData.dataSource != null && realFormData.dataSource !== ''
-              ? realFormData.dataSource
-              : realFormData.dataSourceId
+            realFormData.dataSourceId != null && realFormData.dataSourceId !== ''
+              ? realFormData.dataSourceId
+              : realFormData.dataSource
+          const dsStr = dsRaw != null && dsRaw !== '' ? String(dsRaw) : ''
           const updateBypassedVal = realFormData.updateBypassed
           const updateBypassed =
             updateBypassedVal === true ||
@@ -2245,7 +2578,9 @@ export default {
             updateBypassedVal === '1'
           formData = {
             ...formDataToEdit,
-            dataSource: dsRaw != null && dsRaw !== '' ? String(dsRaw) : '',
+            dataSourceId: dsStr,
+            dbId: dsStr,
+            dbConnection: dsStr,
             tableId: realFormData.tableId != null ? realFormData.tableId : null,
             tableName: realFormData.tableName || '',
             commitSize:
@@ -2261,6 +2596,7 @@ export default {
                 ? Number(realFormData.copiesCache)
                 : 1
           }
+          delete formData.dataSource
         } else if (componentType === 'DorisOutput') {
           formData = { ...formDataToEdit, ...dorisOutputFields }
         } else if (this.isCleanTransformType(componentType)) {
@@ -2290,10 +2626,18 @@ export default {
           formData = { ...formDataToEdit, ...splitFieldToRowsFormSlice }
         } else if (this.isFieldSplitterType(componentType)) {
           formData = { ...formDataToEdit, ...fieldSplitterFormSlice }
+        } else if (this.isFormulaType(componentType)) {
+          formData = { ...formDataToEdit, ...formulaFormSlice }
+        } else if (this.isGroupByType(componentType)) {
+          formData = { ...formDataToEdit, ...groupByFormSlice }
         } else if (this.isFtpUploadType(componentType)) {
           formData = { ...formDataToEdit, ...ftpUploadFields }
+        } else if (this.isAliYunOssUploadType(componentType)) {
+          formData = { ...formDataToEdit, ...aliYunOssUploadFields }
         } else if (this.isFtpDownloadType(componentType)) {
           formData = { ...formDataToEdit, ...ftpDownloadFields }
+        } else if (this.isAliYunOssDownloadType(componentType)) {
+          formData = { ...formDataToEdit, ...aliYunOssDownloadFields }
         } else if (this.isRowGeneratorType(componentType)) {
           formData = {
             ...formDataToEdit,
@@ -2645,8 +2989,22 @@ export default {
         this.hasChange = true
       })
 
-      this.graph.on('cell:removed', () => {
+      this.graph.on('cell:removed', ({ cell }) => {
         this.hasChange = true
+        // 右键/快捷键删除节点时也要收起配置抽屉，否则右侧仍显示已删除步骤的配置
+        if (
+          this.configDrawer &&
+          this.configDrawer.visible &&
+          cell &&
+          typeof cell.isNode === 'function' &&
+          cell.isNode() &&
+          this.configDrawer.currentNodeId != null &&
+          String(cell.id) === String(this.configDrawer.currentNodeId)
+        ) {
+          this.configDrawer.visible = false
+          this.configDrawer.currentNode = null
+          this.configDrawer.currentNodeId = ''
+        }
       })
 
       this.graph.on('cell:change:*', () => {
@@ -2987,6 +3345,74 @@ export default {
           }
           if (flatData.copiesCache === undefined || flatData.copiesCache === '') flatData.copiesCache = 1
           if (flatData.distributeType === undefined) flatData.distributeType = false
+        } else if (this.isFormulaType(flatData.code)) {
+          if (flatData.data != null && typeof flatData.data === 'object' && !Array.isArray(flatData.data)) {
+            delete flatData.data
+          }
+          const normFormulaRow = (r) => {
+            if (!r || typeof r !== 'object') {
+              return { fieldName: '', formula: '', valueType: 0, valueLength: 0, valuePrecision: 0 }
+            }
+            const vt = Math.trunc(Number(r.valueType))
+            const vl = Math.trunc(Number(r.valueLength))
+            const vp = Math.trunc(Number(r.valuePrecision))
+            return {
+              fieldName: r.fieldName != null ? String(r.fieldName).trim() : '',
+              formula: r.formula != null ? String(r.formula) : '',
+              valueType: Number.isFinite(vt) ? vt : 0,
+              valueLength: Number.isFinite(vl) && vl >= 0 ? vl : 0,
+              valuePrecision: Number.isFinite(vp) && vp >= 0 ? vp : 0
+            }
+          }
+          if (Array.isArray(flatData.fieldList)) {
+            flatData.fieldList = flatData.fieldList.map(normFormulaRow).filter((x) => x.fieldName && x.formula)
+          } else {
+            flatData.fieldList = []
+          }
+          if (flatData.copiesCache === undefined || flatData.copiesCache === '') flatData.copiesCache = 1
+          if (flatData.distributeType === undefined) flatData.distributeType = false
+        } else if (this.isGroupByType(flatData.code)) {
+          if (flatData.data != null && typeof flatData.data === 'object' && !Array.isArray(flatData.data)) {
+            delete flatData.data
+          }
+          const normGf = (raw) => {
+            if (raw == null) return []
+            if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean)
+            if (typeof raw === 'string') {
+              const t = raw.trim()
+              if (!t) return []
+              try {
+                const p = JSON.parse(t)
+                if (Array.isArray(p)) return p.map((x) => String(x).trim()).filter(Boolean)
+              } catch (e) {
+                /* 单字段 */
+              }
+              return [t]
+            }
+            return []
+          }
+          const normGbRow = (r) => {
+            if (!r || typeof r !== 'object') {
+              return { aggregateField: '', subjectField: '', aggregateType: NaN, valueField: '' }
+            }
+            const at = Math.trunc(Number(r.aggregateType))
+            return {
+              aggregateField: r.aggregateField != null ? String(r.aggregateField).trim() : '',
+              subjectField: r.subjectField != null ? String(r.subjectField).trim() : '',
+              aggregateType: Number.isFinite(at) ? at : NaN,
+              valueField: r.valueField != null ? String(r.valueField) : ''
+            }
+          }
+          flatData.groupField = normGf(flatData.groupField)
+          if (Array.isArray(flatData.fieldList)) {
+            flatData.fieldList = flatData.fieldList
+              .map(normGbRow)
+              .filter((r) => r.subjectField && r.aggregateField && Number.isFinite(r.aggregateType))
+          } else {
+            flatData.fieldList = []
+          }
+          if (flatData.copiesCache === undefined || flatData.copiesCache === '') flatData.copiesCache = 1
+          if (flatData.distributeType === undefined) flatData.distributeType = false
         } else if (this.isRedisOutputType(flatData.code)) {
           if (flatData.data != null && typeof flatData.data === 'object' && !Array.isArray(flatData.data)) {
             delete flatData.data
@@ -3122,6 +3548,8 @@ export default {
           }
           if (flatData.copiesCache === undefined || flatData.copiesCache === '') flatData.copiesCache = 1
           if (flatData.distributeType === undefined) flatData.distributeType = false
+        } else if (flatData.code === 'InsertOrUpdate') {
+          this.normalizeInsertOrUpdatePluginData(flatData)
         }
         const newData = {
           ...nodeData,
@@ -3394,6 +3822,21 @@ export default {
           copiesCache: 1,
           distributeType: false
         }
+      } else if (this.isFormulaType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          fieldList: [],
+          copiesCache: 1,
+          distributeType: false
+        }
+      } else if (this.isGroupByType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          groupField: [],
+          fieldList: [],
+          copiesCache: 1,
+          distributeType: false
+        }
       } else if (this.isFtpUploadType(code)) {
         initialFormData = {
           ...initialFormData,
@@ -3414,6 +3857,26 @@ export default {
           distributeType: false,
           copiesCache: 1
         }
+      } else if (this.isAliYunOssUploadType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          localDirectory: '',
+          wildCard: '',
+          dataSource: '',
+          bucketName: '',
+          outFiledList: [
+            { name: '源文件目录', fieldName: 'upload_src_dir' },
+            { name: '目标文件目录', fieldName: 'upload_target_dir' },
+            { name: '文件名', fieldName: 'upload_file_name' },
+            { name: '文件类型', fieldName: 'upload_file_type' }
+          ],
+          binaryMode: true,
+          removeLocalFile: true,
+          overwriteFile: true,
+          timeOut: 60000,
+          distributeType: false,
+          copiesCache: 1
+        }
       } else if (this.isFtpDownloadType(code)) {
         initialFormData = {
           ...initialFormData,
@@ -3421,6 +3884,31 @@ export default {
           wildCard: '',
           dataSource: '',
           remoteDirectory: '',
+          outFiledList: [
+            { name: '源文件目录', fieldName: 'download_src_dir' },
+            { name: '目标文件目录', fieldName: 'download_target_dir' },
+            { name: '文件名', fieldName: 'download_file_name' },
+            { name: '文件类型', fieldName: 'download_file_type' },
+            { name: '文件大小', fieldName: 'download_file_size' }
+          ],
+          binaryMode: true,
+          timeOut: 60000,
+          removeAfterDownload: true,
+          moveAfterDownload: false,
+          moveToFolder: '',
+          createMoveFolderIfNotExist: false,
+          fileNameContainsDate: false,
+          dateTimeFormat: '',
+          distributeType: false,
+          copiesCache: 1
+        }
+      } else if (this.isAliYunOssDownloadType(code)) {
+        initialFormData = {
+          ...initialFormData,
+          localDirectory: '',
+          wildCard: '',
+          dataSource: '',
+          bucketName: '',
           outFiledList: [
             { name: '源文件目录', fieldName: 'download_src_dir' },
             { name: '目标文件目录', fieldName: 'download_target_dir' },
@@ -3656,7 +4144,9 @@ export default {
       } else if (code === 'InsertOrUpdate') {
         initialFormData = {
           ...initialFormData,
-          dataSource: '',
+          dataSourceId: '',
+          dbId: '',
+          dbConnection: '',
           tableId: null,
           tableName: '',
           commitSize: '1000',
@@ -4306,8 +4796,12 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   z-index: 10000;
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .log-dialog {
@@ -4315,15 +4809,17 @@ export default {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #FFF;
-  border-radius: 4px;
+  background: #fff;
+  border-radius: 8px;
   width: 90%;
   max-width: 1000px;
-  min-height: 50vh;
-  max-height: 50vh;
+  min-height: 60vh;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  border: 1px solid #ebeef5;
 }
 
 .log-dialog.is-movable {
@@ -4334,9 +4830,11 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
-  border-bottom: 1px solid #EBEEF5;
+  padding: 14px 20px;
+  background-color: #fff;
+  border-bottom: 1px solid #ebeef5;
   cursor: grab;
+  user-select: none;
 }
 
 .log-header.dragging {
@@ -4344,46 +4842,94 @@ export default {
 }
 
 .log-title {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: #303133;
+  display: flex;
+  align-items: center;
+}
+
+.log-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background-color: #409eff;
+  margin-right: 8px;
+  border-radius: 2px;
 }
 
 .close-log {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 22px;
   color: #909399;
   cursor: pointer;
-  padding: 4px;
+  padding: 0 4px;
   line-height: 1;
+  transition: color 0.2s;
+  outline: none;
 }
 
 .close-log:hover {
-  color: #606266;
+  color: #f56c6c;
 }
 
 .log-body {
   flex: 1;
-  padding: 20px;
+  padding: 12px 20px 20px;
   overflow: auto;
-  max-height: calc(80vh - 60px);
+  background-color: #fff;
+  max-height: calc(80vh - 54px);
+}
+
+/* 滚动条样式 */
+.log-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.log-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.log-body::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 3px;
+}
+.log-body::-webkit-scrollbar-thumb:hover {
+  background: #c0c4cc;
 }
 
 .log-content {
   margin: 0;
+  padding: 4px 0 0;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
   white-space: pre-wrap;
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #333;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #606266;
+  box-shadow: none;
 }
 
 .log-line {
-  color: #333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  word-break: break-all;
+  transition: background-color 0.2s;
+}
+
+.log-line:hover {
+  background-color: #f0f4ff;
 }
 
 .log-line--fail {
   color: #f56c6c;
+  background-color: #fef0f0;
+}
+
+.log-line--fail:hover {
+  background-color: #fde2e2;
 }
 </style>

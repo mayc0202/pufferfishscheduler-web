@@ -455,9 +455,9 @@ export default {
   padding: 20px !important;
   color: $label;
   font-size: 14px;
-  flex: 1; // 占据剩余空间
-  overflow-y: auto; // 启用垂直滚动
-  max-height: calc(100vh - 100px); // 视口高度减去头部和页脚高度
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 
   .title {
     font-size: 14px;

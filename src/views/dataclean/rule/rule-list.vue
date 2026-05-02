@@ -34,92 +34,98 @@
               >
                 查看全部规则
               </el-button>
-              <el-tree
-                :data="groupTree"
-                node-key="id"
-                highlight-current
-                :default-expand-all="true"
-                :props="{ children: 'children', label: 'name' }"
-                @node-click="handleGroupClick"
-              >
-                <div slot-scope="{ data }" class="custom-node flex between">
-                  <img :src="icons.db_group" class="group_icon">
-                  <div class="flex node-label">
-                    {{ data.name }}
+              <div class="tree-scroll">
+                <el-tree
+                  :data="groupTree"
+                  node-key="id"
+                  highlight-current
+                  :default-expand-all="true"
+                  :props="{ children: 'children', label: 'name' }"
+                  @node-click="handleGroupClick"
+                >
+                  <div slot-scope="{ data }" class="custom-node flex between">
+                    <img :src="icons.db_group" class="group_icon">
+                    <div class="flex node-label">
+                      {{ data.name }}
+                    </div>
+                    <el-tooltip v-if="data.type === 'GROUP'" effect="light" placement="right" popper-class="custom-tooltip">
+                      <i class="el-icon-more node-icon" />
+                      <template slot="content">
+                        <div class="custom-menu">
+                          <div class="menu-item" @click="editGroup(data)">编辑分组</div>
+                          <div class="menu-item" @click="deleteGroup(data)">删除分组</div>
+                        </div>
+                      </template>
+                    </el-tooltip>
                   </div>
-                  <el-tooltip v-if="data.type === 'GROUP'" effect="light" placement="right" popper-class="custom-tooltip">
-                    <i class="el-icon-more node-icon" />
-                    <template slot="content">
-                      <div class="custom-menu">
-                        <div class="menu-item" @click="editGroup(data)">编辑分组</div>
-                        <div class="menu-item" @click="deleteGroup(data)">删除分组</div>
-                      </div>
-                    </template>
-                  </el-tooltip>
-                </div>
-              </el-tree>
+                </el-tree>
+              </div>
             </div>
           </div>
         </el-aside>
 
-        <!-- 右侧规则列表 -->
-        <el-main class="rule-main">
-          <div class="rule-search">
-            <div class="search-left">
-              <div class="label">规则名称：</div>
-              <el-input
-                v-model="searchForm.name"
-                placeholder="请输入规则名称"
-                size="small"
-                clearable
-                class="search-input"
+        <!-- 右侧规则列表（结构与清洗任务页一致，避免侧栏底部留白） -->
+        <el-main>
+          <div class="list">
+            <div class="rule-search">
+              <div class="search-left">
+                <div class="label">规则名称：</div>
+                <el-input
+                  v-model="searchForm.name"
+                  placeholder="请输入规则名称"
+                  size="small"
+                  clearable
+                  class="search-input"
+                />
+              </div>
+              <div class="search-right">
+                <el-button type="primary" icon="el-icon-search" size="small" @click="queryRuleList">
+                  查询
+                </el-button>
+                <el-button type="primary" size="small" @click="handleAddRule">
+                  新增规则
+                </el-button>
+              </div>
+            </div>
+
+            <el-table
+              v-loading="tableLoading"
+              :data="ruleList"
+              style="width: 100%"
+              height="100%"
+              element-loading-text="正在加载数据..."
+              element-loading-spinner="el-icon-loading"
+              element-loading-background="rgba(255, 255, 255, 0.8)"
+            >
+              <el-table-column type="index" label="#" width="60" />
+              <el-table-column prop="name" label="规则名称" min-width="160" show-overflow-tooltip />
+              <el-table-column prop="groupName" label="规则分组" min-width="120" show-overflow-tooltip />
+              <el-table-column prop="typeLabel" label="规则类型" min-width="120" show-overflow-tooltip />
+              <el-table-column prop="statusLabel" label="状态" min-width="80" />
+              <el-table-column prop="updatedTime" label="更新时间" min-width="160" show-overflow-tooltip />
+              <el-table-column fixed="right" label="操作" width="180" min-width="180" class-name="op-column">
+                <template slot-scope="scope">
+                  <div class="op-actions">
+                    <el-button type="text" size="small" @click="handleViewRule(scope.row)">查看</el-button>
+                    <el-button v-if="!isGeneralRule(scope.row)" type="text" size="small" @click="handleEditRule(scope.row)">编辑</el-button>
+                    <el-button type="text" size="small" @click="handleToggleRuleStatus(scope.row)">{{ scope.row.enabledBool ? '禁用' : '启用' }}</el-button>
+                    <el-button v-if="!isGeneralRule(scope.row)" type="text" size="small" @click="handleDeleteRule(scope.row)">删除</el-button>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <div class="pagination-wrapper">
+              <el-pagination
+                :current-page="pagination.currentPage"
+                :page-sizes="[10, 20, 30, 40, 50, 100]"
+                :page-size="pagination.pageSize"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="pagination.total"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
               />
             </div>
-            <div class="search-right">
-              <el-button type="primary" icon="el-icon-search" size="small" @click="queryRuleList">
-                查询
-              </el-button>
-              <el-button type="primary" size="small" @click="handleAddRule">
-                新增规则
-              </el-button>
-            </div>
-          </div>
-
-          <el-table
-            v-loading="tableLoading"
-            :data="ruleList"
-            style="width: 100%"
-            max-height="574"
-            element-loading-text="正在加载数据..."
-            element-loading-spinner="el-icon-loading"
-            element-loading-background="rgba(255, 255, 255, 0.8)"
-          >
-            <el-table-column type="index" label="#" width="60" />
-            <el-table-column prop="name" label="规则名称" width="280" />
-            <el-table-column prop="groupName" label="规则分组" width="160" />
-            <el-table-column prop="typeLabel" label="规则类型" width="140" />
-            <el-table-column prop="statusLabel" label="状态" width="100" />
-            <el-table-column prop="updatedTime" label="更新时间" width="200" />
-            <el-table-column fixed="right" label="操作" width="200" class-name="op-column">
-              <template slot-scope="scope">
-                <el-button type="text" size="small" @click="handleViewRule(scope.row)">查看</el-button>
-                <el-button v-if="!isGeneralRule(scope.row)" type="text" size="small" @click="handleEditRule(scope.row)">编辑</el-button>
-                <el-button v-if="!isGeneralRule(scope.row)" type="text" size="small" @click="handleDeleteRule(scope.row)">删除</el-button>
-                <el-button v-if="isGeneralRule(scope.row)" type="text" size="small" @click="handleToggleRuleStatus(scope.row)">{{ scope.row.statusBool ? '禁用' : '启用' }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pagination-wrapper">
-            <el-pagination
-              :current-page="pagination.currentPage"
-              :page-sizes="[10, 20, 30, 40, 50, 100]"
-              :page-size="pagination.pageSize"
-              layout="total, sizes, prev, pager, next, jumper"
-              :total="pagination.total"
-              @size-change="handleSizeChange"
-              @current-change="handleCurrentChange"
-            />
           </div>
         </el-main>
       </el-container>
@@ -444,6 +450,20 @@ export default {
       this.pagination.currentPage = 1
       this.queryRuleList()
     },
+    /** 列表行是否启用：优先 enabled，其次兼容 status */
+    parseListItemEnabled(item) {
+      if (!item || typeof item !== 'object') return true
+      if (item.enabled != null) {
+        if (typeof item.enabled === 'boolean') return item.enabled
+        const e = String(item.enabled)
+        return e === '1' || e.toLowerCase() === 'true'
+      }
+      if (item.status != null) {
+        const s = String(item.status)
+        return s === '1' || s.toLowerCase() === 'true'
+      }
+      return true
+    },
     async queryRuleList() {
       this.tableLoading = true
       try {
@@ -457,9 +477,8 @@ export default {
         const data = (res && res.data) || {}
         const records = Array.isArray(data.records) ? data.records : []
         this.ruleList = records.map((item) => {
-          const statusRaw = item.status != null ? String(item.status) : ''
-          const statusBool = statusRaw === '1' || statusRaw === 'true'
-          const statusLabel = item.statusTxt || item.statusLabel || (statusRaw === '1' || statusRaw === 'true' ? '启用' : '禁用')
+          const enabledBool = this.parseListItemEnabled(item)
+          const statusLabel = item.statusTxt || item.statusLabel || (enabledBool ? '启用' : '禁用')
           const updatedTime = item.updatedTimeTxt || item.createdTimeTxt || item.updatedTime || item.updateTime || '-'
           return {
             ...item,
@@ -467,7 +486,7 @@ export default {
             name: item.name || item.ruleName || '',
             groupName: item.groupName || '-',
             typeLabel: item.processorName || item.typeLabel || '-',
-            statusBool,
+            enabledBool,
             statusLabel,
             updatedTime
           }
@@ -655,8 +674,8 @@ export default {
       return false
     },
     handleToggleRuleStatus(row) {
-      if (!this.isGeneralRule(row)) return
-      const nextStatus = !(row && row.statusBool)
+      if (!row || row.id == null) return
+      const nextStatus = !(row && row.enabledBool)
       const text = nextStatus ? '启用' : '禁用'
       this.$confirm(`确定要${text}该规则吗？`, '提示', {
         confirmButtonText: '确定',
@@ -675,41 +694,63 @@ export default {
 
 <style lang="scss" scoped>
 .rule-container {
-  height: 100%;
-  background-color: #f5f7fa;
+  height: calc(100vh - 84px);
+  background: radial-gradient(circle at 15% 20%, #eef4ff 0%, #f6f9ff 55%, #f7f8fb 100%);
+  padding: 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .body {
+  margin: 0;
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   padding: 0;
   overflow: hidden;
-  height: calc(100vh - 60px);
   box-sizing: border-box;
+  min-height: 0;
 }
 
-/* 确保内部容器高度正确（对齐数据源接入页） */
-.body >>> .el-container {
+/* 与清洗任务页一致：占满高度，避免侧栏与主区纵向错位留白 */
+::v-deep .el-container {
+  flex: 1;
+  min-height: 0;
   height: 100%;
-  min-height: 100%;
+}
+
+::v-deep .el-main {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
 }
 
 .page-aside {
-  height: 90.5vh;
-  margin: 10px 10px 10px 10px; /* 调整右侧外边距 */
+  height: 100%;
+  margin: 0 14px 0 0;
   display: flex;
   flex-direction: column;
   background-color: #fff;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
   user-select: none;
-  min-width: 200px;
-  padding: 10px;
+  min-width: 240px;
+  min-height: 0;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .group {
   border-radius: 4px;
-  min-width: 220px;
+  min-width: 200px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -723,16 +764,31 @@ export default {
   min-height: 0;
 }
 
+/* 树区域单独占满剩余高度，避免 el-tree 作 flex 子项时高度塌陷 */
+.tree-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tree-scroll ::v-deep .el-tree {
+  max-height: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .group .search {
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   flex-shrink: 0;
   align-items: center;
 }
 
 .queryAll {
   width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   flex-shrink: 0;
+  border-radius: 8px;
 }
 
 .custom-node {
@@ -749,6 +805,7 @@ export default {
   align-items: center;
   flex: 1;
   font-weight: 400;
+  color: #31415f;
 
   span {
     margin-left: 4px;
@@ -762,29 +819,27 @@ export default {
 .group_icon {
   width: 18px;
   height: 18px;
-  margin-right: 6px;
+  margin-right: 8px;
 }
 
-.rule-main {
-  height: 90.5vh;
-  margin: 10px 10px 10px 0; /* 调整左侧外边距 */
-  padding: 10px 20px 20px 20px;
+.list {
+  margin: 0;
+  padding: 20px;
   background: #fff;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .search .add {
   margin-left: 10px;
-}
-
-::v-deep .el-tree {
-  height: 100% !important;
-  overflow-y: auto;
-  flex: 1 !important;
-  min-height: 0 !important;
-  display: flex;
-  flex-direction: column;
 }
 
 /* 弹窗里 cascader / input 等宽（对齐清洗流程开发的分组弹窗） */
@@ -831,7 +886,7 @@ export default {
 }
 
 .custom-tooltip .menu-item {
-  color: #606266;
+  color: #6a7486;
   padding: 8px 12px;
   cursor: pointer;
   font-size: 13px;
@@ -847,7 +902,8 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
+  flex-shrink: 0;
 
   .search-left {
     display: flex;
@@ -857,7 +913,8 @@ export default {
       margin: 0 8px 0 0;
       white-space: nowrap;
       font-size: 13px;
-      color: #606266;
+      font-weight: 500;
+      color: #6a7486;
     }
 
     .search-input {
@@ -878,16 +935,40 @@ export default {
 }
 
 .pagination-wrapper {
-  margin-top: 15px;
+  margin-top: 20px;
   text-align: right;
+  flex-shrink: 0;
 }
 
-.rule-main ::v-deep .el-table .cell {
+.list ::v-deep .el-table .cell {
   cursor: default;
 }
 
-.rule-main ::v-deep td.op-column .el-button--text {
+.list ::v-deep td.op-column .el-button--text {
   cursor: pointer;
+}
+
+/* 固定列默认 overflow:hidden，多颗文字按钮会被裁切；允许换行并收紧间距 */
+.list ::v-deep td.op-column .cell {
+  white-space: normal !important;
+  line-height: 22px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.op-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  margin: -2px 0;
+}
+
+.op-actions .el-button--text {
+  padding-left: 4px;
+  padding-right: 4px;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .group-dialog ::v-deep .el-dialog__body {
@@ -895,22 +976,32 @@ export default {
 }
 
 /* 表格样式优化 */
-.rule-main {
+.list {
   ::v-deep .el-table {
-    border: 1px solid #ebeef5; /* 统一表格边框 */
-    border-radius: 4px; /* 增加圆角 */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #edf2fb; /* 统一表格边框 */
+    border-radius: 8px; /* 增加圆角 */
+    overflow: hidden;
 
     th {
-      background-color: #f5f7fa; /* 表头背景色 */
-      color: #333639; /* 表头文字颜色 */
+      background-color: #f8faff !important; /* 表头背景色 */
+      color: #31415f; /* 表头文字颜色 */
       font-weight: 600; /* 表头字体加粗 */
-      border-bottom: 1px solid #ebeef5;
+      border-bottom: 1px solid #edf2fb;
+      height: 44px;
     }
 
     td {
-      padding: 8px 0; /* 调整行高 */
-      border-bottom: 1px solid #ebeef5; /* 统一单元格底部边框 */
-      color: #606266; /* 单元格文字颜色 */
+      padding: 10px 0; /* 调整行高 */
+      border-bottom: 1px solid #edf2fb; /* 统一单元格底部边框 */
+      color: #4b566a; /* 单元格文字颜色 */
+    }
+
+    .el-table__body-wrapper {
+      flex: 1;
+      overflow-y: auto;
     }
 
     .el-table__fixed-right::before,
@@ -923,9 +1014,9 @@ export default {
     }
 
     .el-button--text {
-      color: #2A87FF; /* 操作列按钮颜色 */
+      color: #409eff; /* 操作列按钮颜色 */
       &:hover {
-        color: #549DFF; /* 悬浮时颜色变亮 */
+        color: #66b1ff; /* 悬浮时颜色变亮 */
       }
     }
   }
@@ -939,30 +1030,30 @@ export default {
     .btn-prev,
     .btn-next {
       background-color: #fff;
-      color: #606266;
+      color: #6a7486;
       border: 1px solid #dcdfe6;
       border-radius: 4px;
       margin: 0 5px;
       &:hover {
-        border-color: #2A87FF;
-        color: #2A87FF;
+        border-color: #409eff;
+        color: #409eff;
       }
     }
 
     .el-pager li {
       background-color: #fff;
-      color: #606266;
+      color: #6a7486;
       border: 1px solid #dcdfe6;
       border-radius: 4px;
       margin: 0 5px;
       min-width: 30px;
       &:hover {
-        border-color: #2A87FF;
-        color: #2A87FF;
+        border-color: #409eff;
+        color: #409eff;
       }
       &.active {
-        background-color: #2A87FF;
-        border-color: #2A87FF;
+        background-color: #409eff;
+        border-color: #409eff;
         color: #fff;
       }
     }
@@ -970,13 +1061,23 @@ export default {
     .el-pagination__total,
     .el-pagination__jump,
     .el-pagination__sizes {
-      color: #606266; /* 统一文字颜色 */
+      color: #6a7486; /* 统一文字颜色 */
     }
 
     .el-input__inner {
       border-color: #dcdfe6; /* 输入框边框颜色 */
     }
   }
+}
+
+::v-deep .el-input--mini .el-input__inner,
+::v-deep .el-input--small .el-input__inner {
+  border-radius: 8px;
+}
+
+::v-deep .el-button--mini,
+::v-deep .el-button--small {
+  border-radius: 6px;
 }
 </style>
 

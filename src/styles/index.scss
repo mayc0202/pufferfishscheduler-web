@@ -283,8 +283,9 @@ aside {
 .list .search .search-select,
 .list .search .search-cascader,
 .list .search .search-date {
-  width: 170px !important;
-  max-width: 170px !important;
+  flex: 1 !important;
+  width: auto !important;
+  max-width: none !important;
 }
 
 .list .search .search-btns {

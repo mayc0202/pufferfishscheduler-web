@@ -151,7 +151,7 @@
                 default-first-option
                 placeholder="请选择日期时间格式"
               >
-                <el-option v-for="f in dateFormatPresets" :key="f.value" :label="f.label" :value="f.value" />
+                <el-option v-for="f in dateTimeFormatSelectOptions" :key="f.value" :label="f.label" :value="f.value" />
               </el-select>
             </div>
             <div class="form-item">
@@ -331,6 +331,8 @@
 import { ftpDbTree } from '@/api/database/database/dbGroup'
 import { directoryTree } from '@/api/database/resource/resource'
 import { getFieldStream as getFlowFieldStream } from '@/api/collect/trans/transFlow'
+import { getDict } from '@/api/dict/dict'
+import dictCode from '@/api/dict/dictCode'
 import { normalizeDictList, normalizeFieldTypeDictList } from '@/utils/component-dict-normalize'
 import FlowConfigHero from '../common/FlowConfigHero.vue'
 
@@ -428,7 +430,8 @@ export default {
       },
       streamFieldOptions: [],
       fieldFetchLoading: false,
-      dateFormatPresets: DATE_FORMAT_PRESETS,
+      apiDateFormatOptions: [],
+      apiNumberFormatOptions: [],
       /** 避免 initDefaults 与 watch 与 mounted 首屏重复拉 FTP */
       _ftpEchoReady: false
     }
@@ -505,6 +508,11 @@ export default {
       ]
         .map((x) => (x != null && x !== '' ? String(x) : ''))
         .join('\u0001')
+    },
+    /** 文件名日期后缀：字典优先，缺省沿用原内置三项 */
+    dateTimeFormatSelectOptions() {
+      const merged = this.mergeFormatDictOptions(this.apiDateFormatOptions, DATE_FORMAT_PRESETS)
+      return merged.length ? merged : DATE_FORMAT_PRESETS
     }
   },
   watch: {
@@ -521,10 +529,59 @@ export default {
   },
   async mounted() {
     this.initDefaults()
+    this.queryDateFormatDict()
+    this.queryNumberFormatDict()
     await this.runFtpAndPathEcho()
     this._ftpEchoReady = true
   },
   methods: {
+    async queryDateFormatDict() {
+      try {
+        const res = await getDict(dictCode.DATE_FORMAT)
+        const items = Array.isArray(res && res.data) ? res.data : []
+        this.apiDateFormatOptions = items
+          .map(item => {
+            const labelRaw = item && (item.name ?? item.label ?? item.value ?? item.code)
+            const valueRaw = item && (item.code ?? item.id ?? item.value)
+            if (valueRaw == null || labelRaw == null) return null
+            return { value: String(valueRaw), label: String(labelRaw) }
+          })
+          .filter(Boolean)
+      } catch (e) {
+        this.apiDateFormatOptions = []
+      }
+    },
+    async queryNumberFormatDict() {
+      try {
+        const res = await getDict(dictCode.NUMBER_FORMAT)
+        const items = Array.isArray(res && res.data) ? res.data : []
+        this.apiNumberFormatOptions = items
+          .map(item => {
+            const labelRaw = item && (item.name ?? item.label ?? item.value ?? item.code)
+            const valueRaw = item && (item.code ?? item.id ?? item.value)
+            if (valueRaw == null || labelRaw == null) return null
+            return { value: String(valueRaw), label: String(labelRaw) }
+          })
+          .filter(Boolean)
+      } catch (e) {
+        this.apiNumberFormatOptions = []
+      }
+    },
+    mergeFormatDictOptions(primary, secondary) {
+      const seen = new Set()
+      const out = []
+      ;[...(primary || []), ...(secondary || [])].forEach((o) => {
+        if (!o || o.value === undefined || o.value === null) return
+        const k = String(o.value)
+        if (seen.has(k)) return
+        seen.add(k)
+        out.push({
+          label: o.label != null ? String(o.label) : k,
+          value: o.value
+        })
+      })
+      return out
+    },
     initDefaults() {
       if (this.formData.code === undefined || this.formData.code === '') {
         this.$set(this.formData, 'code', 'ExcelOutput')
@@ -614,10 +671,17 @@ export default {
     formatOptionsForRow(row) {
       const key = this.formatDictKeyForType(row && row.type)
       const b = this.formatDictBundle
-      const list = (key === 'date' && b.date.length) ? b.date
-        : (key === 'number' && b.number.length) ? b.number
-          : b.all.length ? b.all : []
-      return list
+      if (key === 'date') {
+        const merged = this.mergeFormatDictOptions(this.apiDateFormatOptions, b.date)
+        if (merged.length) return merged
+        return b.all.length ? b.all : []
+      }
+      if (key === 'number') {
+        const merged = this.mergeFormatDictOptions(this.apiNumberFormatOptions, b.number)
+        if (merged.length) return merged
+        return b.all.length ? b.all : []
+      }
+      return b.all.length ? b.all : []
     },
     onFieldTypeChange(row) {
       if (!row) return

@@ -124,10 +124,10 @@ export const asyncRoutes = [
     ]
   },
   {
-    path: '/etl',
+    path: '/dataclean',
     component: Layout,
-    redirect: '/etl/list',
-    name: 'ETL',
+    redirect: '/dataclean/list',
+    name: 'DataClean',
     meta: {
       title: '数据集成',
       icon: 'collect'
@@ -168,28 +168,136 @@ export const asyncRoutes = [
   },
 
   {
-    path: '/knowledge-base',
+    path: '/qualiteval',
     component: Layout,
-    redirect: '/knowledge-base/index',
-    name: 'KnowledgeBase',
+    redirect: '/qualiteval/model',
+    alwaysShow: true,
+    name: 'Qualiteval',
     meta: {
-      title: '知识库管理',
-      icon: 'el-icon-coin',
+      title: '质量评测',
+      icon: 'quality_eval',
       roles: ['admin', 'editor']
     },
     children: [
       {
-        path: 'index',
+        path: 'model/detail/:id',
+        component: () => import('@/views/qualiteval/ModelDetail.vue'),
+        name: 'QualitevalModelDetail',
+        hidden: true,
+        meta: {
+          title: '评测模型详情',
+          icon: 'el-icon-collection',
+          noCache: true,
+          roles: ['admin', 'editor']
+        }
+      },
+      {
+        path: 'report/:modelId',
+        component: () => import('@/views/qualiteval/ReportSummary.vue'),
+        name: 'QualitevalReportByModel',
+        hidden: true,
+        meta: {
+          title: '质检报告',
+          icon: 'count',
+          noCache: true,
+          roles: ['admin', 'editor']
+        }
+      },
+      {
+        path: 'issues/:resultId',
+        component: () => import('@/views/qualiteval/IssueList.vue'),
+        name: 'QualitevalIssues',
+        hidden: true,
+        meta: {
+          title: '问题数据',
+          icon: 'el-icon-warning-outline',
+          noCache: true,
+          roles: ['admin', 'editor']
+        }
+      },
+      {
+        path: 'model',
+        component: () => import('@/views/qualiteval/ModelList.vue'),
+        name: 'QualitevalModel',
+        meta: {
+          title: '质检模型',
+          icon: 'quality_model',
+          roles: ['admin', 'editor']
+        }
+      },
+      {
+        path: 'rule',
+        component: () => import('@/views/qualiteval/RuleList.vue'),
+        name: 'QualitevalRule',
+        meta: {
+          title: '质检规则',
+          icon: 'el-icon-s-operation',
+          roles: ['admin', 'editor']
+        }
+      },
+      {
+        path: 'task',
+        component: () => import('@/views/qualiteval/TaskList.vue'),
+        name: 'QualitevalTask',
+        meta: {
+          title: '质检任务',
+          icon: 'quality_task',
+          roles: ['admin', 'editor']
+        }
+      },
+      {
+        path: 'report',
+        component: () => import('@/views/qualiteval/ReportSummary.vue'),
+        name: 'QualitevalReport',
+        meta: {
+          title: '质检报告',
+          icon: 'count',
+          noCache: true,
+          roles: ['admin', 'editor']
+        }
+      },
+      {
+        path: 'issues',
+        component: () => import('@/views/qualiteval/IssueList.vue'),
+        name: 'QualitevalIssueHub',
+        meta: {
+          title: '问题数据',
+          icon: 'el-icon-warning-outline',
+          noCache: true,
+          roles: ['admin', 'editor']
+        }
+      }
+    ]
+  },
+  {
+    path: '/agent-manage',
+    component: Layout,
+    redirect: '/agent-manage/knowledge-base',
+    alwaysShow: true,
+    name: 'AgentManage',
+    meta: {
+      title: 'Agent管理',
+      icon: 'agent',
+      roles: ['admin', 'editor']
+    },
+    children: [
+      {
+        path: 'knowledge-base',
         component: () => import('@/views/knowledgebase/index.vue'),
         name: 'KnowledgeBaseIndex',
         meta: {
           title: '知识库管理',
-          icon: 'el-icon-coin'
-        },
-        roles: ['admin', 'editor']
+          icon: 'knowledge',
+          roles: ['admin', 'editor']
+        }
       }
-    ],
-    hidden: false // 隐藏左侧菜单栏显示
+    ]
+  },
+
+  {
+    path: '/knowledge-base',
+    redirect: '/agent-manage/knowledge-base',
+    hidden: true
   },
 
   {
@@ -244,6 +352,27 @@ export const asyncRoutes = [
           icon: 'el-icon-collection',
           roles: ['admin', 'editor']
         }
+      },
+      {
+        path: 'formula',
+        component: () => import('@/views/dataclean/formula/formula-list'),
+        name: 'DataCleanFormulaList',
+        meta: {
+          title: '业务字段函数库',
+          icon: 'microscopic',
+          roles: ['admin', 'editor']
+        }
+      },
+      {
+        path: 'qualiteval-rule',
+        redirect: (to) => ({ path: '/qualiteval/rule', query: to.query }),
+        name: 'QualitevalRuleLegacy',
+        hidden: true,
+        meta: {
+          title: '质检规则',
+          icon: 'el-icon-s-operation',
+          roles: ['admin', 'editor']
+        }
       }
     ]
   },
@@ -267,6 +396,24 @@ export const asyncRoutes = [
   },
 
   {
+    path: '/basic-config/formula/edit',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/dataclean/formula/formula-edit'),
+        name: 'DataCleanFormulaEdit',
+        meta: {
+          title: '微观计算公式配置',
+          noCache: true,
+          roles: ['admin', 'editor']
+        }
+      }
+    ]
+  },
+
+  {
     path: '/agent-assistant',
     component: () => import('@/views/agentService/index.vue'),
     name: 'AIAgentAssistant',
@@ -275,14 +422,13 @@ export const asyncRoutes = [
       icon: 'el-icon-service',
       roles: ['admin', 'editor']
     },
-    hidden: true // 隐藏左侧菜单栏显示
+    hidden: true
   },
-
   // 404 page must be placed at the end !!!
   { path: '*', redirect: '/404', hidden: true },
 
   {
-    path: '/etl/flowChart',
+    path: '/dataclean/flowChart',
     component: () => import('@/views/dataclean/flow/flowChart.vue'),
     hidden: true
   }

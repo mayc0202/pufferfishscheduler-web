@@ -114,13 +114,14 @@
                     label="创建日期"
                     min-width="170"
                   />
-                  <el-table-column fixed="right" label="操作" width="140">
+                  <el-table-column fixed="right" label="操作" width="160">
                     <template slot-scope="scope">
                       <div class="wrap">
-                        <div>
+                        <div style="display: flex; gap: 8px; justify-content: flex-start; flex-wrap: nowrap;">
                           <el-button
                             type="text"
                             size="mini"
+                            style="margin-left: 0; padding: 0;"
                             @click.native.prevent="handleDetail(scope.row.id)"
                           >
                             查看
@@ -128,6 +129,7 @@
                           <el-button
                             type="text"
                             size="mini"
+                            style="margin-left: 0; padding: 0;"
                             @click.native.prevent="handleEdit(scope.row)"
                           >
                             编辑
@@ -135,6 +137,7 @@
                           <el-button
                             type="text"
                             size="mini"
+                            style="margin-left: 0; padding: 0;"
                             @click.native.prevent="handleDelete(scope.row.id)"
                           >
                             删除
@@ -220,6 +223,18 @@
           @save-to-list="handleSaveToList"
           @back-to-list="handleBackToList"
         />
+        <alibaba-oss-component
+          v-if="componentType == 'AliYunOSS' || componentType == 'AliYun' || componentType == 'AlibabaOSS'"
+          ref="alibabaOssComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
+        <minio-component
+          v-if="componentType == 'MinIO'"
+          ref="minioComponent"
+          @save-to-list="handleSaveToList"
+          @back-to-list="handleBackToList"
+        />
       </el-container>
     </div>
 
@@ -227,6 +242,7 @@
       :visible="databaseDialog.visible"
       :title="databaseDialog.title"
       :width="databaseDialog.width"
+      :height="databaseDialog.height"
       :database-type="databaseType"
       :database-list="cacheDatabaseList"
       :loading="loading"
@@ -364,6 +380,8 @@ import RabbitmqComponent from './component/Rabbitmq/index'
 import RedisComponent from './component/Redis/index'
 import DorisComponent from './component/Doris/index'
 import FTPComponent from './component/FTP/index'
+import AlibabaOSSComponent from './component/AlibabaOSS/index'
+import MinIOComponent from './component/MinIO/index'
 
 import {
   tree,
@@ -400,7 +418,9 @@ export default {
     'rabbitmq-component': RabbitmqComponent,
     'redis-component': RedisComponent,
     'doris-component': DorisComponent,
-    'ftp-component': FTPComponent
+    'ftp-component': FTPComponent,
+    'alibaba-oss-component': AlibabaOSSComponent,
+    'minio-component': MinIOComponent
   },
   data() {
     return {
@@ -440,8 +460,8 @@ export default {
       databaseDialog: {
         title: '数据源接入',
         visible: false,
-        width: 680,
-        height: 440
+        width: 760,
+        height: 540
       },
       searchGroup: '', // 查询分组
       group: [],
@@ -763,6 +783,10 @@ export default {
         this.componentType = 'RabbitMQ'
       } else if (raw === 'REDIS') {
         this.componentType = 'REDIS'
+      } else if (raw === 'Minio' || raw === 'MINIO') {
+        this.componentType = 'MinIO'
+      } else if (raw === 'AliYunOSS' || raw === 'AliYun' || raw === 'AlibabaOSS') {
+        this.componentType = 'AliYunOSS'
       } else {
         this.componentType = raw
       }
@@ -841,6 +865,16 @@ export default {
             break
           case 'FTP':
             this.$refs.ftpComponent.loadDetail(data.id)
+            break
+          case 'AliYunOSS':
+          case 'AliYun':
+          case 'AlibabaOSS':
+            this.$refs.alibabaOssComponent.loadDetail(data.id)
+            break
+          case 'MinIO':
+          case 'Minio':
+          case 'MINIO':
+            this.$refs.minioComponent.loadDetail(data.id)
             break
           default:
             this.$message.error('暂不支持该数据源类型')
@@ -1001,97 +1035,200 @@ export default {
 </style>
 
 <style lang="scss" scoped>
-@import "@/styles/variables.scss";
-
-.custom-tooltip .custom-menu {
-  border: none;
+.container {
+  height: calc(100vh - 84px);
+  background: radial-gradient(circle at 15% 20%, #eef4ff 0%, #f6f9ff 55%, #f7f8fb 100%);
+  padding: 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
-.custom-tooltip .menu-item {
-  color: $label;
-  padding: 8px 12px;
-  border-bottom: 1px solid #ebeef5;
-  cursor: pointer;
+.body {
+  margin: 0;
+  padding: 0;
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.custom-tooltip .menu-item:last-child {
-  border-bottom: none;
-}
-
-.custom-tooltip .menu-item:hover {
-  background-color: #fff;
-  color: #409eff;
-}
-
-// 修改el-container的样式
 ::v-deep .el-container {
+  height: 100%;
+}
+
+/* 右侧列表 / 数据源接入区域：占满 aside 外剩余空间并允许内部纵向滚动 */
+::v-deep .body > .el-container > *:not(.page-aside) {
   flex: 1;
-  background-color: #f8f8fc;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
-// 主内容区域样式调整
-::v-deep .el-container > .el-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-::v-deep .el-aside {
-  font-size: 16px;
-  font-weight: 600;
-  padding: 10px;
-  margin-left: 10px;
-  margin-top: 10px;
-  box-shadow: $shadow;
-  user-select: none;
-  min-width: 200px;
-  background-color: #fff;
-}
-
-::v-deep .page-aside {
-  height: 90.5vh;
-  margin-bottom: 10px;
-  display: flex;
-  flex-direction: column;
-  background-color: #fff;
-}
-
-// 表格区域样式调整
 ::v-deep .el-main {
-  flex: 1;
-  overflow-y: auto; // 改为垂直滚动
+  padding: 0;
   display: flex;
   flex-direction: column;
-  padding: 10px;
-  .list {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #fff;
-    border-radius: 4px;
-    .search {
-      flex-shrink: 0;
-    }
-    .el-table {
-      flex: 1;
-    }
-    .pagination-wrapper {
-      flex-shrink: 0;
-      margin-top: 20px;
-    }
-  }
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 数据源接入等表单页：el-main 需在 flex 列中可收缩，否则 overflow-y 不生效 */
+::v-deep .el-main.scrollable-main {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.page-aside {
+  height: 100%;
+  margin: 0 14px 0 0;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
+  user-select: none;
+  min-width: 240px;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.group {
+  border-radius: 4px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.group .wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.group .search {
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.group .search .add {
+  margin-left: 10px;
+}
+
+.queryAll {
+  width: 100%;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.group_icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 8px;
+  margin-right: 8px;
+}
+
+::v-deep .el-tree {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.list {
+  margin: 0;
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.search {
+  padding: 0;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.search_input {
+  width: 220px;
+  min-width: 220px;
+  height: 32px;
+  margin-right: 10px;
+}
+
+.search_input .input {
+  height: 32px;
+  width: 100%;
+  background-color: white;
+  box-shadow: none;
+  border-radius: 8px;
+  outline: none;
+  border: 1px solid #dcdfe6;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.search > div:last-child {
+  flex-shrink: 0;
 }
 
 ::v-deep .el-table {
-  border: 1px solid #ebeef5;
-  border-bottom: 0;
-  max-height: 630px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #edf2fb;
+}
+
+::v-deep .el-table__body-wrapper {
+  flex: 1;
+  overflow-y: auto;
+}
+
+::v-deep .el-table th {
+  background-color: #f8faff !important;
+  color: #31415f;
+  font-weight: 600;
+  height: 44px;
+}
+
+::v-deep .el-table td {
+  padding: 10px 0;
+  color: #4b566a;
+}
+
+::v-deep .el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: #fafcff;
 }
 
 ::v-deep .el-input--mini .el-input__inner {
-  height: 36px;
-  line-height: 28px;
-  font-size: 14px;
+  height: 32px;
+  line-height: 32px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+::v-deep .el-button--mini {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 ::v-deep .el-textarea__inner {
@@ -1107,7 +1244,7 @@ export default {
   background-color: #ffffff;
   background-image: none;
   border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border-radius: 6px;
   -webkit-transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
   transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
 }
@@ -1118,102 +1255,6 @@ export default {
 
 ::v-deep .el-form-item__label {
   font-size: 13px;
-}
-
-.body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-  height: calc(100vh - 20px);
-}
-
-/* 确保内部容器高度正确 */
-.body >>> .el-container {
-  height: 100%;
-  min-height: 100%;
-}
-.body .group {
-  border-radius: 4px;
-  min-width: 220px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-.body .group .search {
-  margin-bottom: 10px;
-  flex-shrink: 0;
-}
-
-.body .group .search .add {
-  margin-left: 10px;
-}
-.body .group .queryAll {
-  width: 100%;
-  margin-bottom: 10px;
-  flex-shrink: 0;
-}
-
-.body .group .group_icon {
-  width: 18px;
-  height: 18px;
-  margin-top: 8px;
-  margin-right: 6px;
-}
-
-::v-deep .el-tree {
-  height: 100% !important;
-  overflow-y: auto;
-  max-height: 800px;
-  flex: 1 !important;
-  min-height: 0 !important;
-  display: flex;
-  flex-direction: column;
-}
-
-.body .group .wrap {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.body .list {
-  padding: 10px 20px 20px 20px;
-  background: #fff fixed;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-  // height: calc(100vh - 90px);
-  min-width: 504px;
-}
-
-.body .list .search {
-  padding: 10px;
-  margin-bottom: 20px;
-}
-
-.body .list .search .search_input {
-  border-bottom: 1px rgb(167, 167, 167) inset;
-  width: 220px;
-  min-width: 220px;
-  height: 30px;
-  margin-right: 10px;
-}
-
-.body .list .search .search_input .input {
-  height: 24px;
-  background-color: white;
-  box-shadow: none;
-  border-radius: 4px;
-  outline: none;
-  border: none;
-}
-
-.body .list .search > div:last-child {
-  flex-shrink: 0;
 }
 
 .custom-node {
@@ -1228,6 +1269,7 @@ export default {
 .node-label {
   flex: 1;
   font-weight: 400;
+  color: #31415f;
 }
 
 .node-label:hover {
@@ -1261,6 +1303,23 @@ export default {
 
 .menu-item:hover {
   background-color: #606266;
+}
+
+.pagination-wrapper {
+  margin-top: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+::v-deep .custom-tooltip {
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+::v-deep .custom-tooltip .popper__arrow {
+  border: none !important;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 </style>
 

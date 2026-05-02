@@ -27,7 +27,7 @@
         <div class="form-item">
           <label class="form-label required">数据源：</label>
           <el-cascader
-            v-model="formData.dataSource"
+            v-model="formData.dataSourceId"
             class="relation-db-cascader"
             :options="cascaderDbOptions"
             :props="dbCascaderProps"
@@ -65,7 +65,7 @@
               >
                 {{ table.name || table }}
               </div>
-              <div v-if="tableList.length === 0" class="select-empty">{{ formData.dataSource ? '暂无数据' : '请先选择数据源' }}</div>
+              <div v-if="tableList.length === 0" class="select-empty">{{ formData.dataSourceId ? '暂无数据' : '请先选择数据源' }}</div>
             </div>
           </div>
         </div>
@@ -139,12 +139,6 @@
                     {{ scope.row.update ? '是' : '否' }}
                   </template>
                 </el-table-column>
-                <el-table-column label="空间转换" width="80">
-                  <template slot-scope="scope">
-                    {{ scope.row.spatialConversion ? '是' : '否' }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="坐标系" width="72" prop="coordinateSystem" />
               </el-table>
             </div>
             <div class="field-actions">
@@ -235,7 +229,13 @@
                   </el-select>
                 </td>
                 <td>
-                  <el-select v-model="row.keyCondition" class="field-select" clearable placeholder="请选择比较符号">
+                  <el-select
+                    v-model="row.keyCondition"
+                    class="field-select"
+                    clearable
+                    placeholder="请选择比较符号"
+                    @change="onSelectKeyConditionChange(row, $event)"
+                  >
                     <el-option v-for="op in keyConditionOptions" :key="op" :label="op" :value="op" />
                   </el-select>
                 </td>
@@ -260,7 +260,8 @@
                     allow-create
                     default-first-option
                     clearable
-                    placeholder="下拉选择或者手动输入"
+                    placeholder="仅 BETWEEN 时可填"
+                    :disabled="!isBetweenKeyCondition(row.keyCondition)"
                   >
                     <el-option v-for="opt in streamFieldOptions" :key="'ks2-' + opt" :label="opt" :value="opt" />
                   </el-select>
@@ -320,8 +321,6 @@
                     <i class="el-icon-info field-info-icon" />
                   </el-tooltip>
                 </th>
-                <th>转换为空间地理类型</th>
-                <th>来源表坐标系</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -359,17 +358,6 @@
                     <el-option label="是" :value="true" />
                     <el-option label="否" :value="false" />
                   </el-select>
-                </td>
-                <td class="td-center">
-                  <el-checkbox v-model="row.spatialConversion" />
-                </td>
-                <td>
-                  <input
-                    v-model="row.coordinateSystem"
-                    type="text"
-                    class="table-cell-input"
-                    placeholder="请输入"
-                  >
                 </td>
                 <td>
                   <button type="button" class="btn link-btn" @click="removeUpdateRow(index)">删除</button>
@@ -435,6 +423,11 @@ export default {
     flowConfig: {
       type: Object,
       default: null
+    },
+    /** 与表输出一致：合并「获取字段」请求用的流程 JSON 时定位当前节点 */
+    currentNodeId: {
+      type: String,
+      default: ''
     }
   },
   data() {
@@ -483,25 +476,25 @@ export default {
     }
   },
   watch: {
-    'formData.dataSource': {
+    'formData.dataSourceId': {
       handler(val, oldVal) {
-        const id = val != null && val !== '' ? String(val) : ''
-        this.$set(this.formData, 'dataSourceId', id)
+        const id = val != null && val !== '' ? String(val).trim() : ''
+        this.syncInsertUpdateDbFieldsFromDataSourceId(id)
         const prev =
           oldVal !== undefined && oldVal !== null && oldVal !== ''
             ? String(oldVal)
             : null
         if (prev !== null && id !== prev) {
-          this.formData.tableName = ''
-          this.formData.tableId = null
+          this.$set(this.formData, 'tableName', '')
+          this.$set(this.formData, 'tableId', null)
           this.tableList = []
         }
         if (id) {
           this.loadTableList(id)
         } else if (prev !== null) {
           this.tableList = []
-          this.formData.tableName = ''
-          this.formData.tableId = null
+          this.$set(this.formData, 'tableName', '')
+          this.$set(this.formData, 'tableId', null)
         }
       },
       immediate: true
@@ -532,7 +525,34 @@ export default {
     this.initFormData()
   },
   methods: {
+    /** 与表输出一致：dataSourceId / dbId / dbConnection 同步为同一字符串，便于流字段等接口读取 */
+    syncInsertUpdateDbFieldsFromDataSourceId(idStr) {
+      const s = idStr != null && idStr !== '' ? String(idStr).trim() : ''
+      this.$set(this.formData, 'dataSourceId', s)
+      this.$set(this.formData, 'dbId', s)
+      this.$set(this.formData, 'dbConnection', s)
+      if (Object.prototype.hasOwnProperty.call(this.formData, 'dataSource')) {
+        this.$delete(this.formData, 'dataSource')
+      }
+    },
     initFormData() {
+      const legacyDs = this.formData.dataSource
+      if (
+        (this.formData.dataSourceId === undefined ||
+          this.formData.dataSourceId === '' ||
+          this.formData.dataSourceId === null) &&
+        legacyDs != null &&
+        legacyDs !== ''
+      ) {
+        this.$set(this.formData, 'dataSourceId', String(legacyDs))
+      }
+      if (Object.prototype.hasOwnProperty.call(this.formData, 'dataSource')) {
+        this.$delete(this.formData, 'dataSource')
+      }
+      if (this.formData.dataSourceId === undefined) {
+        this.$set(this.formData, 'dataSourceId', '')
+      }
+      this.syncInsertUpdateDbFieldsFromDataSourceId(this.formData.dataSourceId)
       if (this.formData.commitSize === undefined || this.formData.commitSize === '') {
         this.$set(this.formData, 'commitSize', '1000')
       }
@@ -555,36 +575,154 @@ export default {
     toggleSection(section) {
       this.sectionOpen[section] = !this.sectionOpen[section]
     },
+    /**
+     * 与画布落库 normalizeInsertOrUpdatePluginData、后端 InsertOrUpdateConstructor 字段一致：
+     * selectField[]: keyLookup, keyCondition, keyStream, keyStream2
+     */
+    serializeSelectFieldForPlugin(rows) {
+      const arr = Array.isArray(rows) ? rows : []
+      return arr.map((r) => ({
+        keyLookup: r && r.keyLookup != null ? String(r.keyLookup) : '',
+        keyCondition:
+          r && r.keyCondition != null && String(r.keyCondition).trim() !== ''
+            ? String(r.keyCondition)
+            : '=',
+        keyStream: r && r.keyStream != null ? String(r.keyStream) : '',
+        keyStream2:
+          r &&
+          this.isBetweenKeyCondition(r.keyCondition) &&
+          r.keyStream2 != null &&
+          r.keyStream2 !== ''
+            ? String(r.keyStream2)
+            : ''
+      }))
+    },
+    /**
+     * updateField[]: updateLookup、updateStream、update（与 InsertOrUpdateConstructor 一致）
+     */
+    serializeUpdateFieldForPlugin(rows) {
+      const arr = Array.isArray(rows) ? rows : []
+      return arr.map((r) => {
+        const up = r && r.update
+        const updateBool = up === true || up === 'true' || up === 1 || up === '1'
+        return {
+          updateLookup: r && r.updateLookup != null ? String(r.updateLookup) : '',
+          updateStream: r && r.updateStream != null ? String(r.updateStream) : '',
+          update: updateBool
+        }
+      })
+    },
+    buildInsertOrUpdateInnerPayload() {
+      const ds =
+        this.formData.dataSourceId != null && this.formData.dataSourceId !== ''
+          ? String(this.formData.dataSourceId).trim()
+          : ''
+      return {
+        name: this.formData.name,
+        description: this.formData.description != null ? String(this.formData.description) : '',
+        dataSourceId: ds,
+        dbId: ds,
+        dbConnection: ds,
+        // 与表输出一致：部分后端从 dataSource 读取库 id
+        dataSource: ds,
+        tableId: this.formData.tableId,
+        tableName: this.formData.tableName != null ? String(this.formData.tableName) : '',
+        commitSize:
+          this.formData.commitSize != null && this.formData.commitSize !== ''
+            ? String(this.formData.commitSize)
+            : '1000',
+        updateBypassed: !!this.formData.updateBypassed,
+        // 必须用 formData 中已保存的映射，勿用弹窗编辑中的临时列表（否则未打开弹窗时提交为空）
+        selectField: this.serializeSelectFieldForPlugin(this.formData.selectField),
+        updateField: this.serializeUpdateFieldForPlugin(this.formData.updateField),
+        distributeType: !!this.formData.distributeType,
+        copiesCache:
+          this.formData.copiesCache != null && this.formData.copiesCache !== ''
+            ? this.formData.copiesCache
+            : 1
+      }
+    },
+    /** 从节点 data 取出插件参数字典（兼容 cell.data.data 与历史扁平） */
+    extractInsertOrUpdatePayloadFromCellData(cellData) {
+      if (!cellData || typeof cellData !== 'object') return {}
+      const nested = cellData.data
+      if (nested != null && typeof nested === 'object' && !Array.isArray(nested)) {
+        return { ...nested }
+      }
+      const { name, code, description, ...rest } = cellData
+      return { ...rest }
+    },
     buildTempFlowPayload() {
-      const ds = this.formData.dataSource != null && this.formData.dataSource !== ''
-        ? String(this.formData.dataSource)
-        : ''
+      const inner = this.buildInsertOrUpdateInnerPayload()
       return {
         cells: [
           {
-            id: 'temp-insert-update-step',
+            id: this.currentNodeId || 'temp-insert-update-step',
             shape: 'rect',
             data: {
               name: this.formData.name,
               code: 'InsertOrUpdate',
-              data: {
-                name: this.formData.name,
-                description: this.formData.description,
-                dataSource: ds,
-                dataSourceId: ds,
-                tableId: this.formData.tableId,
-                tableName: this.formData.tableName,
-                commitSize: this.formData.commitSize || '1000',
-                updateBypassed: this.formData.updateBypassed,
-                selectField: this.editSelectFieldList,
-                updateField: this.editUpdateFieldList,
-                distributeType: this.formData.distributeType,
-                copiesCache: this.formData.copiesCache
-              }
+              data: inner
             }
           }
         ]
       }
+    },
+    /**
+     * 供「获取字段 / 流字段」使用：在完整流程 JSON 中合并当前表单，避免仍用打开抽屉时的旧 dataSourceId（与表输出 resolveFlowConfigForFieldApi 对齐）
+     */
+    resolveFlowConfigForFieldApi() {
+      const inner = this.buildInsertOrUpdateInnerPayload()
+      const base = this.flowConfig
+      if (!base || typeof base !== 'object') {
+        return this.buildTempFlowPayload()
+      }
+      let cfg
+      try {
+        cfg = JSON.parse(JSON.stringify(base))
+      } catch (e) {
+        return this.buildTempFlowPayload()
+      }
+      const cells = Array.isArray(cfg.cells) ? cfg.cells : []
+      if (!cells.length) {
+        return this.buildTempFlowPayload()
+      }
+      const nid = this.currentNodeId ? String(this.currentNodeId) : ''
+      let idx = nid ? cells.findIndex((c) => c && c.id === nid) : -1
+      if (idx < 0) {
+        idx = cells.findIndex(
+          (c) =>
+            c &&
+            c.data &&
+            c.data.code === 'InsertOrUpdate' &&
+            c.data.name === this.formData.name
+        )
+      }
+      if (idx < 0) {
+        return this.buildTempFlowPayload()
+      }
+      const cell = cells[idx]
+      if (!cell.data || typeof cell.data !== 'object') {
+        cell.data = {}
+      }
+      const prev = this.extractInsertOrUpdatePayloadFromCellData(cell.data)
+      cell.data = {
+        ...cell.data,
+        name: this.formData.name,
+        code: 'InsertOrUpdate',
+        data: { ...prev, ...inner }
+      }
+      return cfg
+    },
+    parseDbIdForApi() {
+      const ds =
+        this.formData.dataSourceId != null && this.formData.dataSourceId !== ''
+          ? String(this.formData.dataSourceId).trim()
+          : ''
+      if (!ds) return { ok: false, dbId: null }
+      const n = Number(ds)
+      if (!Number.isFinite(n)) return { ok: false, dbId: null }
+      return { ok: true, dbId: n }
     },
     async loadDbList() {
       try {
@@ -629,9 +767,9 @@ export default {
       return result
     },
     normalizeDataSourceForCascader() {
-      const raw = this.formData.dataSource
+      const raw = this.formData.dataSourceId
       if (raw != null && raw !== '') {
-        this.$set(this.formData, 'dataSource', String(raw))
+        this.$set(this.formData, 'dataSourceId', String(raw))
       }
     },
     onRelationalDbTreeVisible(visible) {
@@ -661,8 +799,22 @@ export default {
         this.$set(this, 'tableList', [])
       }
     },
+    /** 流字段2 仅在比较符号为 BETWEEN 时可用（与 Pentaho 插入/更新关键字语义一致） */
+    isBetweenKeyCondition(val) {
+      return val === 'BETWEEN'
+    },
+    onSelectKeyConditionChange(row, val) {
+      if (!this.isBetweenKeyCondition(val)) {
+        this.$set(row, 'keyStream2', '')
+      }
+    },
     openSelectFieldDialog() {
       this.editSelectFieldList = JSON.parse(JSON.stringify(this.formData.selectField || []))
+      this.editSelectFieldList.forEach((row) => {
+        if (!this.isBetweenKeyCondition(row.keyCondition) && row.keyStream2) {
+          this.$set(row, 'keyStream2', '')
+        }
+      })
       if (this.formData.tableId) {
         this.loadDbFieldOptions(this.formData.tableId)
       }
@@ -679,13 +831,9 @@ export default {
     },
     normalizeUpdateRow(r) {
       const row = { ...r }
+      delete row.spatialConversion
+      delete row.coordinateSystem
       if (row.update === undefined) row.update = true
-      if (row.spatialConversion === undefined) row.spatialConversion = false
-      if (row.coordinateSystem === undefined || row.coordinateSystem === null) {
-        row.coordinateSystem = ''
-      } else {
-        row.coordinateSystem = String(row.coordinateSystem)
-      }
       return row
     },
     addSelectRow() {
@@ -703,9 +851,7 @@ export default {
       this.editUpdateFieldList.push({
         updateStream: '',
         updateLookup: '',
-        update: true,
-        spatialConversion: false,
-        coordinateSystem: ''
+        update: true
       })
     },
     removeUpdateRow(index) {
@@ -716,6 +862,13 @@ export default {
         const r = this.editSelectFieldList[i]
         if (!r.keyLookup || !r.keyCondition || !r.keyStream) {
           this.$message.warning(`第 ${i + 1} 行：表字段、比较符号、流字段1 为必填`)
+          return false
+        }
+        if (
+          this.isBetweenKeyCondition(r.keyCondition) &&
+          (r.keyStream2 === undefined || r.keyStream2 === null || String(r.keyStream2).trim() === '')
+        ) {
+          this.$message.warning(`第 ${i + 1} 行：比较符号为 BETWEEN 时，流字段2 为必填`)
           return false
         }
       }
@@ -740,11 +893,14 @@ export default {
       this.$set(
         this.formData,
         'selectField',
-        this.editSelectFieldList.map(r => ({
+        this.editSelectFieldList.map((r) => ({
           keyLookup: r.keyLookup,
           keyCondition: r.keyCondition,
           keyStream: r.keyStream,
-          keyStream2: r.keyStream2 != null && r.keyStream2 !== '' ? r.keyStream2 : ''
+          keyStream2:
+            this.isBetweenKeyCondition(r.keyCondition) && r.keyStream2 != null && r.keyStream2 !== ''
+              ? r.keyStream2
+              : ''
         }))
       )
       this.selectDialogVisible = false
@@ -754,21 +910,11 @@ export default {
       this.$set(
         this.formData,
         'updateField',
-        this.editUpdateFieldList.map(r => {
-          const spatial = !!r.spatialConversion
-          let coord = null
-          if (spatial && r.coordinateSystem !== '' && r.coordinateSystem != null) {
-            const n = parseInt(String(r.coordinateSystem).trim(), 10)
-            coord = Number.isNaN(n) ? null : n
-          }
-          return {
-            updateStream: r.updateStream,
-            updateLookup: r.updateLookup,
-            update: !!r.update,
-            spatialConversion: spatial,
-            coordinateSystem: coord
-          }
-        })
+        this.editUpdateFieldList.map((r) => ({
+          updateStream: r.updateStream,
+          updateLookup: r.updateLookup,
+          update: !!r.update
+        }))
       )
       this.updateDialogVisible = false
     },
@@ -782,7 +928,7 @@ export default {
         this.$message.warning('步骤名称不能为空')
         return
       }
-      if (!this.formData.dataSource) {
+      if (!this.formData.dataSourceId) {
         this.$message.warning('请选择数据源')
         return
       }
@@ -790,16 +936,21 @@ export default {
         this.$message.warning('请选择表名称')
         return
       }
+      const { ok: dbOk, dbId } = this.parseDbIdForApi()
+      if (!dbOk) {
+        this.$message.warning('数据源 ID 无效，请重新选择数据源')
+        return
+      }
       this.getFieldsLoading = true
       try {
-        const flowData = this.flowConfig || this.buildTempFlowPayload()
-        const ds = Number(this.formData.dataSource)
+        const flowData = this.resolveFlowConfigForFieldApi()
         const data = {
           flowId: Number(this.flowId),
           stepName: this.formData.name,
           config: JSON.stringify(flowData),
           type: 1,
-          dbId: ds,
+          code: 'InsertOrUpdate',
+          dbId,
           tableId: this.formData.tableId ? Number(this.formData.tableId) : null
         }
         const res = await getFieldStream(data)
@@ -832,7 +983,7 @@ export default {
         this.$message.warning('步骤名称不能为空')
         return
       }
-      if (!this.formData.dataSource) {
+      if (!this.formData.dataSourceId) {
         this.$message.warning('请选择数据源')
         return
       }
@@ -840,26 +991,29 @@ export default {
         this.$message.warning('请选择表名称')
         return
       }
+      const { ok: dbOk, dbId } = this.parseDbIdForApi()
+      if (!dbOk) {
+        this.$message.warning('数据源 ID 无效，请重新选择数据源')
+        return
+      }
       this.getUpdateFieldsLoading = true
       try {
-        const flowData = this.flowConfig || this.buildTempFlowPayload()
-        const ds = Number(this.formData.dataSource)
+        const flowData = this.resolveFlowConfigForFieldApi()
         const data = {
           flowId: Number(this.flowId),
           stepName: this.formData.name,
           config: JSON.stringify(flowData),
           type: 1,
-          dbId: ds,
+          code: 'InsertOrUpdate',
+          dbId,
           tableId: this.formData.tableId ? Number(this.formData.tableId) : null
         }
         const res = await getFieldStream(data)
         if (res.code === '000000' && res.data) {
-          this.editUpdateFieldList = res.data.map(field => ({
+          this.editUpdateFieldList = res.data.map((field) => ({
             updateStream: field.fieldStream || '',
             updateLookup: field.fieldDatabase || '',
-            update: true,
-            spatialConversion: false,
-            coordinateSystem: ''
+            update: true
           }))
           this.loadStreamFieldOptions()
           this.$message.success('获取字段成功')
@@ -892,13 +1046,14 @@ export default {
     async loadStreamFieldOptions() {
       if (!this.flowId) return
       try {
-        const flowData = this.flowConfig || this.buildTempFlowPayload()
+        const flowData = this.resolveFlowConfigForFieldApi()
+        const dsParsed = this.parseDbIdForApi()
         const res = await getFlowFieldStream({
           flowId: Number(this.flowId),
           config: JSON.stringify(flowData),
           stepName: this.formData.name || '关系库插入/更新',
           code: 'InsertOrUpdate',
-          dbId: this.formData.dataSource ? Number(this.formData.dataSource) : undefined,
+          dbId: dsParsed.ok ? dsParsed.dbId : undefined,
           tableId: this.formData.tableId ? Number(this.formData.tableId) : undefined
         })
         if (res && res.code === '000000' && Array.isArray(res.data)) {
@@ -919,7 +1074,7 @@ export default {
         this.$message.warning('请输入步骤名称')
         return
       }
-      if (!this.formData.dataSource) {
+      if (!this.formData.dataSourceId) {
         this.$message.warning('请选择数据源')
         return
       }
@@ -1499,20 +1654,6 @@ export default {
   color: #909399;
   cursor: default;
   margin-left: 2px;
-  font-size: 13px;
-}
-
-.td-center {
-  text-align: center !important;
-}
-
-.table-cell-input {
-  width: 100%;
-  box-sizing: border-box;
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
   font-size: 13px;
 }
 

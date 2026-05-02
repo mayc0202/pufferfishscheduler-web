@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container resource-page">
     <div class="wrap">
       <div class="header">
         <el-row>
@@ -81,11 +81,13 @@
                   <el-button
                     type="primary"
                     size="mini"
+                    :disabled="isObjectStorageRoot"
                     @click="mkdirCurDir()"
                   >创建目录</el-button>
                   <el-button
                     type="primary"
                     size="mini"
+                    :disabled="isObjectStorageRoot"
                     @click="uploadFile()"
                   >上传文件</el-button>
                   <el-button
@@ -107,7 +109,7 @@
                   max-height="640"
                 >
                   <el-table-column fixed type="index" label="#" />
-                  <el-table-column prop="name" label="数据源名称" min-width="180">
+                  <el-table-column prop="name" label="资源名称" min-width="220">
                     <template slot-scope="scope">
                       <div class="flex node-label" :class="scope.row.type === 'FILE' ? '': 'hand'" @click="queryResourceChildren(scope.row)">
                         <img :src="scope.row.icon" class="icon">
@@ -115,58 +117,57 @@
                       </div>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="typeTxt" label="文件类型" min-width="140" />
-                  <el-table-column prop="size" label="文件大小" min-width="120" />
+                  <el-table-column prop="typeTxt" label="文件类型" min-width="160" />
+                  <el-table-column prop="size" label="资源大小" min-width="160" />
                   <el-table-column
                     prop="createdTimeTxt"
                     label="创建日期"
-                    min-width="170"
+                    min-width="220"
                   />
-                  <el-table-column fixed="right" label="操作" width="220">
+                  <el-table-column fixed="right" label="操作" min-width="260">
                     <template slot-scope="scope">
-                      <div class="wrap">
-                        <div>
-                          <el-button
-                            type="text"
-                            size="mini"
-                            :disabled="scope.row.type === 'FILE'"
-                            @click.native.prevent="mkdir(scope.row)"
-                          >
-                            创建目录
-                          </el-button>
-                          <el-button
-                            type="text"
-                            size="mini"
-                            @click.native.prevent="rename(scope.row)"
-                          >
-                            重命名
-                          </el-button>
-                          <el-button
-                            type="text"
-                            size="mini"
-                            :disabled="scope.row.type != 'FILE'"
-                            @click.native.prevent="move(scope.row)"
-                          >
-                            移动
-                          </el-button>
-                          <el-button
-                            type="text"
-                            size="mini"
-                            :disabled="scope.row.type != 'FILE'"
-                            :loading="downloadingWithProgress"
-                            @click="handleDownloadWithProgress(scope.row)"
-                          >
-                            下载
-                          </el-button>
-
-                          <el-button
-                            type="text"
-                            size="mini"
-                            @click.native.prevent="remove(scope.row)"
-                          >
-                            删除
-                          </el-button>
-                        </div>
+                      <div class="resource-row-actions">
+                        <el-button
+                          type="text"
+                          size="mini"
+                          :disabled="scope.row.type === 'FILE' || isBucketNode(scope.row)"
+                          @click.native.prevent="mkdir(scope.row)"
+                        >
+                          创建目录
+                        </el-button>
+                        <el-button
+                          type="text"
+                          size="mini"
+                          :disabled="isBucketNode(scope.row)"
+                          @click.native.prevent="rename(scope.row)"
+                        >
+                          重命名
+                        </el-button>
+                        <el-button
+                          type="text"
+                          size="mini"
+                          :disabled="scope.row.type != 'FILE' || isBucketNode(scope.row)"
+                          @click.native.prevent="move(scope.row)"
+                        >
+                          移动
+                        </el-button>
+                        <el-button
+                          type="text"
+                          size="mini"
+                          :disabled="scope.row.type != 'FILE' || isBucketNode(scope.row)"
+                          :loading="downloadingWithProgress"
+                          @click="handleDownloadWithProgress(scope.row)"
+                        >
+                          下载
+                        </el-button>
+                        <el-button
+                          type="text"
+                          size="mini"
+                          :disabled="isBucketNode(scope.row)"
+                          @click.native.prevent="remove(scope.row)"
+                        >
+                          删除
+                        </el-button>
                       </div>
                     </template>
                   </el-table-column>
@@ -319,7 +320,7 @@ import Upload from './component/uploadFile.vue'
 import { exportFileFromResponse } from '@/utils/download-util'
 
 import { directoryTree, list, mkdir, rename, remove, move, downloadResource } from '@/api/database/resource/resource.js'
-import { ftpDbTree } from '@/api/database/database/dbGroup'
+import { resourceDbTree } from '@/api/database/database/dbGroup'
 
 export default {
   name: 'Resource',
@@ -369,7 +370,7 @@ export default {
         name: '',
         path: '',
         remotePath: '/',
-        formPath: '',
+        fromPath: '',
         toPath: '',
         newName: '',
         oldName: ''
@@ -422,6 +423,9 @@ export default {
   },
 
   computed: {
+    isObjectStorageRoot() {
+      return this.currentPath === '/' && this.resourceList.some(item => this.isBucketNode(item))
+    },
     // 计算当前路径的父路径
     parentPath() {
       if (this.currentPath === '/') return '/'
@@ -481,7 +485,7 @@ export default {
      */
     async queryGroupsByName() {
       try {
-        const res = await ftpDbTree(this.dbName)
+        const res = await resourceDbTree(this.dbName)
         this.handleGroupResponse(res)
       } catch (error) {
         this.$message.error('获取资源分组失败!')
@@ -507,7 +511,7 @@ export default {
      */
     async queryGroupAll() {
       try {
-        const res = await ftpDbTree(this.dbName)
+        const res = await resourceDbTree(this.dbName)
         this.handleGroupResponse(res, true)
       } catch (error) {
         this.$message.error('获取资源分组失败!')
@@ -590,11 +594,16 @@ export default {
      */
     processFile(file) {
       const isDirectory = file.type === 'DIRECTORY'
+      const isBucket = file.type === 'BUCKET'
       return {
         ...file,
-        typeTxt: isDirectory ? '文件夹' : '文件',
-        icon: isDirectory ? icons.directory : this.getFileIcon(file.name)
+        typeTxt: isBucket ? 'Bucket' : (isDirectory ? '文件夹' : '文件'),
+        icon: (isDirectory || isBucket) ? icons.directory : this.getFileIcon(file.name)
       }
+    },
+
+    isBucketNode(node) {
+      return node && node.type === 'BUCKET'
     },
 
     /**
@@ -627,6 +636,10 @@ export default {
      * 上传文件
      */
     uploadFile() {
+      if (this.isObjectStorageRoot) {
+        this.$message.warning('对象存储根路径仅展示 Bucket，请先进入 Bucket 后再上传文件')
+        return
+      }
       this.uploadDialog.visible = true
     },
 
@@ -675,9 +688,14 @@ export default {
      * 创建当前目录
      */
     mkdirCurDir() {
+      if (this.isObjectStorageRoot) {
+        this.$message.warning('对象存储根路径仅展示 Bucket，请先进入 Bucket 后再创建目录')
+        return
+      }
       this.resource = {
         ...this.resource,
         dbId: this.currentDb.id,
+        path: this.currentPath,
         remotePath: this.currentPath
       }
       this.mkdirDialog.visible = true
@@ -687,10 +705,16 @@ export default {
      * 创建目录
      */
     mkdir(data) {
+      if (this.isBucketNode(data)) {
+        this.$message.warning('Bucket 节点不支持此操作，请先进入 Bucket')
+        return
+      }
+      const parentPath = this.joinPaths(this.currentPath, data.name)
       this.resource = {
         ...this.resource,
         dbId: this.currentDb.id,
-        remotePath: this.joinPaths(this.currentPath, data.name)
+        path: parentPath,
+        remotePath: parentPath
       }
       this.mkdirDialog.visible = true
     },
@@ -706,10 +730,7 @@ export default {
      * 配置弹窗取消
      */
     mkdirClose() {
-      // 重置表单和校验状态
-      // this.$refs.resource.resetFields()
-      this.resource.name = ''
-      this.mkdirDialog.visible = false
+      this.closeDialog('mkdir')
     },
 
     /**
@@ -718,11 +739,12 @@ export default {
     async submitMkdir() {
       try {
         const res = await mkdir(this.resource)
-        this.handleOperationResponse(res, '目录创建成功')
+        const ok = await this.handleOperationResponse(res, '目录创建成功')
+        if (ok) {
+          this.closeDialog('mkdir')
+        }
       } catch (error) {
         this.$message.error('目录创建失败')
-      } finally {
-        this.closeDialog('mkdir')
       }
     },
 
@@ -730,7 +752,7 @@ export default {
      * 取消创建目录
      */
     cancelMkdir() {
-      this.mkdirClose()
+      this.closeDialog('mkdir')
     },
 
     // ///////////// 移动文件夹/文件 /////////////
@@ -739,6 +761,10 @@ export default {
      * 移动
      */
     move(data) {
+      if (this.isBucketNode(data)) {
+        this.$message.warning('Bucket 节点不支持移动操作')
+        return
+      }
       this.moveData.dbId = data.dbId
       this.moveData.name = data.name
       this.moveData.type = data.type
@@ -752,6 +778,8 @@ export default {
      */
     moveClose() {
       this.moveDialog.visible = false
+      this.directory = []
+      this.moveData = {}
     },
 
     /**
@@ -768,7 +796,7 @@ export default {
       this.directoryLoading = true
 
       try {
-        const res = await directoryTree(dbId, this.currentPath)
+        const res = await directoryTree(dbId, path)
 
         // 检查返回数据有效性
         if (!res?.data) {
@@ -802,21 +830,21 @@ export default {
     async submitMove() {
       var type = this.moveData.type === 'FILE' ? '文件' : '目录'
       this.moveData.fromPath = this.joinPaths(this.currentPath, this.moveData.name)
-      if (this.directory.length > 0) {
-        const path = this.directory[this.directory.length - 1]
-        this.moveData.toPath = path
+      if (this.directory.length === 0) {
+        this.$message.warning('请选择目标目录')
+        return
       }
+      const path = this.directory[this.directory.length - 1]
+      this.moveData.toPath = path
 
       try {
         const res = await move(this.moveData)
-        this.handleOperationResponse(res, type + '移动成功')
+        const ok = await this.handleOperationResponse(res, type + '移动成功')
+        if (ok) {
+          this.closeDialog('move')
+        }
       } catch (error) {
         this.$message.error(type + '移动失败')
-      } finally {
-        this.directory = []
-        this.moveData = {}
-        this.closeDialog('move')
-        this.queryResource()
       }
     },
 
@@ -824,7 +852,7 @@ export default {
      * 取消移动
      */
     cancelMove() {
-      this.moveClose()
+      this.closeDialog('move')
     },
     // ///////////// 重命名文件夹/文件 /////////////
 
@@ -832,6 +860,10 @@ export default {
      * 重命名
      */
     rename(data) {
+      if (this.isBucketNode(data)) {
+        this.$message.warning('Bucket 节点不支持重命名')
+        return
+      }
       this.resource = {
         ...this.resource,
         dbId: this.currentDb.id,
@@ -853,10 +885,7 @@ export default {
      * 配置弹窗取消
      */
     renameClose() {
-      // 重置表单和校验状态
-      // this.$refs.resource.resetFields()
-      this.resetResource()
-      this.renameDialog.visible = false
+      this.closeDialog('rename')
     },
 
     /**
@@ -865,31 +894,33 @@ export default {
     async submitRename() {
       try {
         const res = await rename(this.resource)
-        this.handleOperationResponse(res, '重命名成功')
+        const ok = await this.handleOperationResponse(res, '重命名成功')
+        if (ok) {
+          this.closeDialog('rename')
+        }
       } catch (error) {
         this.$message.error('重命名失败')
-      } finally {
-        this.closeDialog('rename')
       }
     },
 
     /**
      * 处理操作响应
      */
-    handleOperationResponse(res, successMessage) {
+    async handleOperationResponse(res, successMessage) {
       if (res.code === '999999') {
         this.$message.warning(res.message)
-      } else {
-        this.$message.success(successMessage)
-        this.queryResource()
+        return false
       }
+      this.$message.success(successMessage)
+      await this.queryResource()
+      return true
     },
 
     /**
      * 取消重命名
      */
     cancelRename() {
-      this.renameClose()
+      this.closeDialog('rename')
     },
 
     // ///////////// 移除文件夹/文件 /////////////
@@ -899,6 +930,10 @@ export default {
      */
     async remove(data) {
       try {
+        if (this.isBucketNode(data)) {
+          this.$message.warning('Bucket 节点不支持删除，请在对象存储控制台操作')
+          return
+        }
         this.resource.dbId = data.dbId
         this.resource.path = this.joinPaths(this.currentPath, data.name)
         this.resource.type = data.type
@@ -937,7 +972,15 @@ export default {
      */
     closeDialog(type) {
       this[`${type}Dialog`].visible = false
-      // this.$refs.resource.resetFields()
+      const formRef = this.$refs.resource
+      if (formRef) {
+        const forms = Array.isArray(formRef) ? formRef : [formRef]
+        forms.forEach(form => {
+          if (form && typeof form.clearValidate === 'function') {
+            form.clearValidate()
+          }
+        })
+      }
       this.resetResource()
     },
 
@@ -950,7 +993,7 @@ export default {
         name: '',
         path: '',
         remotePath: '/',
-        formPath: '',
+        fromPath: '',
         toPath: '',
         newName: '',
         oldName: ''
@@ -1039,8 +1082,20 @@ export default {
 
 // 修改el-container的样式
 .container {
-  flex: 1;
-  background-color: #f8f8fc;
+  height: calc(100vh - 84px);
+  background: radial-gradient(circle at 15% 20%, #eef4ff 0%, #f6f9ff 55%, #f7f8fb 100%);
+  padding: 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 覆盖 App.vue 全局 .header 的 margin:10px，避免头部白条左右缩进，与下方 aside+main 同宽 */
+.resource-page > .wrap > .header {
+  margin: 0 0 14px;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
 }
 
 // 主内容区域样式调整
@@ -1056,18 +1111,26 @@ export default {
   padding: 10px;
   min-width: 200px;
   margin-left: 10px;
-  box-shadow: $shadow;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
   user-select: none;
   background-color: #fff;
 }
 
 // 侧边栏样式调整
 ::v-deep .page-aside {
-  height: 85.5vh;
-  margin-bottom: 10px;
+  height: 100%;
+  margin: 0 14px 0 0;
   display: flex;
   flex-direction: column;
   background-color: #fff;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
+  user-select: none;
+  min-width: 240px;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* 弹窗内的 el-aside */
@@ -1083,14 +1146,16 @@ export default {
   overflow-y: auto; // 改为垂直滚动
   display: flex;
   flex-direction: column;
-  padding: 0 10px 10px 10px !important;
+  padding: 0 !important;
 
   .list {
     flex: 1;
     display: flex;
     flex-direction: column;
     background: #fff;
-    border-radius: 4px;
+    border-radius: 14px;
+    border: 1px solid #e9eef8;
+    box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
     .search {
       flex-shrink: 0;
     }
@@ -1105,15 +1170,62 @@ export default {
 }
 
 ::v-deep .el-table {
-  border: 1px solid #ebeef5;
-  border-bottom: 0;
-  max-height: 630px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #edf2fb;
+}
+
+::v-deep .el-table__body-wrapper {
+  flex: 1;
+  overflow-y: auto;
+}
+
+::v-deep .el-table th {
+  background-color: #f8faff !important;
+  color: #31415f;
+  font-weight: 600;
+  height: 44px;
+}
+
+::v-deep .el-table td {
+  padding: 10px 0;
+  color: #4b566a;
+}
+
+/* 资源列表操作列：同一行横向排列 */
+::v-deep .resource-row-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+::v-deep .resource-row-actions .el-button--text {
+  flex-shrink: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+::v-deep .el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: #fafcff;
 }
 
 ::v-deep .el-input--mini .el-input__inner {
-  height: 36px;
-  line-height: 28px;
-  font-size: 14px;
+  height: 32px;
+  line-height: 32px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+::v-deep .el-button--mini {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 ::v-deep .el-textarea__inner {
@@ -1129,9 +1241,8 @@ export default {
   background-color: #fff;
   background-image: none;
   border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  -webkit-transition: border-color 0.2s cubic-
-  bezier(0.645, 0.045, 0.355, 1);
+  border-radius: 6px;
+  -webkit-transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
   transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
 }
 
@@ -1150,7 +1261,6 @@ export default {
   margin: 0;
   padding: 0;
   overflow: hidden; // 隐藏溢出内容
-  background-color: #f8f8fc; /* 背景颜色 */
 }
 
 /* 确保内部容器高度正确 */
@@ -1159,14 +1269,29 @@ export default {
 }
 
 .body .group {
-  background: #fff fixed;
-  box-shadow: 0 2px px 0 rgba(0, 0, 0, 0.1);
   border-radius: 4px;
-  min-width: 220px; /* 设置最小输入宽度 */
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.body .group .wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+::v-deep .el-tree {
+  flex: 1;
+  overflow-y: auto;
 }
 
 .body .group .search {
-  margin-bottom: 10px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .body .group .search .add {
@@ -1175,45 +1300,62 @@ export default {
 
 .body .group .queryAll {
   width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+  border-radius: 8px;
 }
 
 .body .group .group_icon {
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
-  margin-top: 8px;
-  margin-right: 6px;
+  margin-top: 0;
+  margin-right: 8px;
+  object-fit: contain;
+  display: block;
 }
 
 .body .list {
-  padding: 10px 20px 20px 20px;
-  background: #fff fixed;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+  margin: 0;
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
   height: 100%;
-  min-width: 504px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .body .list .search {
-  padding: 10px;
+  padding: 0;
   margin-bottom: 20px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .body .list .search .search_input {
-  border-bottom: 1px rgb(167, 167, 167) inset;
   width: 220px;
   min-width: 220px;
-  height: 30px;
+  height: 32px;
   margin-right: 10px;
 }
 
 .body .list .search .search_input .input {
-  height: 24px;
+  height: 32px;
+  width: 100%;
   background-color: white;
   box-shadow: none;
-  border-radius: 4px;
+  border-radius: 8px;
   outline: none;
-  border: none;
+  border: 1px solid #dcdfe6;
+  padding: 0 10px;
+  box-sizing: border-box;
 }
 
 .body .list .search > div:last-child {
@@ -1274,8 +1416,13 @@ export default {
 }
 
 .node-label {
+  display: flex;
   flex: 1;
+  align-items: center;
+  min-width: 0;
   font-weight: 400;
+  color: #31415f;
+  line-height: 1.25;
 }
 
 .node-label:hover {
@@ -1308,12 +1455,15 @@ export default {
 }
 
 /**
-* 资源图标
+* 资源图标（与资源名称同轴垂直居中）
 */
 .icon {
+  flex-shrink: 0;
   margin-right: 5px;
   width: 16px;
   height: 16px;
+  object-fit: contain;
+  display: block;
 }
 
 /**

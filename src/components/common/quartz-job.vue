@@ -8,7 +8,7 @@
     :width="width + 'px'"
     :before-close="handleCancel"
   >
-    <div :style="{height: height + 'px'}">
+    <div class="quartz-job-body">
 
       <div class="form-group">
         <label class="form-label">数据源</label>
@@ -87,6 +87,26 @@
       </div>
 
       <div class="form-group">
+        <label class="form-label">联系人</label>
+        <el-select
+          v-model="selectedContactIds"
+          multiple
+          filterable
+          collapse-tags
+          clearable
+          placeholder="请选择联系人（可多选）"
+          class="full-width"
+        >
+          <el-option
+            v-for="c in contactSelectOptions"
+            :key="String(c.id)"
+            :label="c.name"
+            :value="String(c.id)"
+          />
+        </el-select>
+      </div>
+
+      <div class="form-group">
         <label class="form-label">启用状态</label>
         <el-radio-group v-model="formData.enable">
           <el-radio label="0">启用</el-radio>
@@ -112,6 +132,14 @@ import { relationalDbTree } from '@/api/database/database/dbGroup'
 import {
   detail
 } from '@/api/database/metadata/metadata'
+import { options as contactOptions } from '@/api/upms/contactManage'
+import {
+  parseContactIdListToValues,
+  joinContactIds,
+  normalizeContactOptionsFromApi,
+  augmentContactOptions
+} from '@/utils/contactIds'
+import { prepareSchedulePayloadForSubmit } from '@/utils/cron-utils'
 
 export default {
   name: 'QuartzJob',
@@ -133,12 +161,6 @@ export default {
       // 长度
       type: Number,
       default: 630
-    },
-    // eslint-disable-next-line vue/require-prop-types
-    height: {
-      // 高度
-      typeof: Number,
-      default: 460
     },
     editData: {
       // 编辑模式的数据
@@ -173,13 +195,19 @@ export default {
       // 失败策略
       failurePolicyOptions: [],
       // 通知策略
-      notifyPolicyOptions: []
-      // 旧版 worker 分组下拉框已移除
+      notifyPolicyOptions: [],
+      /** 联系人 options.do */
+      contactBaseOptions: [],
+      /** 多选：与 el-option value 一致，存字符串 id */
+      selectedContactIds: []
     }
   },
   computed: {
     cascaderOptions() {
       return this.transformToCascader(this.dbList)
+    },
+    contactSelectOptions() {
+      return augmentContactOptions(this.contactBaseOptions, this.selectedContactIds)
     }
   },
   watch: {
@@ -208,6 +236,7 @@ export default {
 
     // 加载数据源列表
     this.loadDbData()
+    this.loadContactOptions()
 
     // 其他代码保持不变
     this.formData = {
@@ -242,6 +271,17 @@ export default {
           }
         })
         .filter(Boolean)
+    },
+
+    async loadContactOptions() {
+      try {
+        const res = await contactOptions()
+        const body = res && res.data != null ? res.data : res
+        this.contactBaseOptions = normalizeContactOptionsFromApi(body)
+      } catch (error) {
+        console.error('获取联系人选项失败:', error)
+        this.$message.error('获取联系人列表失败')
+      }
     },
 
     // 获取数据
@@ -317,6 +357,10 @@ export default {
           enable: this.isEnabled(taskData.enable) ? '0' : '1'
         }
 
+        const rawContact =
+          taskData.contactIdList != null ? taskData.contactIdList : taskData.contactIds
+        this.selectedContactIds = parseContactIdListToValues(rawContact)
+
         // 设置级联选择器选中的值（与 option.value 字符串一致）
         this.selectedValue =
           taskData.dbId != null && taskData.dbId !== '' ? String(taskData.dbId) : null
@@ -337,6 +381,10 @@ export default {
       }
       this.selectedValue =
         data.dbId != null && data.dbId !== '' ? String(data.dbId) : null
+      if (data && (data.contactIdList != null || data.contactIds != null)) {
+        const raw = data.contactIdList != null ? data.contactIdList : data.contactIds
+        this.selectedContactIds = parseContactIdListToValues(raw)
+      }
     },
 
     /**
@@ -353,17 +401,28 @@ export default {
         enable: '0'
       }
       this.selectedValue = null
+      this.selectedContactIds = []
     },
 
     // 修改handleSubmit方法
     handleSubmit() {
-      const formData = { ...this.formData }
+      let formData = { ...this.formData }
       // 新增场景不传 workerId，让后端按默认策略处理
       if (formData.workerId == null) delete formData.workerId
 
       // 如果是编辑模式，确保包含ID
       if (this.formData.id) {
         formData.id = this.formData.id
+      }
+
+      // 多选联系人：逗号分隔 id 串（与后端 Metadata 任务表单字段约定一致，字段名 contactIds）
+      formData.contactIds = joinContactIds(this.selectedContactIds)
+
+      try {
+        formData = prepareSchedulePayloadForSubmit(formData, { forceCronSchedule: true })
+      } catch (e) {
+        this.$message.error(e.message)
+        return
       }
 
       this.$emit('submit', formData)
@@ -373,11 +432,25 @@ export default {
 }
 </script>
 <style scoped>
+::v-deep .el-dialog {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+::v-deep .el-dialog__header {
+  background: #f8faff;
+  border-bottom: 1px solid #e9eef8;
+  padding: 16px 20px;
+}
+
 ::v-deep .el-dialog__title {
-  font-size: 16px;
+  color: #1f3358;
   font-weight: 600;
-  color:#4b4b4b;
-  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+::v-deep .el-dialog__body {
+  padding: 24px 24px 20px;
 }
 
 .task-schedule-form {
@@ -392,9 +465,9 @@ export default {
 }
 
 .form-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #696969;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6a7486;
   display: block;
   margin-bottom: 8px;
 }
@@ -412,11 +485,16 @@ export default {
   flex: 1;
 }
 
+.quartz-job-body {
+  box-sizing: border-box;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 30px;
+  margin-top: 16px;
+  margin-bottom: 0;
 }
 
 .quartz-relation-db-cascader ::v-deep .el-input {
@@ -424,17 +502,27 @@ export default {
 }
 
 .quartz-relation-db-cascader ::v-deep .el-input__inner {
-  height: 40px;
-  line-height: 40px;
-  border-radius: 4px;
+  height: 36px;
+  line-height: 36px;
+  border-radius: 8px;
   padding: 0 12px;
-  color: #303133;
+  color: #31415f;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .quartz-relation-db-cascader ::v-deep .el-input__inner:focus {
   border-color: #409eff;
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.12);
+}
+
+::v-deep .el-input__inner {
+  border-radius: 8px;
+  height: 36px;
+  line-height: 36px;
+}
+
+::v-deep .el-button {
+  border-radius: 6px;
 }
 
 .mq-node {

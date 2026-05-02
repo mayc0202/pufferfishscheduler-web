@@ -1,15 +1,40 @@
 <template>
   <!-- 其他内容 -->
   <el-dialog
+    v-if="draggable"
+    v-el-drag-dialog
     :close-on-click-modal="false"
     :visible.sync="visible"
     :center="true"
     :title="title"
     :width="width + 'px'"
+    :top="top"
+    :custom-class="customClass"
     :before-close="onClose"
     :show-bth="showBth"
   >
-    <div :style="{height: height + 'px'}">
+    <div :style="contentWrapStyle">
+      <slot name="content" />
+    </div>
+    <!-- 弹窗内容 -->
+    <span v-if="showBth" slot="footer" class="dialog-footer">
+      <el-button type="primary" size="small" @click="onConfirm">确定</el-button>
+      <el-button size="small" @click="onClose">取消</el-button>
+    </span>
+  </el-dialog>
+  <el-dialog
+    v-else
+    :close-on-click-modal="false"
+    :visible.sync="visible"
+    :center="true"
+    :title="title"
+    :width="width + 'px'"
+    :top="top"
+    :custom-class="customClass"
+    :before-close="onClose"
+    :show-bth="showBth"
+  >
+    <div :style="contentWrapStyle">
       <slot name="content" />
     </div>
     <!-- 弹窗内容 -->
@@ -40,17 +65,42 @@ export default {
     },
     // eslint-disable-next-line vue/require-prop-types
     height: {
-      // 高度
-      typeof: Number,
+      type: [Number, String],
       default: 460
     },
     showBth: {
       type: Boolean,
       default: true
+    },
+    draggable: {
+      type: Boolean,
+      default: false
+    },
+    top: {
+      type: String,
+      default: '15vh'
+    },
+    customClass: {
+      type: String,
+      default: ''
     }
   },
   data() {
     return {}
+  },
+
+  computed: {
+    contentWrapStyle() {
+      const h = this.height
+      if (h === 'auto' || h === '' || h == null) {
+        return { minHeight: '320px' }
+      }
+      const n = Number(h)
+      if (!Number.isNaN(n) && n > 0) {
+        return { height: `${n}px` }
+      }
+      return { height: typeof h === 'string' ? h : `${h}px` }
+    }
   },
 
   created() {},
@@ -117,8 +167,6 @@ export default {
         color: #fff;
         background: #afafaf;
         border-radius: 50%;
-      }
-      .el-dialog__headerbtn .el-dialog__close:hover {
       }
     }
   }

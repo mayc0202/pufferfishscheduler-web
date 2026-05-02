@@ -149,11 +149,12 @@ export default {
   position: relative;
   width: 96px;
   height: 96px;
-  border-radius: 8px;
+  border-radius: 50%;
   overflow: hidden;
   border: 1px dashed #dcdfe6;
-  background: #fafafa;
+  background: #f5f7fa;
   flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 
   img {
     width: 100%;

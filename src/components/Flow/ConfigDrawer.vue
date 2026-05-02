@@ -34,6 +34,10 @@ import InsertOrUpdateConfig from './config/output/InsertOrUpdateConfig.vue'
 import DorisOutputConfig from './config/output/DorisOutputConfig.vue'
 import FTPUploadConfig from './config/file/FTPUploadConfig.vue'
 import FTPDownloadConfig from './config/file/FTPDownloadConfig.vue'
+import AlibabaOSSUploadConfig from './config/file/AlibabaOSSUploadConfig.vue'
+import AlibabaOSSDownloadConfig from './config/file/AlibabaOSSDownloadConfig.vue'
+import MinIOUploadConfig from './config/file/MinIOUploadConfig.vue'
+import MinIODownloadConfig from './config/file/MinIODownloadConfig.vue'
 import CleanTransformConfig from './config/clean/CleanTransformConfig.vue'
 import PrintLogConfig from './config/log/PrintLogConfig.vue'
 import ExecSqlConfig from './config/sql/ExecSqlConfig.vue'
@@ -59,6 +63,9 @@ import FieldSelectConfig from './config/transform/FieldSelectConfig.vue'
 import SortRowsConfig from './config/transform/SortRowsConfig.vue'
 import SplitFieldToRowsConfig from './config/transform/SplitFieldToRowsConfig.vue'
 import FieldSplitterConfig from './config/transform/FieldSplitterConfig.vue'
+import FormulaConfig from './config/transform/FormulaConfig.vue'
+import GroupByConfig from './config/transform/GroupByConfig.vue'
+import MicroscopicConfig from './config/transform/MicroscopicConfig.vue'
 import ApiInputConfig from './config/input/ApiInputConfig.vue'
 import ApiAttachmentDownloadConfig from './config/input/ApiAttachmentDownloadConfig.vue'
 import ApiOutputConfig from './config/output/ApiOutputConfig.vue'
@@ -138,8 +145,24 @@ export default {
         ExcelOutput: ExcelOutputConfig,
         FtpUpload: FTPUploadConfig,
         FTPUpload: FTPUploadConfig,
+        AliYunOSSUpload: AlibabaOSSUploadConfig,
+        AliyunOSSUpload: AlibabaOSSUploadConfig,
+        AlibabaOSSUpload: AlibabaOSSUploadConfig,
+        AlibabaOssUpload: AlibabaOSSUploadConfig,
+        OSSUpload: AlibabaOSSUploadConfig,
+        OssUpload: AlibabaOSSUploadConfig,
         FtpDownload: FTPDownloadConfig,
         FTPDownload: FTPDownloadConfig,
+        AliYunOSSDownload: AlibabaOSSDownloadConfig,
+        AliyunOSSDownload: AlibabaOSSDownloadConfig,
+        AlibabaOSSDownload: AlibabaOSSDownloadConfig,
+        AlibabaOssDownload: AlibabaOSSDownloadConfig,
+        OSSDownload: AlibabaOSSDownloadConfig,
+        OssDownload: AlibabaOSSDownloadConfig,
+        MinIOUpload: MinIOUploadConfig,
+        MinioUpload: MinIOUploadConfig,
+        MinIODownload: MinIODownloadConfig,
+        MinioDownload: MinIODownloadConfig,
         // 数据清洗转换（不同环境 code 可能略有差异，这里做兼容映射）
         DataCleanTransform: CleanTransformConfig,
         DataCleanConvert: CleanTransformConfig,
@@ -181,6 +204,9 @@ export default {
         SortRows: SortRowsConfig,
         SplitFieldToRows: SplitFieldToRowsConfig,
         FieldSplitter: FieldSplitterConfig,
+        Formula: FormulaConfig,
+        Microscopic: MicroscopicConfig,
+        GroupBy: GroupByConfig,
         ApiInput: ApiInputConfig,
         ApiAttachmentDownload: ApiAttachmentDownloadConfig,
         ApiFileDownload: ApiAttachmentDownloadConfig,

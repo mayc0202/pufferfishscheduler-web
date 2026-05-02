@@ -133,6 +133,24 @@ class HttpServiceFactory {
       },
 
       /**
+       * multipart PUT（如知识库更新：form JSON part + files）
+       */
+      putUpload(url, formData, config = {}) {
+        return this._request({
+          method: 'put',
+          timeout: FILE_TRANSFER_TIMEOUT,
+          url,
+          data: formData,
+          upload: true,
+          onUploadProgress: config.onUploadProgress,
+          headers: {
+            ...config.headers
+          },
+          ...config
+        })
+      },
+
+      /**
        * 专用头像上传
        * @param {string} url - 上传地址
        * @param {FormData} formData - 包含头像文件的FormData

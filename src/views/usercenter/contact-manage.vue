@@ -22,6 +22,7 @@
           </div>
           <div class="uc-search__right">
             <el-button type="primary" icon="el-icon-search" size="small" @click="handleSearch">查询</el-button>
+            <el-button icon="el-icon-refresh-left" size="small" @click="resetQuery">重置</el-button>
             <el-button type="primary" icon="el-icon-plus" size="small" @click="openDialog('add')">新增联系人</el-button>
           </div>
         </div>
@@ -454,6 +455,12 @@ export default {
       this.fetchList()
     },
 
+    resetQuery() {
+      this.query.name = ''
+      this.pageNo = 1
+      this.fetchList()
+    },
+
     handleSizeChange(val) {
       this.pageSize = val
       this.fetchList()
@@ -466,7 +473,7 @@ export default {
 
     tableHeaderStyle() {
       return {
-        background: '#f5f7fa',
+        background: '#f8fafc',
         color: '#606266',
         fontWeight: '600',
         fontSize: '13px'
@@ -574,27 +581,6 @@ export default {
 
 <style scoped lang="scss">
 @import './uc-shared.scss';
-
-.cell-strong {
-  font-weight: 500;
-  color: #303133;
-}
-
-.btn-link-action {
-  color: #409eff !important;
-
-  &:hover {
-    color: #66b1ff !important;
-  }
-}
-
-.btn-danger-text {
-  color: #f56c6c !important;
-
-  &:hover {
-    color: #f78989 !important;
-  }
-}
 
 .dialog-footer {
   text-align: right;

@@ -30,9 +30,10 @@ export function deleteRule(id) {
   return PUFFERFISH_API.put('/rule/delete.do?id=' + encodeURIComponent(String(id)))
 }
 
-export function releaseRule(id, status) {
+/** 启用/禁用规则，与后端 PUT /rule/release.do?id=&enabled= 一致 */
+export function releaseRule(id, enabled) {
   return PUFFERFISH_API.put(
-    '/rule/release.do?id=' + encodeURIComponent(String(id)) + '&status=' + status
+    '/rule/release.do?id=' + encodeURIComponent(String(id)) + '&enabled=' + enabled
   )
 }
 

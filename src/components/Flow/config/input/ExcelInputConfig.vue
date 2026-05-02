@@ -564,6 +564,8 @@ import { ftpDbTree } from '@/api/database/database/dbGroup'
 import { directoryTree } from '@/api/database/resource/resource'
 import { getExcelResources, getExcelSheets, getExcelFields } from '@/api/collect/plugin/excel'
 import { previewData as previewDataApi } from '@/api/collect/trans/transFlow'
+import { getDict } from '@/api/dict/dict'
+import dictCode from '@/api/dict/dictCode'
 import { normalizeDictList, normalizeFieldTypeDictList } from '@/utils/component-dict-normalize'
 import FlowConfigHero from '../common/FlowConfigHero.vue'
 
@@ -740,7 +742,10 @@ export default {
       previewTableData: [],
       previewColumns: [],
       sheetFetchLoading: false,
-      fieldFetchLoading: false
+      fieldFetchLoading: false,
+      /** 系统字典：与公式编辑 / 生成测试数据一致，与组件树 format 配置合并 */
+      apiDateFormatOptions: [],
+      apiNumberFormatOptions: []
     }
   },
   computed: {
@@ -846,8 +851,57 @@ export default {
   mounted() {
     this.initDefaults()
     this.loadFtpDataSources()
+    this.queryDateFormatDict()
+    this.queryNumberFormatDict()
   },
   methods: {
+    async queryDateFormatDict() {
+      try {
+        const res = await getDict(dictCode.DATE_FORMAT)
+        const items = Array.isArray(res && res.data) ? res.data : []
+        this.apiDateFormatOptions = items
+          .map(item => {
+            const labelRaw = item && (item.name ?? item.label ?? item.value ?? item.code)
+            const valueRaw = item && (item.code ?? item.id ?? item.value)
+            if (valueRaw == null || labelRaw == null) return null
+            return { value: String(valueRaw), label: String(labelRaw) }
+          })
+          .filter(Boolean)
+      } catch (e) {
+        this.apiDateFormatOptions = []
+      }
+    },
+    async queryNumberFormatDict() {
+      try {
+        const res = await getDict(dictCode.NUMBER_FORMAT)
+        const items = Array.isArray(res && res.data) ? res.data : []
+        this.apiNumberFormatOptions = items
+          .map(item => {
+            const labelRaw = item && (item.name ?? item.label ?? item.value ?? item.code)
+            const valueRaw = item && (item.code ?? item.id ?? item.value)
+            if (valueRaw == null || labelRaw == null) return null
+            return { value: String(valueRaw), label: String(labelRaw) }
+          })
+          .filter(Boolean)
+      } catch (e) {
+        this.apiNumberFormatOptions = []
+      }
+    },
+    mergeFormatDictOptions(primary, secondary) {
+      const seen = new Set()
+      const out = []
+      ;[...(primary || []), ...(secondary || [])].forEach((o) => {
+        if (!o || o.value === undefined || o.value === null) return
+        const k = String(o.value)
+        if (seen.has(k)) return
+        seen.add(k)
+        out.push({
+          label: o.label != null ? String(o.label) : k,
+          value: o.value
+        })
+      })
+      return out
+    },
     initDefaults() {
       if (this.formData.code === undefined || this.formData.code === '') {
         this.$set(this.formData, 'code', 'ExcelInput')
@@ -904,10 +958,17 @@ export default {
     formatOptionsForRow(row) {
       const key = this.formatDictKeyForType(row && row.type)
       const b = this.formatDictBundle
-      const list = (key === 'date' && b.date.length) ? b.date
-        : (key === 'number' && b.number.length) ? b.number
-          : b.all.length ? b.all : []
-      return list
+      if (key === 'date') {
+        const merged = this.mergeFormatDictOptions(this.apiDateFormatOptions, b.date)
+        if (merged.length) return merged
+        return b.all.length ? b.all : []
+      }
+      if (key === 'number') {
+        const merged = this.mergeFormatDictOptions(this.apiNumberFormatOptions, b.number)
+        if (merged.length) return merged
+        return b.all.length ? b.all : []
+      }
+      return b.all.length ? b.all : []
     },
     onFieldTypeChange(row) {
       if (!row) return

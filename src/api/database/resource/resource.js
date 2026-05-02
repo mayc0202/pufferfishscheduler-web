@@ -28,6 +28,15 @@ export function directoryTree(dbId, path) {
 }
 
 /**
+ * bucket list
+ * @param {*} dbId
+ * @returns
+ */
+export function bucketList(dbId) {
+  return PUFFERFISH_API.get('/resource/bucketList.do?dbId=' + dbId)
+}
+
+/**
  * mkdir
  * @param {*} data
  * @returns

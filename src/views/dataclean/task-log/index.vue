@@ -67,7 +67,7 @@
               v-loading="tableLoading"
               :data="tableData"
               style="width: 100%"
-              max-height="640"
+              height="100%"
               element-loading-text="正在加载日志..."
             >
               <el-table-column type="index" label="#" width="50" />
@@ -261,6 +261,97 @@ export default {
     this.destroyPreviewGraph()
   },
   methods: {
+    pickFlowConfigSource(payload) {
+      if (!payload || typeof payload !== 'object') return null
+      const candidates = [
+        payload.flowConfig,
+        payload.config,
+        payload.flowJson,
+        payload.flowData,
+        payload.transConfig
+      ]
+      for (const item of candidates) {
+        if (item != null && item !== '') return item
+      }
+      return null
+    },
+    parseFlowConfig(raw) {
+      if (raw == null || raw === '') return null
+      let value = raw
+      let round = 0
+      // 日志详情里 flowConfig 可能被多次序列化，最多递归解析 3 层
+      while (round < 3) {
+        if (typeof value !== 'string') break
+        const text = value.trim()
+        if (!text) return null
+        try {
+          value = JSON.parse(text)
+        } catch (err) {
+          // 兼容后端返回 "\"{...}\"" 这类转义字符串
+          const normalized = text
+            .replace(/^"(.*)"$/s, '$1')
+            .replace(/\\"/g, '"')
+            .replace(/\\n/g, '')
+          try {
+            value = JSON.parse(normalized)
+          } catch (err2) {
+            return null
+          }
+        }
+        round += 1
+      }
+      if (!value || typeof value !== 'object') return null
+      if (Array.isArray(value.cells)) return value
+      if (value.data && Array.isArray(value.data.cells)) return value.data
+      if (value.flowConfig && Array.isArray(value.flowConfig.cells)) return value.flowConfig
+      return null
+    },
+    normalizePreviewRuntimeStyles(flowConfig) {
+      if (!flowConfig || !Array.isArray(flowConfig.cells)) return flowConfig
+      const normalized = {
+        ...flowConfig,
+        cells: flowConfig.cells.map((cell) => {
+          if (!cell || typeof cell !== 'object') return cell
+          if (cell.shape === 'edge') {
+            const attrs = cell.attrs || {}
+            const line = attrs.line || {}
+            return {
+              ...cell,
+              attrs: {
+                ...attrs,
+                line: {
+                  ...line,
+                  stroke: '#7f8ea3',
+                  strokeWidth: 2.2,
+                  strokeDasharray: '',
+                  strokeDashoffset: 0
+                }
+              }
+            }
+          }
+          const attrs = cell.attrs || {}
+          const body = attrs.body || {}
+          const label = attrs.label || {}
+          return {
+            ...cell,
+            attrs: {
+              ...attrs,
+              body: {
+                ...body,
+                stroke: '#d7dfeb',
+                strokeWidth: 1.5,
+                fill: '#fff'
+              },
+              label: {
+                ...label,
+                fill: '#555'
+              }
+            }
+          }
+        })
+      }
+      return normalized
+    },
     toDictOption(item) {
       const labelRaw = item && (item.value ?? item.label ?? item.name ?? item.code)
       const valueRaw = item && (item.code ?? item.id ?? item.value)
@@ -366,7 +457,7 @@ export default {
           reason: item.reason || '',
           logDetail: item.logDetail || '',
           statusTxt: item.statusTxt,
-          flowConfig: item.flowConfig
+          flowConfig: this.pickFlowConfigSource(item)
         }))
 
         this.pagination.total = data.total || this.tableData.length
@@ -404,7 +495,7 @@ export default {
               dataVolume: d.dataVolume || 0,
               linesErrors: d.linesErrors || 0,
               logDetail: d.logDetail || d.reason || '暂无日志',
-              flowConfig: d.flowConfig
+              flowConfig: this.pickFlowConfigSource(d) || this.detailData.flowConfig
             }
           }
         } catch (e) {
@@ -423,7 +514,7 @@ export default {
         this.previewGraph = null
       }
     },
-    async renderFlowPreview(flowConfigStr) {
+    async renderFlowPreview(flowConfigRaw) {
       const container = this.$refs.flowPreviewRef
       if (!container) return
 
@@ -447,21 +538,7 @@ export default {
         keyboard: false
       })
 
-      let flowConfig = null
-      if (flowConfigStr) {
-        try {
-          // 关键：正确解析后端返回的带转义的JSON字符串
-          let jsonStr = flowConfigStr
-          if (typeof jsonStr === 'string') {
-            jsonStr = jsonStr.replace(/\\"/g, '"').replace(/\\n/g, '')
-            flowConfig = JSON.parse(jsonStr)
-          } else {
-            flowConfig = jsonStr
-          }
-        } catch (e) {
-          console.warn('解析flowConfig失败，使用mock', e)
-        }
-      }
+      let flowConfig = this.parseFlowConfig(flowConfigRaw)
 
       if (
         !flowConfig ||
@@ -471,6 +548,7 @@ export default {
         console.warn('没有有效的流程配置，使用空画布')
         flowConfig = { cells: [] }
       }
+      flowConfig = this.normalizePreviewRuntimeStyles(flowConfig)
 
       // 确保边有anchor
       if (Array.isArray(flowConfig.cells)) {
@@ -496,46 +574,6 @@ export default {
 
       this.previewGraph.fromJSON(flowConfig)
       this.previewGraph.centerContent({ padding: 20 })
-    },
-    buildMockFlowConfig() {
-      return {
-        cells: [
-          {
-            shape: 'rect',
-            position: { x: 160, y: 90 },
-            size: { width: 180, height: 40 },
-            attrs: {
-              body: { stroke: '#dcdfe6', fill: '#fff', rx: 6, ry: 6 },
-              label: { text: '关系表输入', fill: '#555', fontSize: 14 }
-            },
-            id: 'preview-input'
-          },
-          {
-            shape: 'rect',
-            position: { x: 430, y: 180 },
-            size: { width: 180, height: 40 },
-            attrs: {
-              body: { stroke: '#dcdfe6', fill: '#fff', rx: 6, ry: 6 },
-              label: { text: '关系表输出', fill: '#555', fontSize: 14 }
-            },
-            id: 'preview-output'
-          },
-          {
-            shape: 'edge',
-            source: { cell: 'preview-input' },
-            target: { cell: 'preview-output' },
-            attrs: {
-              line: {
-                stroke: '#8f8f8f',
-                strokeWidth: 1.5,
-                targetMarker: { name: 'block', size: 6 }
-              }
-            },
-            connector: { name: 'smooth', args: { type: 'cubic' }},
-            router: { name: 'manhattan' }
-          }
-        ]
-      }
     }
   }
 }
@@ -543,8 +581,13 @@ export default {
 
 <style scoped>
 .container {
-  background: #f5f7fa;
+  background: radial-gradient(circle at 15% 20%, #eef4ff 0%, #f6f9ff 55%, #f7f8fb 100%);
   flex: 1;
+  padding: 14px;
+  box-sizing: border-box;
+  height: calc(100vh - 84px);
+  display: flex;
+  flex-direction: column;
 }
 .body {
   flex: 1;
@@ -554,70 +597,77 @@ export default {
   overflow: hidden;
 }
 
+::v-deep .el-container {
+  height: 100%;
+}
+
 ::v-deep .el-main {
-  padding: 10px;
+  padding: 0;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 .list {
-  padding: 10px 20px 20px 20px;
+  padding: 20px;
   background: #fff;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-  height: calc(100vh - 90px);
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
+  height: 100%;
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .search {
-  padding: 10px 0 0;
+  padding: 0;
   margin-bottom: 20px;
   overflow-x: auto;
   overflow-y: hidden;
+  flex-shrink: 0;
 }
 .search-row-uniform {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  row-gap: 10px;
+  gap: 16px;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 .search-row-uniform .el-col {
-  flex: 1 1 220px;
-  min-width: 220px;
+  flex: 1 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 .col {
   display: flex;
   align-items: center;
   line-height: 32px;
+  width: 100%;
 }
 .label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  color: #606266;
+  color: #6a7486;
   white-space: nowrap;
   min-width: 4.5em;
   text-align: right;
-  margin-right: 4px;
-}
-.search-input,
-.search-select,
-.search-date {
-  max-width: 160px;
-  width: 100%;
-}
-
-/* 日期范围选择器单独放宽，避免占位文字挤压变形 */
-.search-date {
-  max-width: 220px;
-  width: 220px;
+  margin-right: 8px;
 }
 .search-btns {
+  width: 100%;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
   white-space: normal;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .search-col-btns {
@@ -625,23 +675,24 @@ export default {
 }
 
 ::v-deep .search .el-input__inner {
-  height: 30px;
-  line-height: 30px;
-  font-size: 12px;
+  height: 32px;
+  line-height: 32px;
+  font-size: 13px;
+  border-radius: 8px;
 }
 
 /* 日期范围控件：缩小内置文字，保证占位完整展示 */
 ::v-deep .search-date .el-range-input {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 ::v-deep .search-date .el-range-separator {
-  font-size: 11px;
+  font-size: 12px;
   padding: 0 4px;
 }
 
 ::v-deep .search-date.el-date-editor {
-  height: 30px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
@@ -662,11 +713,44 @@ export default {
 }
 
 ::v-deep .search .el-button--mini {
-  padding: 7px 10px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
 }
+
+::v-deep .el-table {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #edf2fb;
+}
+
+::v-deep .el-table__body-wrapper {
+  flex: 1;
+  overflow-y: auto;
+}
+
+::v-deep .el-table th {
+  background-color: #f8faff !important;
+  color: #31415f;
+  font-weight: 600;
+  height: 44px;
+}
+
+::v-deep .el-table td {
+  padding: 10px 0;
+  color: #4b566a;
+}
+
+::v-deep .el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: #fafcff;
+}
+
 .pagination-wrapper {
-  margin-top: 15px;
-  text-align: right;
+  margin-top: 20px;
+  text-align: center;
   flex-shrink: 0;
 }
 .status-success {
@@ -687,40 +771,41 @@ export default {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
-  margin-bottom: 8px;
+  color: #1f3358;
+  margin-bottom: 12px;
 }
 .log-box {
   min-height: 110px;
   max-height: 200px;
   overflow: auto;
-  border: 1px solid #ebeef5;
-  background: #fafafa;
-  color: #303133;
+  border: 1px solid #e9eef8;
+  background: #fafcff;
+  color: #4b566a;
   font-size: 13px;
   line-height: 1.6;
   padding: 10px 12px;
   white-space: pre-wrap;
   word-break: break-word;
+  border-radius: 6px;
 }
 .detail-section-flow .flow-preview-heading {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 8px 12px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .flow-preview-hint {
   font-size: 12px;
   font-weight: normal;
-  color: #909399;
+  color: #8b95a8;
 }
 
 .flow-preview {
   height: 280px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
+  border: 1px solid #e9eef8;
+  border-radius: 8px;
   background: #fff;
   overflow: hidden;
   cursor: grab;
@@ -743,7 +828,7 @@ export default {
 .info-table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid #ebeef5;
+  border: 1px solid #e9eef8;
   background: #fff;
   margin-bottom: 16px;
   font-size: 14px;
@@ -751,13 +836,13 @@ export default {
 
 .info-table td {
   padding: 12px 16px;
-  border: 1px solid #ebeef5;
+  border: 1px solid #e9eef8;
   vertical-align: middle;
 }
 
 .info-label {
-  background-color: #f8f9fa;
-  color: #606266;
+  background-color: #f8faff;
+  color: #6a7486;
   font-weight: 500;
   width: 110px;
   text-align: right;
@@ -765,7 +850,7 @@ export default {
 }
 
 .info-value {
-  color: #303133;
+  color: #31415f;
   word-break: break-all;
   line-height: 1.5;
 }
@@ -785,35 +870,58 @@ export default {
 .detail-table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid #ebeef5;
+  border: 1px solid #e9eef8;
   background: #fff;
   font-size: 14px;
   margin-bottom: 20px;
   table-layout: fixed;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .detail-table th,
 .detail-table td {
-  padding: 10px 12px;
-  border: 1px solid #ebeef5;
+  padding: 12px 14px;
+  border: 1px solid #e9eef8;
   text-align: left;
   vertical-align: middle;
 }
 
 .detail-table th {
-  background-color: #f8f9fa;
-  color: #606266;
+  background-color: #f8faff;
+  color: #6a7486;
   font-weight: 500;
   width: 90px;
   white-space: nowrap;
 }
 
 .detail-table td {
-  color: #303133;
+  color: #31415f;
 }
 
 .detail-table td[colspan="3"] {
-  color: #303133;
+  color: #31415f;
+}
+
+::v-deep .log-detail-dialog .el-dialog {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+::v-deep .log-detail-dialog .el-dialog__header {
+  background: #f8faff;
+  border-bottom: 1px solid #e9eef8;
+  padding: 16px 20px;
+}
+
+::v-deep .log-detail-dialog .el-dialog__title {
+  color: #1f3358;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+::v-deep .log-detail-dialog .el-dialog__body {
+  padding: 24px 24px 20px;
 }
 </style>
 

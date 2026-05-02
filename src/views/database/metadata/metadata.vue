@@ -36,19 +36,22 @@
               <div class="search">
                 <el-row class="search-row search-row-uniform" :gutter="12">
                   <el-col :span="5">
-                    <div class="search_input">
-                      <input
+                    <div class="col">
+                      <div class="label">名称：</div>
+                      <el-input
                         v-model="queryData.dbName"
+                        class="search_input"
                         placeholder="请输入数据源名称"
-                        class="input"
-                      >
-                    </div></el-col>
-                  <el-col :span="6">
+                        clearable
+                      />
+                    </div>
+                  </el-col>
+                  <el-col :span="5">
                     <div class="col">
                       <div class="label">
                         分组：
                       </div>
-                      <el-select v-model="queryData.groupId" clearable placeholder="请选择数据源分组">
+                      <el-select v-model="queryData.groupId" class="search-select" clearable placeholder="请选择数据源分组">
                         <el-option
                           v-for="item in groupSelectOptions"
                           :key="item.value"
@@ -58,12 +61,12 @@
                       </el-select>
                     </div>
                   </el-col>
-                  <el-col :span="6">
+                  <el-col :span="5">
                     <div class="col">
                       <div class="label">
                         同步状态：
                       </div>
-                      <el-select v-model="queryData.status" clearable placeholder="请选择同步任务状态">
+                      <el-select v-model="queryData.status" class="search-select" clearable placeholder="请选择同步任务状态">
                         <el-option
                           v-for="opt in taskStatusSelectOptions"
                           :key="opt.value"
@@ -73,7 +76,7 @@
                       </el-select>
                     </div>
                   </el-col>
-                  <el-col :span="5">
+                  <el-col :span="4">
                     <div class="col">
                       <div class="label">
                         只显示启用：
@@ -84,7 +87,7 @@
                       />
                     </div>
                   </el-col>
-                  <el-col :span="4" class="search-col-btns">
+                  <el-col :span="5" class="search-col-btns">
                     <div class="search-btns">
                       <el-button type="primary" icon="el-icon-search" size="mini" @click="selectTaskList()">查询</el-button>
                       <el-button type="primary" size="mini" @click="handleAddSchedule">新增同步任务</el-button>
@@ -137,13 +140,14 @@
                     </template>
                   </el-table-column>
                   <el-table-column prop="executeTimeTxt" label="最近执行时间" min-width="170" />
-                  <el-table-column fixed="right" label="操作" width="190">
+                  <el-table-column fixed="right" label="操作" width="220">
                     <template slot-scope="scope">
                       <div class="wrap">
-                        <div>
+                        <div style="display: flex; gap: 8px; justify-content: flex-start; flex-wrap: nowrap;">
                           <el-button
                             type="text"
                             size="mini"
+                            style="margin-left: 0; padding: 0;"
                             @click.native.prevent="
                               handleEdit(scope.row)
                             "
@@ -153,6 +157,7 @@
                           <el-button
                             type="text"
                             size="mini"
+                            style="margin-left: 0; padding: 0;"
                             @click.native.prevent="
                               handleImmediatelySync(scope.row)
                             "
@@ -162,6 +167,7 @@
                           <el-button
                             type="text"
                             size="mini"
+                            style="margin-left: 0; padding: 0;"
                             @click.native.prevent="
                               toggleEnableStatus(scope.row.id)
                             "
@@ -171,6 +177,7 @@
                           <el-button
                             type="text"
                             size="mini"
+                            style="margin-left: 0; padding: 0;"
                             @click.native.prevent="
                               handleDelete(scope.row.id)
                             "
@@ -206,7 +213,6 @@
       ref="quartzJob"
       :visible="scheduleDialogVisible"
       :width="460"
-      :height="520"
       :title="isEditMode ? '编辑同步任务' : '新增同步任务'"
       :edit-data="isEditMode ? { id: editingTaskId } : null"
       @submit="handleScheduleSubmit"
@@ -479,7 +485,10 @@ export default {
         notifyPolicy: row.notifyPolicy || '0',
         workerId: row.workerId,
         enable: this.isEnabled(row.enable) ? '0' : '1', // 转换 enable 状态
-        id: row.id // 添加ID用于更新
+        id: row.id, // 添加ID用于更新
+        // 列表行若已带联系人 id，先回填多选；详情接口返回后再与 options 映射名称
+        contactIdList:
+          row.contactIdList != null ? row.contactIdList : row.contactIds
       }
 
       // 这里需要将数据传递给QuartzJob组件
@@ -580,7 +589,6 @@ export default {
      */
     handleScheduleCancel() {
       this.resetDialogState()
-      this.$message.info('已取消操作')
     },
 
     /**
@@ -766,7 +774,7 @@ export default {
 </style>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
+@import "@/styles/variables.scss";
 
 .custom-tooltip .custom-menu {
   border: none;
@@ -785,99 +793,261 @@ export default {
 
 .custom-tooltip .menu-item:hover {
   background-color: #fff;
-  color: #409EFF;
+  color: #409eff;
 }
 
-// 修改el-container的样式
 .container {
-  flex: 1;
-  background-color: #f8f8fc;
-}
-
-// 主内容区域样式调整
-::v-deep .el-container > .el-container {
-  flex: 1;
+  height: calc(100vh - 84px);
+  background: radial-gradient(circle at 15% 20%, #eef4ff 0%, #f6f9ff 55%, #f7f8fb 100%);
+  padding: 14px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
 }
 
-::v-deep .el-aside {
-  font-size: 16px;
-  font-weight: 600;
-  padding: 10px;
-  margin-left: 10px;
-  user-select: none;
-  min-width: 200px;
-  box-shadow: $shadow;
-  background-color: #fff;
+.body {
+  margin: 0;
+  padding: 0;
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-// 侧边栏样式调整
+::v-deep .el-container {
+  height: 100%;
+}
+
+::v-deep .el-main {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
 ::v-deep .page-aside {
-  height: 90.5vh;
-  margin-bottom: 10px;
+  height: 100%;
+  margin: 0 14px 0 0;
   display: flex;
   flex-direction: column;
   background-color: #fff;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
+  user-select: none;
+  min-width: 240px;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-/* 弹窗内的 el-aside */
-::v-deep .dialog-aside {
-  height: auto;
-  min-height: 390px;
+.body .group {
+  border-radius: 4px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.body .group .wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.body .group .search {
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.body .group .search .add {
+  margin-left: 10px;
+}
+
+.body .group .queryAll {
+  width: 100%;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.body .group .group_icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 8px;
+  margin-right: 8px;
+}
+
+::v-deep .el-tree {
+  flex: 1;
   overflow-y: auto;
 }
 
-// 表格区域样式调整
-::v-deep .el-main {
+.body .list {
+  margin: 0;
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
+  height: 100%;
   flex: 1;
-  overflow-y: auto; // 改为垂直滚动
   display: flex;
   flex-direction: column;
-  padding: 10px;
-  margin-left: 0 !important;
-  margin-top: -10px !important;
-  .list {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #fff;
-    border-radius: 4px;
-    .search {
-      flex-shrink: 0;
-    }
-    .el-table {
-      flex: 1;
-    }
-    .pagination-wrapper {
-      flex-shrink: 0;
-      margin-top: 20px;
-    }
-  }
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-/* 页面主区域 */
-::v-deep .page-aside + .el-container > .el-main {
-  margin-left: 10px;
-  box-shadow: $shadow;
+.body .list .search {
+  padding: 0;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
-/* 弹窗区域 */
-::v-deep .dialog-aside + .el-main {
-  margin-left: 0;
+.body .list .search .search_input {
+  flex: 1 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 32px;
+}
+
+.body .list .search .search-select {
+  flex: 1 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.body .list .search .search_input .input {
+  height: 32px;
+  width: 100%;
+  background-color: white;
   box-shadow: none;
+  border-radius: 8px;
+  outline: none;
+  border: 1px solid #dcdfe6;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.body .list .search .col {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.body .list .search .label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6a7486;
+  white-space: nowrap;
+  min-width: 4.5em;
+  text-align: right;
+  margin-right: 8px;
+}
+
+.body .list .search .search-row-uniform {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 16px;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.body .list .search .search-row-uniform .el-col {
+  display: flex;
+  align-items: center;
+  flex: 1 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.body .list .search .search-col-btns {
+  margin-left: auto;
+}
+
+.body .list .search .search-btns {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  white-space: normal;
+  flex-wrap: nowrap;
+}
+
+.body .list .search > div:last-child {
+  flex-shrink: 0;
 }
 
 ::v-deep .el-table {
-  border: 1px solid #ebeef5;
-  border-bottom: 0;
-  max-height: 630px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #edf2fb;
+}
+
+::v-deep .el-table__body-wrapper {
+  flex: 1;
+  overflow-y: auto;
+}
+
+::v-deep .el-table th {
+  background-color: #f8faff !important;
+  color: #31415f;
+  font-weight: 600;
+  height: 44px;
+}
+
+::v-deep .el-table td {
+  padding: 10px 0;
+  color: #4b566a;
+}
+
+::v-deep .el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: #fafcff;
 }
 
 ::v-deep .el-input--mini .el-input__inner {
-  height: 36px;
-  line-height: 28px;
+  height: 32px;
+  line-height: 32px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+::v-deep .el-button--mini {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+::v-deep .el-textarea__inner {
+  display: block;
+  resize: vertical;
+  padding: 5px 15px;
+  line-height: 1.5;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+  width: 100%;
   font-size: 14px;
+  color: #606266;
+  background-color: #ffffff;
+  background-image: none;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  -webkit-transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
 }
 
 ::v-deep .el-pagination__sizes {
@@ -888,21 +1058,60 @@ export default {
   font-size: 13px;
 }
 
-::v-deep .el-tree {
-  height: 100% !important;
-  overflow-y: auto;
-  max-height: 800px;
-  flex: 1 !important;
-  min-height: 0 !important;
+.custom-node {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between; /* 两端对齐 */
+  align-items: center; /* 垂直居中 */
+  width: 100%;
+  padding: 0 8px;
+  font-size: 14px;
+}
+
+.node-label {
+  flex: 1;
+  font-weight: 400;
+  color: #31415f;
+}
+
+.node-label:hover {
+  color: #409eff;
+}
+
+.node-icon {
+  font-size: 16px;
+  color: #909399;
+  cursor: pointer;
+  transition: color 0.3s;
+  -webkit-transform: rotate(90deg); /* Chrome/Safari */
+  -moz-transform: rotate(90deg); /* Firefox */
+  -ms-transform: rotate(90deg); /* IE9+ */
+  -o-transform: rotate(90deg); /* Opera */
+  transform: rotate(90deg);
+}
+
+.custom-menu {
+  user-select: none;
+  padding: 0 !important;
+}
+
+.db-type-item {
+  line-height: 24px;
+}
+
+.menu-item {
+  padding: 2px 10px;
+}
+
+.menu-item:hover {
+  background-color: #606266;
 }
 
 /** 列表头部标签 */
 .list .label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  color: #606266;
+  color: #6a7486;
+  margin-right: 8px;
 }
 
 .list .col {
@@ -931,15 +1140,19 @@ export default {
   height: 32px
 }
 
-/** 列表头部下拉框 */
-::v-deep .search .el-input__inner {
+/** 列表头部：名称输入框固定宽度；el-select 内层必须 100% 宽，否则后缀箭头按外层定位会落在边框外 */
+::v-deep .body .list .search .search_input .el-input__inner {
   width: 180px;
-  height: 32px
+  max-width: 100%;
+  height: 32px;
 }
 
 ::v-deep .body .list .search .el-select .el-input__inner {
-  height: 30px;
-  line-height: 30px;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+  height: 32px;
+  line-height: 32px;
   padding-right: 26px;
 }
 
@@ -950,75 +1163,14 @@ export default {
 }
 
 ::v-deep .body .list .search .el-select .el-select__caret {
-  line-height: 30px;
-}
-
-.body {
-  flex: 1; // 占据剩余空间
-  display: flex;
-  flex-direction: column;
-  margin: 10px 0 0 0;
-  padding: 0;
-  overflow: hidden; // 隐藏溢出内容
-}
-
-/* 确保内部容器高度正确 */
-.body >>> .el-container {
-  height: 100%;
-  min-height: 100%;
-}
-
-.body .group {
-  border-radius: 4px;
-  min-width: 220px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.body .group .search {
-  margin-bottom: 10px;
-}
-
-.body .group .search .add {
-  margin-left: 10px;
-}
-
-.body .group .queryAll {
-  width: 100%;
-  margin-bottom: 10px;
-  flex-shrink: 0;
-}
-
-.body .group .group_icon {
-  width: 18px;
-  height: 18px;
-  margin-top: 8px;
-  margin-right: 6px;
-}
-
-.body .list {
-  padding: 10px 20px 20px 20px;
-  background: #fff fixed;
-  box-shadow: $shadow;
-  border-radius: 4px;
-  height: 100%;
-  min-width: 0;
-}
-
-.body .list .search {
-  padding: 10px;
-  margin-bottom: 20px;
-  overflow-x: auto; // 容器宽度不够时允许横向查看（同时也可折行到下一层）
-  overflow-y: hidden;
+  line-height: 32px;
 }
 
 .body .list .search .search-row-uniform {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  row-gap: 10px;
+  row-gap: 14px;
   margin-left: 0 !important;
   margin-right: 0 !important;
 }
@@ -1030,32 +1182,11 @@ export default {
   min-width: 220px;
 }
 
-.body .list .search .search_input {
-  width: 180px;
-  min-width: 180px;
-  height: 30px;
-  margin-right: 0;
-  border-bottom: 1px rgb(167, 167, 167) inset;
-}
-
-.body .list .search .search_input .input {
-  height: 24px;
-  background-color: white;
-  box-shadow: none;
-  border-radius: 4px;
-  outline: none;
-  border: none;
-}
-
-.body .list .search > div:last-child {
-  flex-shrink: 0;
-}
-
 .body .list .search .search-btns {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -1098,18 +1229,18 @@ export default {
   ::v-deep .search .el-input__inner {
     width: 100% !important;
     max-width: 100% !important;
-    height: 30px;
-    line-height: 30px;
-    font-size: 12px;
+    height: 32px;
+    line-height: 32px;
+    font-size: 13px;
   }
 
   .body .list .label {
-    font-size: 12px;
-    margin-right: 4px;
+    font-size: 13px;
+    margin-right: 8px;
   }
 
   ::v-deep .search .el-button--mini {
-    padding: 7px 10px;
+    padding: 8px 14px;
   }
 }
 
@@ -1125,49 +1256,6 @@ export default {
 
 .item .item-name {
   margin-left: 10px;
-}
-
-.custom-node {
-  display: flex;
-  justify-content: space-between; /* 两端对齐 */
-  align-items: center; /* 垂直居中 */
-  width: 100%;
-  padding: 0 8px;
-  font-size: 14px;
-}
-
-.node-label {
-  flex: 1;
-  font-weight: 400;
-}
-
-.node-label:hover {
-  color: #409eff;
-}
-
-.node-icon {
-  font-size: 16px;
-  color: #909399;
-  cursor: pointer;
-  transition: color 0.3s;
-  -webkit-transform: rotate(90deg); /* Chrome/Safari */
-  -moz-transform: rotate(90deg); /* Firefox */
-  -ms-transform: rotate(90deg); /* IE9+ */
-  -o-transform: rotate(90deg); /* Opera */
-  transform: rotate(90deg);
-}
-
-.custom-menu {
-  user-select: none;
-  padding: 0;
-}
-
-.menu-item {
-  padding: 2px 10px;
-}
-
-.menu-item:hover {
-  background-color: #606266;
 }
 
   .rt-status {

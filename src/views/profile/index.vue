@@ -1,13 +1,13 @@
 <template>
   <div class="app-container profile-page">
     <div v-loading="loading" class="profile-inner">
-      <el-row v-if="profile" :gutter="20">
-        <el-col :span="7" :xs="24">
+      <el-row v-if="profile" :gutter="20" class="profile-row">
+        <el-col :span="8" :xs="24" class="profile-col profile-col--aside">
           <user-card :user="profile" />
         </el-col>
 
-        <el-col :span="17" :xs="24">
-          <el-card shadow="never" class="profile-tabs-card">
+        <el-col :span="16" :xs="24" class="profile-col profile-col--main">
+          <el-card shadow="never" class="profile-tabs-card profile-surface">
             <el-tabs v-model="activeTab">
               <el-tab-pane label="基本信息" name="info">
                 <profile-info :user="profile" />
@@ -200,14 +200,105 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "~@/styles/variables.scss";
+
 .profile-page {
+  box-sizing: border-box;
+
   .profile-inner {
     min-height: 200px;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 20px 16px 28px;
+    background: #f5f7fa;
+    border-radius: 10px;
   }
 
-  .profile-tabs-card {
+  .profile-row {
+    align-items: flex-start;
+  }
+
+  .profile-col--aside {
+    margin-bottom: 0;
+  }
+
+  .profile-col--main {
+    margin-bottom: 0;
+  }
+
+  @media (max-width: 768px) {
+    .profile-inner {
+      padding: 16px 0 24px;
+      border-radius: 0;
+    }
+
+    .profile-col--aside {
+      margin-bottom: 16px;
+    }
+  }
+
+  /* 左右栏卡片统一：白底、细边框、圆角 */
+  ::v-deep .profile-surface.el-card {
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+    box-shadow: none;
+
+    .el-card__header {
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #333639;
+      border-bottom: 1px solid #ebeef5;
+    }
+
+    .el-card__body {
+      padding: 20px;
+    }
+  }
+
+  .profile-tabs-card.profile-surface {
     ::v-deep .el-card__body {
-      padding-top: 8px;
+      padding: 0 20px 20px !important;
+    }
+
+    ::v-deep .el-tabs__header {
+      margin: 0;
+      padding: 0 2px;
+    }
+
+    ::v-deep .el-tabs__nav-wrap::after {
+      height: 1px;
+      background-color: #ebeef5;
+    }
+
+    ::v-deep .el-tabs__item {
+      font-size: 14px;
+      height: 46px;
+      line-height: 46px;
+      color: #606266;
+      padding: 0 22px;
+    }
+
+    ::v-deep .el-tabs__item:hover {
+      color: $blue;
+    }
+
+    ::v-deep .el-tabs__item.is-active {
+      color: $blue;
+      font-weight: 600;
+    }
+
+    ::v-deep .el-tabs__active-bar {
+      background-color: $blue;
+      height: 2px;
+    }
+
+    ::v-deep .el-tabs__content {
+      padding-top: 4px;
+    }
+
+    ::v-deep .el-tab-pane {
+      padding-top: 4px;
     }
   }
 }

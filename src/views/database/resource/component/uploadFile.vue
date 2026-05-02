@@ -233,12 +233,13 @@ export default {
     .el-upload-dragger {
       width: 100%;
       padding: 20px;
+      border-radius: 8px;
     }
   }
 
   .el-upload__tip {
     margin-top: 10px;
-    color: #999;
+    color: #6a7486;
     font-size: 12px;
     text-align: center;
   }
@@ -249,7 +250,7 @@ export default {
   background-color: $light-blue;
   padding: 8px;
   color: #fff;
-  border-radius: 3px;
+  border-radius: 6px;
   text-align: center;
   margin: 10px auto;
   cursor: pointer;
@@ -266,22 +267,33 @@ export default {
 }
 
 ::v-deep .el-dialog {
-  border-radius: 7px !important;
+  border-radius: 12px !important;
+  overflow: hidden;
   z-index: 99999;
 
   .el-dialog__header {
-    border-top-left-radius: 7px !important;
-    border-top-right-radius: 7px !important;
-    background-color: $headerTxtHover;
+    background: #f8faff;
+    border-bottom: 1px solid #e9eef8;
+    padding: 16px 20px;
 
-    .el-dialog__title,
+    .el-dialog__title {
+      color: #1f3358;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
     .el-dialog__headerbtn .el-dialog__close {
-      color: #fff;
+      color: #6a7486;
     }
 
     .el-dialog__headerbtn .el-dialog__close:hover {
+      color: #1f3358;
       font-weight: bold;
     }
+  }
+
+  .el-dialog__body {
+    padding: 24px 24px 20px;
   }
 }
 </style>

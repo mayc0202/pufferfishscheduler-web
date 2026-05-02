@@ -59,7 +59,35 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "~@/styles/variables.scss";
+
 .profile-info {
   min-height: 120px;
+  max-width: 100%;
+  overflow-x: auto;
+
+  ::v-deep .el-descriptions {
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  ::v-deep .el-descriptions-item__label {
+    width: 120px;
+    max-width: 40%;
+    background: #fafbfc !important;
+    color: $label;
+    font-weight: 500;
+    font-size: 13px;
+  }
+
+  ::v-deep .el-descriptions-item__content {
+    font-size: 13px;
+    color: #333639;
+    background: #fff !important;
+  }
+
+  ::v-deep .el-descriptions-item__cell {
+    border-color: #ebeef5 !important;
+  }
 }
 </style>

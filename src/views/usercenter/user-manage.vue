@@ -863,17 +863,29 @@ export default {
 }
 
 .dialog-form {
-  padding: 4px 4px 0;
+  padding: 0;
   background: #fff;
-  border-radius: 4px;
-  border: 1px solid #ebeef5;
+  border: none;
 }
 
 .form-section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #606266;
-  margin-bottom: 12px;
+  color: #1f3358;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #e9eef8;
+}
+
+::v-deep .el-divider--horizontal {
+  margin: 24px 0 16px;
+}
+
+::v-deep .el-divider__text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f3358;
+  padding: 0 12px;
 }
 
 .full-width {

@@ -97,3 +97,13 @@ export function immediatelyStop(id) {
   )
 }
 
+/**
+ * 转换任务运行过程日志（任务执行中轮询展示）
+ * @param {number|string} id 任务 id
+ */
+export function getProcessLog(id) {
+  return PUFFERFISH_API.get(
+    '/trans/task/getProcessLog.do?id=' + Number(id)
+  )
+}
+

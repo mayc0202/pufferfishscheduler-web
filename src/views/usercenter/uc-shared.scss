@@ -1,18 +1,16 @@
 @import '~@/styles/variables.scss';
 
 /**
- * 间隙对齐 CDC 实时归集：白底列表在 el-main 内时，Element 默认 $--main-padding: 20px，
- * 四周露出 #f8f8fc。用户中心用 margin:-20px 抵消 app-container 后，用同等 padding 还原这条灰边。
- * realtime 另有 .body { margin-top: 10px }，顶空略大于单侧 20px，这里顶用 30px ≈ 10 + 20。
+ * 用户中心列表页：与知识库 / 任务等页一致的浅灰底 + 白卡片内容区。
  */
 .uc-container {
-  margin: -0px;
-  padding: 20px 20px 20px;
+  margin: 0;
+  padding: 16px;
   box-sizing: border-box;
   height: calc(100vh - 50px);
   min-height: calc(100vh - 50px);
   max-height: calc(100vh - 50px);
-  background-color: #f8f8fc;
+  background-color: #f5f7fb;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -26,6 +24,9 @@
   margin: 0;
   padding: 0;
   overflow: hidden;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
   box-shadow: $shadow;
 }
 
@@ -36,17 +37,16 @@
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 10px 20px 20px;
-  background: #fff;
-  border-radius: 4px;
-  min-width: 1267px;
+  padding: 14px 16px 16px;
+  background: transparent;
+  min-width: 0;
   overflow: hidden;
 }
 
 .uc-page-head {
   flex-shrink: 0;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #ebeef5;
 }
 
@@ -72,9 +72,12 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 10px;
-  margin-bottom: 20px;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: #f8fafc;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
 }
 
 .uc-search__left {
@@ -102,26 +105,42 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .uc-table-wrap {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 4px;
 }
 
 .uc-table-wrap ::v-deep .el-table {
   border: 1px solid #ebeef5;
+  border-radius: 4px;
+}
+
+.uc-table-wrap ::v-deep .el-table__header-wrapper th {
+  background: #f8fafc !important;
+  color: #606266;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.uc-table-wrap ::v-deep .el-table__body tr:hover > td {
+  background-color: #f5faff !important;
 }
 
 /* 对齐 realtime .pagination-wrapper */
 .pagination-wrapper {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   width: 100%;
   flex-shrink: 0;
-  margin-top: 20px;
+  margin-top: 14px;
+  padding: 4px 2px 0;
 }
 
 /* 统计条（用户管理）：与检索区下边距同一节奏 */
@@ -130,7 +149,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .uc-stat-item {
@@ -139,9 +158,16 @@
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: #fafafa;
+  background: #fff;
   border: 1px solid #ebeef5;
-  border-radius: 4px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.uc-stat-item:hover {
+  border-color: #dcdfe6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .uc-stat-item__icon {
@@ -180,4 +206,30 @@
   font-size: 12px;
   color: #909399;
   margin-top: 2px;
+}
+
+/* 两页共用：表格强调列、弱化文案、文字按钮 */
+.text-muted {
+  color: #c0c4cc;
+}
+
+.cell-strong {
+  font-weight: 500;
+  color: #303133;
+}
+
+.btn-link-action {
+  color: #409eff !important;
+
+  &:hover {
+    color: #66b1ff !important;
+  }
+}
+
+.btn-danger-text {
+  color: #f56c6c !important;
+
+  &:hover {
+    color: #f78989 !important;
+  }
 }

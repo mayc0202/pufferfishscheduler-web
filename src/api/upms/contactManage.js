@@ -6,6 +6,14 @@ import { PUFFERFISH_API } from '@/api/http'
  */
 
 /**
+ * 联系人下拉选项（id + name，用于多选等）
+ * 后端：GET /user/contact/options.do
+ */
+export function options() {
+  return PUFFERFISH_API.get('/user/contact/options.do')
+}
+
+/**
  * 分页查询（姓名模糊）
  */
 export function list(params = {}) {

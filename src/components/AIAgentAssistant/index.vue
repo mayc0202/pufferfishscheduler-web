@@ -22,9 +22,9 @@
           <i class="el-icon-magic-stick" />
           <span>生成清洗转换规则</span>
         </button>
-        <button type="button" class="menu-item" @click="onMenuKnowledge">
-          <i class="el-icon-folder-opened" />
-          <span>知识库管理</span>
+        <button type="button" class="menu-item" @click="onMenuBizFieldFunc">
+          <i class="el-icon-edit-outline" />
+          <span>生成业务字段函数</span>
         </button>
       </div>
     </transition>
@@ -126,6 +126,72 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 生成业务字段函数 · 会话框（豆包式） -->
+    <el-dialog
+      :visible.sync="bizDialogVisible"
+      :show-close="false"
+      :z-index="30050"
+      width="520px"
+      custom-class="assistant-rule-dialog"
+      append-to-body
+      :close-on-click-modal="false"
+      @closed="onBizDialogClosed"
+    >
+      <div class="rule-dialog-shell">
+        <header class="rule-dlg-header">
+          <button type="button" class="rule-icon-btn" title="关闭" @click="bizDialogVisible = false">
+            <i class="el-icon-close" />
+          </button>
+          <div class="rule-dlg-drag-hint" />
+          <div class="rule-dlg-actions">
+            <button type="button" class="rule-icon-btn" title="新对话" @click="resetBizChat">
+              <i class="el-icon-plus" />
+              <span class="rule-dlg-new-txt">新对话</span>
+            </button>
+          </div>
+        </header>
+        <h3 class="rule-dlg-title">生成业务字段函数</h3>
+
+        <div ref="bizMsgList" class="rule-msg-list">
+          <div
+            v-for="(m, idx) in bizMessages"
+            :key="idx"
+            :class="['rule-msg', m.role === 'user' ? 'rule-msg--user' : 'rule-msg--bot']"
+          >
+            <div class="rule-msg-bubble" v-html="formatRuleHtml(m.content)" />
+            <span class="rule-msg-time">{{ formatRuleTime(m.ts) }}</span>
+          </div>
+          <div v-if="bizLoading" class="rule-msg rule-msg--bot">
+            <div class="rule-msg-bubble rule-msg-bubble--typing">
+              <span class="dot" /><span class="dot" /><span class="dot" />
+            </div>
+          </div>
+        </div>
+
+        <div class="rule-input-wrap">
+          <textarea
+            v-model="bizInput"
+            class="rule-textarea"
+            rows="2"
+            placeholder="描述你的业务字段函数需求，例如函数目标、输入字段、返回格式…"
+            :disabled="bizLoading"
+            @keydown.enter.exact.prevent="sendBizMessage"
+          />
+          <div class="rule-input-toolbar">
+            <span class="rule-hint">Enter 发送 · Shift+Enter 换行</span>
+            <button
+              type="button"
+              class="rule-send-btn"
+              :disabled="bizLoading || !bizInput.trim()"
+              @click="sendBizMessage"
+            >
+              <i class="el-icon-s-promotion" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -133,6 +199,10 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import icons from '@/assets/icon/icons.js'
+import {
+  askCleaningRuleAgentStream,
+  askMicroscopicFormulaAgentStream
+} from '@/api/agent/chat'
 
 const STORAGE_KEY = 'ai-assistant-float-pos'
 const DRAG_THRESHOLD = 5
@@ -168,6 +238,14 @@ export default {
       ruleInput: '',
       ruleLoading: false,
       ruleMessages: [],
+      ruleChatId: '',
+      ruleAbortController: null,
+      bizDialogVisible: false,
+      bizInput: '',
+      bizLoading: false,
+      bizMessages: [],
+      bizChatId: '',
+      bizAbortController: null,
       dockSide: 'right',
       lastViewport: { width: 0, height: 0 }
     }
@@ -214,6 +292,11 @@ export default {
       if (v) {
         this.$nextTick(() => this.scrollRuleList())
       }
+    },
+    bizDialogVisible(v) {
+      if (v) {
+        this.$nextTick(() => this.scrollBizList())
+      }
     }
   },
 
@@ -226,6 +309,8 @@ export default {
   },
 
   beforeDestroy() {
+    this.abortRuleStream()
+    this.abortBizStream()
     window.removeEventListener('resize', this.onResize)
     document.removeEventListener('click', this.onDocClick, true)
     this.detachGlobalListeners()
@@ -267,16 +352,12 @@ export default {
       this.menuHover = false
       this.$router.push('/agent-assistant')
     },
-    onMenuKnowledge() {
-      this.menuTapOpen = false
-      this.menuHover = false
-      this.$router.push('/knowledge-base/index')
-    },
     onMenuRuleChat() {
       this.menuTapOpen = false
       this.menuHover = false
       this.ruleDialogVisible = true
       if (this.ruleMessages.length === 0) {
+        this.ensureRuleChatId()
         this.ruleMessages.push({
           role: 'bot',
           content:
@@ -285,7 +366,23 @@ export default {
         })
       }
     },
+    onMenuBizFieldFunc() {
+      this.menuTapOpen = false
+      this.menuHover = false
+      this.bizDialogVisible = true
+      if (this.bizMessages.length === 0) {
+        this.ensureBizChatId()
+        this.bizMessages.push({
+          role: 'bot',
+          content:
+            '你好，我可以根据你的描述**生成业务字段函数**（计算、映射、拼接、格式化等）。请说明输入字段、业务逻辑与期望输出。',
+          ts: new Date()
+        })
+      }
+    },
     resetRuleChat() {
+      this.abortRuleStream()
+      this.ruleChatId = this.createRuleChatId()
       this.ruleMessages = [
         {
           role: 'bot',
@@ -296,7 +393,56 @@ export default {
       this.ruleInput = ''
     },
     onRuleDialogClosed() {
+      this.abortRuleStream()
       this.ruleInput = ''
+    },
+    resetBizChat() {
+      this.abortBizStream()
+      this.bizChatId = this.createBizChatId()
+      this.bizMessages = [
+        {
+          role: 'bot',
+          content: '已开始新对话。请描述你的业务字段函数需求。',
+          ts: new Date()
+        }
+      ]
+      this.bizInput = ''
+    },
+    onBizDialogClosed() {
+      this.abortBizStream()
+      this.bizInput = ''
+    },
+    createRuleChatId() {
+      return `rule-${Date.now()}`
+    },
+    createBizChatId() {
+      return `biz-func-${Date.now()}`
+    },
+    ensureRuleChatId() {
+      if (!this.ruleChatId) {
+        this.ruleChatId = this.createRuleChatId()
+      }
+      return this.ruleChatId
+    },
+    ensureBizChatId() {
+      if (!this.bizChatId) {
+        this.bizChatId = this.createBizChatId()
+      }
+      return this.bizChatId
+    },
+    abortRuleStream() {
+      if (this.ruleAbortController) {
+        this.ruleAbortController.abort()
+        this.ruleAbortController = null
+      }
+      this.ruleLoading = false
+    },
+    abortBizStream() {
+      if (this.bizAbortController) {
+        this.bizAbortController.abort()
+        this.bizAbortController = null
+      }
+      this.bizLoading = false
     },
     formatRuleHtml(content) {
       if (!content) return ''
@@ -313,36 +459,93 @@ export default {
       const el = this.$refs.ruleMsgList
       if (el) el.scrollTop = el.scrollHeight
     },
-    sendRuleMessage() {
+    scrollBizList() {
+      const el = this.$refs.bizMsgList
+      if (el) el.scrollTop = el.scrollHeight
+    },
+    async sendRuleMessage() {
       if (this.ruleLoading || !this.ruleInput.trim()) return
       const text = this.ruleInput.trim()
       this.ruleMessages.push({ role: 'user', content: text, ts: new Date() })
       this.ruleInput = ''
       this.ruleLoading = true
       this.$nextTick(() => this.scrollRuleList())
+      const bot = { role: 'bot', content: '', ts: new Date() }
+      this.ruleMessages.push(bot)
+      this.$nextTick(() => this.scrollRuleList())
 
-      window.setTimeout(() => {
-        this.ruleLoading = false
-        this.ruleMessages.push({
-          role: 'bot',
-          content: this.buildRuleReply(text),
-          ts: new Date()
+      const controller = new AbortController()
+      this.ruleAbortController = controller
+      try {
+        await askCleaningRuleAgentStream({
+          chatId: this.ensureRuleChatId(),
+          question: text,
+          signal: controller.signal,
+          onChunk: (chunk, meta) => {
+            if (meta && meta.replace) {
+              bot.content = chunk
+            } else {
+              bot.content += chunk
+            }
+            bot.ts = new Date()
+            this.$forceUpdate()
+            this.scrollRuleList()
+          }
         })
-        this.$nextTick(() => this.scrollRuleList())
-      }, 1200)
+      } catch (e) {
+        if (e && e.name !== 'AbortError') {
+          bot.content = bot.content || '请求失败，请稍后重试。'
+          this.$message.error(e.message || '生成清洗转换规则失败')
+        }
+      } finally {
+        this.ruleLoading = false
+        this.ruleAbortController = null
+      }
+      if (!bot.content) {
+        bot.content = '未返回有效内容，请重试。'
+      }
     },
-    buildRuleReply(q) {
-      const s = q.toLowerCase()
-      if (s.includes('映射') || s.includes('字段')) {
-        return `### 字段映射建议\n\n1. 在**清洗规则配置**中新增映射步骤。\n2. 源字段 → 目标字段一一对应，注意类型兼容（如数值与字符串）。\n3. 保存后可在任务中引用该规则。\n\n如需具体 SQL/表达式，请补充表结构与样例数据。`
+    async sendBizMessage() {
+      if (this.bizLoading || !this.bizInput.trim()) return
+      const text = this.bizInput.trim()
+      this.bizMessages.push({ role: 'user', content: text, ts: new Date() })
+      this.bizInput = ''
+      this.bizLoading = true
+      this.$nextTick(() => this.scrollBizList())
+      const bot = { role: 'bot', content: '', ts: new Date() }
+      this.bizMessages.push(bot)
+      this.$nextTick(() => this.scrollBizList())
+
+      const controller = new AbortController()
+      this.bizAbortController = controller
+      try {
+        await askMicroscopicFormulaAgentStream({
+          chatId: this.ensureBizChatId(),
+          question: text,
+          signal: controller.signal,
+          onChunk: (chunk, meta) => {
+            if (meta && meta.replace) {
+              bot.content = chunk
+            } else {
+              bot.content += chunk
+            }
+            bot.ts = new Date()
+            this.$forceUpdate()
+            this.scrollBizList()
+          }
+        })
+      } catch (e) {
+        if (e && e.name !== 'AbortError') {
+          bot.content = bot.content || '请求失败，请稍后重试。'
+          this.$message.error(e.message || '生成业务字段函数失败')
+        }
+      } finally {
+        this.bizLoading = false
+        this.bizAbortController = null
       }
-      if (s.includes('过滤') || s.includes('条件')) {
-        return `### 过滤规则\n\n- 使用**WHERE 类条件**或规则引擎中的「行级过滤」节点。\n- 建议先在小样本上验证，再全量调度。\n\n可补充：期望保留/剔除的业务条件。`
+      if (!bot.content) {
+        bot.content = '未返回有效内容，请重试。'
       }
-      if (s.includes('脱敏') || s.includes('加密')) {
-        return `### 脱敏/转换\n\n常见做法：哈希、掩码、截断、替换常量。请在规则中指定**作用字段**与**脱敏策略**，并符合贵司合规要求。`
-      }
-      return `已收到你的需求：「${q}」\n\n我可以继续帮你细化：\n- **输入/输出**字段与类型\n- **清洗步骤**（去空、格式、字典映射）\n- **调度与监控**要求\n\n请补充任意一项，我会给出更具体的规则草案。`
     },
 
     getPadding() {
@@ -903,8 +1106,10 @@ export default {
   border-radius: 20px;
   overflow: hidden;
   margin-top: 8vh !important;
-  background: #ececee;
-  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
+  background: linear-gradient(180deg, #f3f4f6 0%, #ebecef 100%);
+  box-shadow:
+    0 20px 56px rgba(15, 23, 42, 0.2),
+    0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
 @media (max-width: 560px) {
@@ -919,13 +1124,13 @@ export default {
 
 .assistant-rule-dialog .el-dialog__body {
   padding: 0;
-  background: #ececee;
+  background: transparent;
 }
 
 .rule-dialog-shell {
   display: flex;
   flex-direction: column;
-  max-height: min(72vh, 640px);
+  max-height: min(76vh, 680px);
 }
 
 .rule-dlg-header {
@@ -973,20 +1178,35 @@ export default {
 }
 
 .rule-dlg-title {
-  margin: 4px 0 8px;
+  margin: 6px 0 10px;
   padding: 0 16px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: #111827;
   text-align: center;
+  letter-spacing: 0.2px;
 }
 
 .rule-msg-list {
   flex: 1;
   min-height: 200px;
-  max-height: 38vh;
+  max-height: 42vh;
   overflow-y: auto;
-  padding: 8px 14px 12px;
+  padding: 10px 16px 14px;
+  scroll-behavior: smooth;
+}
+
+.rule-msg-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rule-msg-list::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.55);
+}
+
+.rule-msg-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .rule-msg {
@@ -1007,8 +1227,11 @@ export default {
   font-size: 14px;
   line-height: 1.55;
   color: #1f2937;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 6px 18px rgba(15, 23, 42, 0.06),
+    0 1px 4px rgba(15, 23, 42, 0.04);
+  word-break: break-word;
 }
 
 .rule-msg-bubble p {
@@ -1023,8 +1246,29 @@ export default {
 }
 
 .rule-msg--user .rule-msg-bubble {
-  background: #e0e7ff;
+  background: linear-gradient(180deg, #e3e8ff 0%, #dbe4ff 100%);
   color: #1e1b4b;
+}
+
+.rule-msg-bubble pre {
+  margin: 0.55em 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+  overflow-x: auto;
+}
+
+.rule-msg-bubble code {
+  font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.rule-msg-bubble :not(pre) > code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .rule-msg-time {
@@ -1067,8 +1311,8 @@ export default {
 }
 
 .rule-input-wrap {
-  padding: 10px 12px 14px;
-  background: #ececee;
+  padding: 12px 14px 14px;
+  background: linear-gradient(180deg, rgba(241, 243, 247, 0.92) 0%, #eceef2 100%);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
@@ -1076,7 +1320,7 @@ export default {
   width: 100%;
   box-sizing: border-box;
   padding: 12px 14px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 16px;
   font-size: 14px;
   line-height: 1.5;
@@ -1084,6 +1328,7 @@ export default {
   background: #fff;
   color: #111827;
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .rule-textarea:focus {
   border-color: rgba(99, 102, 241, 0.45);
@@ -1097,7 +1342,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .rule-hint {

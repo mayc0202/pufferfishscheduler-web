@@ -4,6 +4,10 @@ export function tree(name) {
   return PUFFERFISH_API.get('/dbGroup/tree.do?name=' + String(name))
 }
 
+export function resourceDbTree(name) {
+  return PUFFERFISH_API.get('/dbGroup/resourceDbTree.do?name=' + String(name))
+}
+
 export function ftpDbTree(name) {
   return PUFFERFISH_API.get('/dbGroup/ftpDbTree.do?name=' + String(name))
 }

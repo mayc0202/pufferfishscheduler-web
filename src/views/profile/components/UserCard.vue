@@ -1,11 +1,11 @@
 <template>
-  <el-card shadow="never" class="user-card">
+  <el-card shadow="never" class="user-card profile-surface">
     <div slot="header" class="clearfix">
       <span>个人概览</span>
     </div>
 
     <div class="user-profile">
-      <div class="box-center">
+      <div class="avatar-wrap">
         <pan-thumb
           :image="displayAvatar"
           :height="'100px'"
@@ -16,16 +16,16 @@
           <div class="thumb-role">{{ user.rolesDisplay || '—' }}</div>
         </pan-thumb>
       </div>
-      <div class="box-center">
+      <div class="name-block">
         <div class="user-name text-center">{{ user.name || '—' }}</div>
-        <div class="user-role text-center text-muted">{{ user.account || '—' }}</div>
+        <div class="user-account text-center">{{ user.account || '—' }}</div>
       </div>
     </div>
 
     <div class="user-bio">
       <div class="user-bio-section">
         <div class="user-bio-section-header">
-          <svg-icon icon-class="user" />
+          <svg-icon icon-class="user" class="section-icon" />
           <span>联系方式</span>
         </div>
         <div class="user-bio-section-body">
@@ -42,7 +42,7 @@
 
       <div class="user-bio-section">
         <div class="user-bio-section-header">
-          <svg-icon icon-class="peoples" />
+          <svg-icon icon-class="peoples" class="section-icon" />
           <span>角色</span>
         </div>
         <div class="user-bio-section-body">
@@ -50,7 +50,6 @@
             v-for="(tag, idx) in roleTags"
             :key="idx"
             size="small"
-            type="info"
             class="role-tag"
           >
             {{ tag }}
@@ -108,17 +107,15 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.user-card {
-  margin-bottom: 20px;
-}
+@import "~@/styles/variables.scss";
 
-.box-center {
-  margin: 0 auto;
-  display: table;
+.user-card {
+  margin-bottom: 0;
+  height: 100%;
 }
 
 .text-muted {
-  color: #777;
+  color: #909399;
 }
 
 .thumb-role {
@@ -130,42 +127,75 @@ export default {
 }
 
 .user-profile {
+  .avatar-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 4px;
+  }
+
+  .avatar-wrap ::v-deep .pan-item {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 3px solid #fff;
+  }
+
+  .name-block {
+    padding-top: 12px;
+  }
+
   .user-name {
-    font-weight: bold;
-    font-size: 16px;
+    font-weight: 600;
+    font-size: 17px;
+    color: #333639;
+    letter-spacing: 0.02em;
   }
 
-  .box-center {
-    padding-top: 10px;
-  }
-
-  .user-role {
-    padding-top: 6px;
-    font-weight: 400;
+  .user-account {
+    margin-top: 6px;
     font-size: 13px;
+    color: #909399;
     word-break: break-all;
   }
 }
 
 .user-bio {
-  margin-top: 16px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #ebeef5;
   color: #606266;
-
-  span {
-    padding-left: 4px;
-  }
 
   .user-bio-section {
     font-size: 14px;
-    padding: 12px 0;
+    padding: 0 0 16px;
+    margin: 0;
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    + .user-bio-section {
+      padding-top: 16px;
+      border-top: 1px solid #ebeef5;
+    }
 
     .user-bio-section-header {
-      border-bottom: 1px solid #ebeef5;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
+      padding: 0 0 10px;
+      margin: 0;
+      border: none;
       font-weight: 600;
+      font-size: 13px;
+      color: #333639;
       display: flex;
       align-items: center;
+      gap: 8px;
+
+      .section-icon {
+        font-size: 16px;
+        color: $blue;
+      }
+    }
+
+    .user-bio-section-body {
+      font-size: 13px;
     }
   }
 }
@@ -175,7 +205,7 @@ export default {
   justify-content: space-between;
   align-items: flex-start;
   font-size: 13px;
-  padding: 4px 0;
+  padding: 6px 0;
   gap: 12px;
 
   .label {
@@ -186,11 +216,15 @@ export default {
   .value {
     text-align: right;
     word-break: break-all;
+    color: #606266;
   }
 }
 
 .role-tag {
-  margin-right: 6px;
+  margin-right: 8px;
   margin-bottom: 6px;
+  background: #fff !important;
+  border-color: #dcdfe6 !important;
+  color: #606266 !important;
 }
 </style>

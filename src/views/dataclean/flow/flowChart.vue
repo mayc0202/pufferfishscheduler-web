@@ -1,18 +1,22 @@
 <template>
-  <el-container>
-    <el-header style="height: 20px">
-      <div class="flex between">
-        <div class="flow-title">{{ flowName || '流程设计' }}</div>
-        <div class="return" @click="handleReturn">
-          <i class="el-icon-back" />
-          <div class="return-txt">返回</div>
-        </div>
-      </div>
-    </el-header>
-    <el-main>
-      <flow-chart ref="flowEditor" :flow-id="flowId" :flow-name="flowName" />
-    </el-main>
-  </el-container>
+  <div class="container flow-chart-page">
+    <div class="body">
+      <el-container>
+        <el-header style="height: 20px; margin-top: 0; margin-bottom: 14px; padding: 0;">
+          <div class="flex between">
+            <div class="flow-title">{{ flowName || '流程设计' }}</div>
+            <div class="return" @click="handleReturn">
+              <i class="el-icon-back" />
+              <div class="return-txt">返回</div>
+            </div>
+          </div>
+        </el-header>
+        <el-main>
+          <flow-chart ref="flowEditor" :flow-id="flowId" :flow-name="flowName" />
+        </el-main>
+      </el-container>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -98,46 +102,46 @@ export default {
 }
 </script>
 
-<style scoped>
-.el-container {
-  margin: 0;
-  padding: 0;
-  height: 100vh;
+<style lang="scss" scoped>
+.container {
+  height: calc(100vh - 84px);
+  background: radial-gradient(circle at 15% 20%, #eef4ff 0%, #f6f9ff 55%, #f7f8fb 100%);
+  padding: 14px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  background-color: rgb(247, 247, 247);
 }
 
-.el-header {
-  margin-top: 20px;
-  -webkit-box-sizing: border-box;
-  box-sizing: border-box;
-  -ms-flex-negative: 0;
-  flex-shrink: 0;
-  color: #6e6e6e;
-  user-select: none;
-}
-
-.el-main {
-  color: #333;
+.body {
+  margin: 0;
+  padding: 0;
   position: relative;
   flex: 1;
-  overflow: hidden;
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+::v-deep .el-container {
+  height: 100%;
+}
+
+::v-deep .el-main {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
 }
 
 .flow-title {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
-}
-
-.icon {
-  width: 26px;
-  height: 26px;
-  margin-right: 4px;
-  margin-top: -4px;
-  user-select: none;
+  color: #31415f;
 }
 
 .return {
@@ -147,11 +151,12 @@ export default {
   cursor: pointer;
   user-select: none;
   font-size: 14px;
+  color: #6a7486;
   transition: all 0.3s ease;
 }
 
 .return:hover {
-  color: #1890ff;
+  color: #409eff;
   transform: translate(0, -2px);
 }
 
@@ -159,7 +164,9 @@ export default {
   margin-left: 5px;
 }
 
-.flex.between > div:last-child {
-  cursor: pointer;
+.flex.between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>

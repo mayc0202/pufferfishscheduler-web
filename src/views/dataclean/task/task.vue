@@ -120,7 +120,7 @@
               v-loading="tableLoading"
               :data="taskList"
               style="width: 100%"
-              max-height="640"
+              height="100%"
               element-loading-text="正在加载数据..."
               element-loading-spinner="el-icon-loading"
               element-loading-background="rgba(255, 255, 255, 0.8)"
@@ -142,7 +142,7 @@
                   <span
                     class="rt-status"
                     :class="rtStatusClass(scope.row)"
-                    @click="isFailureStatus(scope.row) && openReason(scope.row)"
+                    @click="onExecutionStatusClick(scope.row)"
                   >
                     <i v-if="rtStatusShowDot(scope.row)" class="rt-status-dot" />
                     <span class="rt-status-text">
@@ -329,6 +329,25 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item label="联系人">
+          <el-select
+            v-model="taskForm.contactSelectValues"
+            multiple
+            filterable
+            collapse-tags
+            clearable
+            placeholder="请选择联系人（可多选）"
+            class="dialog-select"
+          >
+            <el-option
+              v-for="c in taskContactSelectOptions"
+              :key="String(c.id)"
+              :label="c.name"
+              :value="String(c.id)"
+            />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="启用状态">
           <el-radio-group v-model="taskForm.enable">
             <el-radio :label="true">启用</el-radio>
@@ -376,6 +395,34 @@
       </div>
     </el-dialog>
 
+    <!-- 运行中任务过程日志（轮询接口，关闭弹窗后销毁定时器；展示逻辑参考流程编辑器 getProcessLog） -->
+    <el-dialog
+      v-el-drag-dialog
+      :visible.sync="processLogDialogVisible"
+      :title="processLogDialogTitle"
+      width="820px"
+      class="process-log-dialog"
+      :show-close="true"
+      :close-on-click-modal="false"
+      :modal-append-to-body="true"
+      :append-to-body="true"
+      @closed="onProcessLogDialogClosed"
+    >
+      <div class="process-log-body">
+        <div v-if="processLogItems.length" class="process-log-lines">
+          <div
+            v-for="(item, idx) in processLogItems"
+            :key="idx"
+            class="process-log-line"
+            :class="{ 'process-log-line--fail': item.status === 'F' }"
+          >
+            {{ item.text }}
+          </div>
+        </div>
+        <pre v-else class="process-log-pre">{{ processLogContent || '暂无日志' }}</pre>
+      </div>
+    </el-dialog>
+
     <!-- 任务详情（参考“数据源接入”详情弹窗 dynamic-detail.vue） -->
     <dynamic-detail-dialog
       title="任务详情"
@@ -407,8 +454,17 @@ import {
   enableTask,
   disableTask,
   immediatelyExecute,
-  immediatelyStop
+  immediatelyStop,
+  getProcessLog
 } from '@/api/collect/task/transtask'
+import { options as contactOptionsApi } from '@/api/upms/contactManage'
+import {
+  parseContactIdListToValues,
+  joinContactIds,
+  normalizeContactOptionsFromApi,
+  augmentContactOptions
+} from '@/utils/contactIds'
+import { prepareSchedulePayloadForSubmit } from '@/utils/cron-utils'
 
 function nowText() {
   const d = new Date()
@@ -479,10 +535,14 @@ export default {
         enable: true, // true-启用 false-禁用（后端字段要求为 boolean）
         failurePolicy: '1',
         notifyPolicy: '0',
+        /** 联系人多选，与 el-option value 一致（字符串 id） */
+        contactSelectValues: [],
         remark: ''
       },
       failurePolicyOptions: [],
       notifyPolicyOptions: [],
+      /** 联系人 options.do */
+      contactBaseOptions: [],
       scheduleTypeOptions: [],
       // 用于判断当前调度方式是否为 CRON（从字典推断）
       cronScheduleTypeValues: [],
@@ -518,7 +578,9 @@ export default {
         'flowId',
         'groupId',
         'reason',
-        'taskReason'
+        'taskReason',
+        // 详情展示统一用 contactIdList（已解析为姓名）；原始 id 字段不参与展示，避免与「联系人」重复一行
+        'contactIds'
       ],
       detailLabelMap: {
         id: '任务ID',
@@ -542,11 +604,18 @@ export default {
         lastRunTime: '最近执行时间',
         executeTimeTxt: '最近执行时间',
         groupName: '分组',
-        createdTime: '创建时间'
+        createdTime: '创建时间',
+        contactIdList: '联系人'
       },
       showCronDialog: false,
       reasonDialogVisible: false,
       reasonText: '',
+      processLogDialogVisible: false,
+      processLogTaskId: null,
+      processLogTaskName: '',
+      processLogItems: [],
+      processLogContent: '',
+      processLogTimer: null,
       // 列表定时刷新（与 CDC 实时归集、元数据同步一致，离开页面销毁）
       listTimer: null,
       immediateActionLoadingMap: {},
@@ -554,8 +623,18 @@ export default {
     }
   },
   computed: {
+    processLogDialogTitle() {
+      const name = (this.processLogTaskName || '').trim()
+      return name ? `任务运行日志 — ${name}` : '任务运行日志'
+    },
     taskStatusSelectOptions() {
       return (this.taskStatusOption || []).map((item) => this.toDictOption(item))
+    },
+    taskContactSelectOptions() {
+      return augmentContactOptions(
+        this.contactBaseOptions,
+        (this.taskForm && this.taskForm.contactSelectValues) || []
+      )
     },
     taskStatusMap() {
       const map = {};
@@ -572,6 +651,7 @@ export default {
   },
   async created() {
     await this.initTaskDicts()
+    await this.loadContactOptions()
     await this.loadFlowCascaderOptions()
     this.queryTaskList()
   },
@@ -580,6 +660,7 @@ export default {
   },
   beforeDestroy() {
     this.stopListTimer()
+    this.stopProcessLogPoll()
   },
   methods: {
     toDictOption(item) {
@@ -624,6 +705,18 @@ export default {
         this.$message.error(msg)
       }
       throw new Error(msg)
+    },
+
+    async loadContactOptions() {
+      try {
+        const res = await contactOptionsApi()
+        const body = res && res.data != null ? res.data : res
+        this.contactBaseOptions = normalizeContactOptionsFromApi(body)
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e)
+        this.$message.error('获取联系人列表失败')
+      }
     },
 
     async initTaskDicts() {
@@ -815,14 +908,21 @@ export default {
       const code = this.getTaskStatusCode(row)
       return code === 'FAILURE' || code === 'F' || code === 'FAIL'
     },
+    /** 仅「运行中」可点进过程日志（不含启动中/停止中） */
+    isRunningLogStatus(row) {
+      const code = this.getTaskStatusCode(row)
+      return code === 'RUNNING' || code === 'R'
+    },
+    onExecutionStatusClick(row) {
+      if (this.isFailureStatus(row)) this.openReason(row)
+      else if (this.isRunningLogStatus(row)) this.openProcessLogDialog(row)
+    },
     rtStatusClass(row) {
       const code = this.getTaskStatusCode(row)
-      if (
-        code === 'RUNNING' ||
-        code === 'R' ||
-        code === 'S' ||
-        code === 'SUCCESS'
-      ) {
+      if (code === 'RUNNING' || code === 'R') {
+        return 'is-running is-clickable'
+      }
+      if (code === 'S' || code === 'SUCCESS') {
         return 'is-running'
       }
       if (code === 'FAILURE' || code === 'F' || code === 'FAIL') {
@@ -859,6 +959,90 @@ export default {
         before: text.slice(0, idx),
         after: text.slice(idx + 2)
       }
+    },
+    openProcessLogDialog(row) {
+      const id = row && row.id
+      if (id == null) {
+        this.$message.warning('任务ID不存在')
+        return
+      }
+      this.processLogTaskId = id
+      this.processLogTaskName = (row && row.taskName) || ''
+      this.processLogItems = []
+      this.processLogContent = ''
+      this.processLogDialogVisible = true
+      this.$nextTick(() => {
+        this.startProcessLogPolling()
+      })
+    },
+    startProcessLogPolling() {
+      this.stopProcessLogPoll()
+      this.fetchProcessLogOnce()
+      this.processLogTimer = setInterval(() => {
+        if (!this.processLogDialogVisible) {
+          this.stopProcessLogPoll()
+          return
+        }
+        this.fetchProcessLogOnce()
+      }, 2000)
+    },
+    stopProcessLogPoll() {
+      if (this.processLogTimer) {
+        clearInterval(this.processLogTimer)
+        this.processLogTimer = null
+      }
+    },
+    onProcessLogDialogClosed() {
+      this.stopProcessLogPoll()
+      this.processLogTaskId = null
+      this.processLogTaskName = ''
+      this.processLogItems = []
+      this.processLogContent = ''
+    },
+    async fetchProcessLogOnce() {
+      if (this.processLogTaskId == null) return
+      try {
+        const res = await getProcessLog(this.processLogTaskId)
+        if (!this.isTransTaskApiSuccess(res)) return
+        const data = res && res.data
+        if (data && Array.isArray(data.logList)) {
+          const list = data.logList.map((logItem) => ({
+            status: (logItem && logItem.status) || '',
+            text: this.normalizeProcessLogText(logItem && logItem.text)
+          }))
+          this.processLogItems = list
+          const logText = list.map((item) => item.text).join('\n')
+          this.processLogContent = logText || '暂无日志'
+        } else {
+          this.processLogItems = []
+          this.processLogContent =
+            typeof data === 'string' && data ? data : '暂无日志'
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(err)
+      }
+    },
+    normalizeProcessLogText(text) {
+      if (!text) return ''
+      const parts = text.split(' ')
+      let lastDateIndex = -1
+      for (let i = parts.length - 2; i >= 0; i--) {
+        if (
+          parts[i].match(/^\d{4}-\d{2}-\d{2}$/) &&
+          parts[i + 1] &&
+          parts[i + 1].match(/^\d{2}:\d{2}:\d{2}$/)
+        ) {
+          lastDateIndex = i
+          break
+        }
+      }
+      if (lastDateIndex >= 0) {
+        const lastDate = `${parts[lastDateIndex]} ${parts[lastDateIndex + 1]}`
+        const content = parts.slice(lastDateIndex + 2).join(' ')
+        return `${lastDate} ${content}`
+      }
+      return text
     },
     async openReason(row) {
       const localReason = row && (row.reason || row.taskReason)
@@ -1150,6 +1334,7 @@ export default {
         enable: true,
         failurePolicy: this.taskForm && this.taskForm.failurePolicy ? this.taskForm.failurePolicy : '1',
         notifyPolicy: '0',
+        contactSelectValues: [],
         remark: ''
       }
 
@@ -1170,6 +1355,9 @@ export default {
           enable: this.isEnabled(row.enable != null ? row.enable : row.enabled),
           failurePolicy: row.failurePolicy != null ? String(row.failurePolicy) : '1',
           notifyPolicy: row.notifyPolicy != null ? String(row.notifyPolicy) : '0',
+          contactSelectValues: parseContactIdListToValues(
+            row.contactIdList != null ? row.contactIdList : row.contactIds
+          ),
           remark: row.remark || row.description || ''
         }
 
@@ -1194,6 +1382,9 @@ export default {
               d.notifyPolicy != null
                 ? String(d.notifyPolicy)
                 : this.taskForm.notifyPolicy,
+            contactSelectValues: parseContactIdListToValues(
+              d.contactIdList != null ? d.contactIdList : d.contactIds
+            ),
             remark: d.remark != null ? d.remark : (d.description != null ? d.description : this.taskForm.remark)
           }
         } catch (e) {
@@ -1231,12 +1422,12 @@ export default {
         if (!valid) return
 
         try {
-          const payload = {
+          let payload = {
             id: this.taskForm.id,
             // controller 参数是 name，这里做字段映射
             name: this.taskForm.taskName,
             flowId: this.taskForm.flowId,
-            executeType: this.taskForm.executeType,
+            scheduleType: this.taskForm.executeType,
             cron:
               this.isCronScheduleType()
                 ? this.taskForm.cron
@@ -1244,7 +1435,16 @@ export default {
             enable: this.taskForm.enable,
             failurePolicy: this.taskForm.failurePolicy,
             notifyPolicy: this.taskForm.notifyPolicy,
-            remark: this.taskForm.remark
+            remark: this.taskForm.remark,
+            // 多选联系人：逗号分隔 id（与后端 TransTask 表单字段约定一致，字段名 contactIds）
+            contactIds: joinContactIds(this.taskForm.contactSelectValues || [])
+          }
+
+          try {
+            payload = prepareSchedulePayloadForSubmit(payload, { forceCronSchedule: this.isCronScheduleType() })
+          } catch (e) {
+            this.$message.error(e.message)
+            return
           }
 
           if (this.taskDialogMode === 'edit') {
@@ -1309,6 +1509,26 @@ export default {
       mergeTxt(enableMain, 'enableTxt')
 
       mergeTxt('createdTime', 'createdTimeTxt')
+
+      // 后端可能同时返回 contactIds（id）与 contactIdList（展示/冗余）；解析联系人时优先用 id 字段
+      const rawContact =
+        d.contactIds != null && String(d.contactIds).trim() !== ''
+          ? d.contactIds
+          : d.contactIdList
+      const contactVals = parseContactIdListToValues(rawContact)
+      if (contactVals.length) {
+        const names = contactVals.map((id) => {
+          const hit = (this.contactBaseOptions || []).find(
+            (o) => String(o.id) === String(id)
+          )
+          return hit ? hit.name : `联系人(${id})`
+        })
+        d.contactIdList = names.join('、')
+        delete d.contactIds
+      } else {
+        delete d.contactIdList
+        delete d.contactIds
+      }
 
       const runText =
         d.statusTxt ||
@@ -1417,8 +1637,12 @@ export default {
 
 <style lang="scss" scoped>
 .container {
-  height: 100%;
-  background-color: #f5f7fa;
+  height: calc(100vh - 84px);
+  background: radial-gradient(circle at 15% 20%, #eef4ff 0%, #f6f9ff 55%, #f7f8fb 100%);
+  padding: 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .body {
@@ -1429,30 +1653,39 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  height: calc(100vh - 60px);
+}
+
+::v-deep .el-container {
+  height: 100%;
 }
 
 ::v-deep .el-main {
   padding: 0;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 .page-aside {
-  height: 90.5vh;
-  margin: 10px 0 10px 10px;
+  height: 100%;
+  margin: 0 14px 0 0;
   display: flex;
   flex-direction: column;
   background-color: #fff;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
   user-select: none;
-  min-width: 200px;
-  padding: 10px;
+  min-width: 240px;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .group {
   border-radius: 4px;
-  min-width: 220px;
+  min-width: 200px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -1467,14 +1700,21 @@ export default {
 }
 
 .group .search {
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   flex-shrink: 0;
 }
 
 .queryAll {
   width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   flex-shrink: 0;
+  border-radius: 8px;
+}
+
+/* 让树形控件可以滚动 */
+::v-deep .el-tree {
+  flex: 1;
+  overflow-y: auto;
 }
 
 .custom-node {
@@ -1489,12 +1729,13 @@ export default {
 .node-label {
   flex: 1;
   font-weight: 400;
+  color: #31415f;
 }
 
 .group_icon {
   width: 18px;
   height: 18px;
-  margin-right: 6px;
+  margin-right: 8px;
 }
 
 .dialog-input,
@@ -1537,10 +1778,12 @@ export default {
 /* 确保 element 内部输入框真正收敛 */
 ::v-deep .search-input .el-input__inner {
   width: 100%;
+  border-radius: 8px;
 }
 
 ::v-deep .search-select .el-input__inner {
   width: 100%;
+  border-radius: 8px;
 }
 
 ::v-deep .search-select .el-input__suffix {
@@ -1551,8 +1794,34 @@ export default {
   line-height: 30px;
 }
 
+::v-deep .task-dialog .el-dialog {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+::v-deep .task-dialog .el-dialog__header {
+  background: #f8faff;
+  border-bottom: 1px solid #e9eef8;
+  padding: 16px 20px;
+}
+
+::v-deep .task-dialog .el-dialog__title {
+  color: #1f3358;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+::v-deep .task-dialog .el-dialog__headerbtn .el-dialog__close {
+  color: #6a7486;
+}
+
+::v-deep .task-dialog .el-dialog__headerbtn .el-dialog__close:hover {
+  color: #1f3358;
+  font-weight: bold;
+}
+
 ::v-deep .task-dialog .el-dialog__body {
-  padding: 18px 24px 10px;
+  padding: 24px 24px 10px;
 }
 
 ::v-deep .dialog-form .el-form-item {
@@ -1561,14 +1830,17 @@ export default {
 
 ::v-deep .dialog-input .el-input__inner {
   width: 100%;
+  border-radius: 6px;
 }
 
 ::v-deep .dialog-cascader .el-input__inner {
   width: 100%;
+  border-radius: 6px;
 }
 
 ::v-deep .dialog-select .el-input__inner {
   width: 100%;
+  border-radius: 6px;
 }
 
 /* 限制弹出下拉层宽度，避免超过弹窗 */
@@ -1601,58 +1873,82 @@ export default {
 }
 
 .list {
-  margin: 10px;
-  padding: 10px 20px 20px 20px;
+  margin: 0;
+  padding: 20px;
   background: #fff;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+  border-radius: 14px;
+  border: 1px solid #e9eef8;
+  box-shadow: 0 6px 20px rgba(22, 40, 94, 0.08);
   height: 100%;
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 90px);
   min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .search {
-  padding: 10px 0 0;
-  margin-bottom: 18px;
+  padding: 0;
+  margin-bottom: 20px;
   flex-shrink: 0;
   overflow-x: auto;
   overflow-y: hidden;
 }
 
+::v-deep .el-table {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #edf2fb;
+}
+
+::v-deep .el-table__body-wrapper {
+  flex: 1;
+  overflow-y: auto;
+}
+
 .col {
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .label {
   white-space: nowrap;
-  font-size: 12px;
-  color: #606266;
-  margin-right: 4px;
+  font-size: 13px;
+  color: #6a7486;
+  margin-right: 8px;
+  font-weight: 500;
 }
 
 /* 筛选行：文字/控件水平、竖直居中 */
 .search-row-uniform {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  row-gap: 10px;
+  gap: 16px;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 
 /* el-col 本身也做 flex 居中，避免按钮列和其他列对齐不一致 */
 .search-row-uniform .el-col {
   display: flex;
   align-items: center;
-  flex: 1 1 260px;
-  min-width: 260px;
+  flex: 1 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 /* 按钮列与筛选项隔开，同时靠右 */
 .search-col-btns {
-  padding-left: 16px;
+  margin-left: auto;
 }
 
 .search-btns {
@@ -1660,20 +1956,8 @@ export default {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.search-input {
-  width: 170px;
-}
-
-.search-select {
-  width: 170px;
-}
-
-.search-cascader {
-  width: 220px;
+  gap: 10px;
+  flex-wrap: nowrap;
 }
 
 .search-actions {
@@ -1690,28 +1974,43 @@ export default {
   width: 100%;
 }
 
-/* 对齐 CDC 实时归集的搜索按钮样式 */
-.search-btns {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-  white-space: normal;
-  justify-content: flex-end;
-}
-
 ::v-deep .search .el-input__inner {
-  height: 30px;
-  line-height: 30px;
-  font-size: 12px;
+  height: 32px;
+  line-height: 32px;
+  font-size: 13px;
 }
 
 ::v-deep .search .el-button--mini {
-  padding: 7px 10px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+::v-deep .el-table {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #edf2fb;
+}
+
+::v-deep .el-table th {
+  background-color: #f8faff !important;
+  color: #31415f;
+  font-weight: 600;
+  height: 44px;
+}
+
+::v-deep .el-table td {
+  padding: 10px 0;
+  color: #4b566a;
+}
+
+::v-deep .el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: #fafcff;
 }
 
 .pagination-wrapper {
-  margin-top: 15px;
-  text-align: right;
+  margin-top: 20px;
+  text-align: center;
   flex-shrink: 0;
 }
 
@@ -1720,18 +2019,19 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 28px;
+  height: 26px;
   padding: 0 12px;
-  border-radius: 14px;
+  border-radius: 13px;
   font-size: 12px;
-  line-height: 28px;
+  line-height: 26px;
   border: 1px solid transparent;
   user-select: none;
+  font-weight: 500;
 }
 
 .rt-status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   margin-right: 6px;
 }
@@ -1758,17 +2058,25 @@ export default {
 .rt-status.is-stopped,
 .rt-status.is-starting,
 .rt-status.is-stopping {
-  color: #606266;
-  background: #f5f7fa;
-  border-color: #e4e7ed;
+  color: #6a7486;
+  background: #f4f7ff;
+  border-color: #dfe8ff;
 }
 
 .rt-status.is-clickable {
   cursor: pointer;
 }
-.rt-status.is-clickable:hover {
+.rt-status.is-failure.is-clickable:hover {
   border-color: rgba(245, 108, 108, 0.6);
   background: rgba(245, 108, 108, 0.12);
+}
+.rt-status.is-running.is-clickable:hover {
+  border-color: rgba(25, 190, 107, 0.55);
+  background: rgba(25, 190, 107, 0.14);
+}
+.rt-status.is-running.is-clickable .rt-status-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .rt-status-fail-underline {
@@ -1786,56 +2094,56 @@ export default {
     box-sizing: border-box;
     margin-top: 8vh !important;
     margin-bottom: 5vh;
-    border-radius: 8px;
+    border-radius: 12px;
     border: 1px solid #ebeef5;
-    box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   }
   ::v-deep .el-dialog__header {
     position: relative;
     flex-shrink: 0;
-    padding: 14px 48px 14px 16px;
+    padding: 16px 48px 16px 20px;
     margin: 0;
-    border-bottom: 1px solid #ebeef5;
-    background: #fff;
+    border-bottom: 1px solid #e9eef8;
+    background: #f8faff;
     box-sizing: border-box;
     display: flex;
     align-items: center;
     cursor: move;
   }
   ::v-deep .el-dialog__title {
-    color: #303133;
-    font-size: 15px;
+    color: #1f3358;
+    font-size: 16px;
     font-weight: 600;
     line-height: 1.4;
     letter-spacing: 0.02em;
   }
   ::v-deep .el-dialog__headerbtn {
     top: 50%;
-    right: 14px;
+    right: 16px;
     transform: translateY(-50%);
     padding: 0;
   }
   ::v-deep .el-dialog__headerbtn .el-dialog__close {
-    width: 30px;
-    height: 30px;
-    line-height: 30px;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
     text-align: center;
     border-radius: 50%;
     background: #eef0f3;
     color: #606266;
-    font-size: 15px;
+    font-size: 14px;
     transition: background-color 0.2s, color 0.2s;
   }
   ::v-deep .el-dialog__headerbtn .el-dialog__close:hover {
     background: #e4e7ed;
-    color: #303133;
+    color: #1f3358;
   }
   ::v-deep .el-dialog__body {
     flex-shrink: 0;
-    padding: 14px 16px 16px;
+    padding: 16px 20px 20px;
     box-sizing: border-box;
     overflow: hidden;
-    background: #fafafa;
+    background: #fff;
   }
 }
 
@@ -1844,12 +2152,12 @@ export default {
   width: 100%;
   overflow-y: auto;
   overflow-x: auto;
-  padding: 12px 14px;
-  background: #fff;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
+  padding: 14px 16px;
+  background: #fafcff;
+  border: 1px solid #e9eef8;
+  border-radius: 8px;
   box-sizing: border-box;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
   scrollbar-width: thin;
   scrollbar-color: #c0c4cc #eff1f5;
 }
@@ -1873,7 +2181,80 @@ export default {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #606266;
+  color: #4b566a;
+  font-size: 13px;
+  line-height: 1.65;
+  font-family: Consolas, Menlo, Monaco, 'Courier New', monospace;
+}
+
+.process-log-dialog {
+  ::v-deep .el-dialog {
+    width: 820px !important;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    margin-top: 6vh !important;
+    margin-bottom: 5vh;
+    border-radius: 12px;
+    border: 1px solid #ebeef5;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  }
+  ::v-deep .el-dialog__header {
+    flex-shrink: 0;
+    padding: 16px 48px 16px 20px;
+    margin: 0;
+    border-bottom: 1px solid #e9eef8;
+    background: #f8faff;
+    box-sizing: border-box;
+    cursor: move;
+  }
+  ::v-deep .el-dialog__title {
+    color: #1f3358;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  ::v-deep .el-dialog__body {
+    padding: 16px 20px 20px;
+    background: #fff;
+    box-sizing: border-box;
+  }
+}
+
+.process-log-body {
+  height: 420px;
+  width: 100%;
+  overflow: auto;
+  padding: 14px 16px;
+  background: #fafcff;
+  border: 1px solid #e9eef8;
+  border-radius: 8px;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #c0c4cc #eff1f5;
+}
+
+.process-log-lines {
+  font-family: Consolas, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #4b566a;
+}
+
+.process-log-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.process-log-line--fail {
+  color: #f56c6c;
+}
+
+.process-log-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #4b566a;
   font-size: 13px;
   line-height: 1.65;
   font-family: Consolas, Menlo, Monaco, 'Courier New', monospace;

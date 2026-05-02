@@ -102,13 +102,6 @@
           <div class="value">{{ knowledgeBaseStats.relations }}</div>
         </div>
       </div>
-      <el-table :data="knowledgeTableData" stripe class="knowledge-table" empty-text="暂无知识条目">
-        <el-table-column prop="title" label="标题" min-width="260" />
-        <el-table-column prop="category" label="分类" width="120" />
-        <el-table-column prop="tag" label="标签" width="160" />
-        <el-table-column prop="uploader" label="上传人" width="110" />
-        <el-table-column prop="updateTime" label="更新时间" width="180" />
-      </el-table>
     </div>
   </div>
 </template>
@@ -245,10 +238,6 @@ export default {
         tags: Number(k.tagCount || 0),
         relations: Number(k.relationCount || 0)
       }
-    },
-    /** 列表暂无独立接口，仅占位；有数据后再对接列表 API */
-    knowledgeTableData() {
-      return []
     }
   },
   mounted() {

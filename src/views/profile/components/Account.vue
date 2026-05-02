@@ -9,7 +9,7 @@
       class="mb-16"
     />
 
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="88px" class="account-form">
+    <el-form ref="formRef" :model="form" :rules="rules" label-width="96px" class="account-form">
       <el-form-item label="账号">
         <el-input :value="profile.account" disabled />
       </el-form-item>
@@ -28,11 +28,11 @@
       <el-form-item label="头像">
         <avatar-base64-upload v-model="form.avatar" :max-size-mb="2" />
       </el-form-item>
-      <el-form-item>
+      <el-form-item class="account-form-actions">
         <el-button type="primary" :loading="submitting" :disabled="!canSave" @click="submit">
           保存
         </el-button>
-        <el-button @click="resetForm">重置</el-button>
+        <el-button class="btn-reset" @click="resetForm">重置</el-button>
       </el-form-item>
     </el-form>
   </div>
@@ -196,8 +196,18 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "~@/styles/variables.scss";
+
 .profile-account {
-  max-width: 560px;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 900px) {
+  .profile-account {
+    max-width: 560px;
+  }
 }
 
 .mb-16 {
@@ -205,6 +215,47 @@ export default {
 }
 
 .account-form {
+  padding-top: 4px;
+
+  ::v-deep .el-form-item__label {
+    color: #606266;
+    font-weight: 500;
+  }
+
+  ::v-deep .el-input__inner {
+    border-radius: 4px;
+  }
+
+  ::v-deep .el-input.is-disabled .el-input__inner {
+    background: #f5f7fa;
+    border-color: #e4e7ed;
+    color: #909399;
+  }
+}
+
+.account-form-actions {
+  margin-bottom: 0 !important;
   padding-top: 8px;
+
+  ::v-deep .el-form-item__content {
+    padding-top: 16px;
+    margin-top: 8px;
+    border-top: 1px solid #ebeef5;
+  }
+
+  .el-button + .el-button {
+    margin-left: 12px;
+  }
+
+  .btn-reset {
+    background: #fff;
+    border-color: #dcdfe6;
+    color: #606266;
+
+    &:hover {
+      color: $blue;
+      border-color: #a8c8ff;
+    }
+  }
 }
 </style>

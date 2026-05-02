@@ -15,7 +15,9 @@
 
       <el-dropdown class="avatar-container right-menu-item hover-effect" trigger="click">
         <div class="avatar-wrapper">
-          <img :src="avatar" class="user-avatar">
+          <div class="avatar-box">
+            <img :src="avatar" class="user-avatar" alt="">
+          </div>
           <i class="el-icon-caret-bottom" />
         </div>
         <el-dropdown-menu slot="dropdown">
@@ -93,7 +95,8 @@ export default {
   position: relative; /* 改为相对定位 */
   background: $headerBg;
   box-shadow: none; /* 移除阴影 */
-  border-bottom: 1px solid #f0f2f5; /* 统一底部边框 */
+  border-top: 1px solid #f0f2f5;
+  border-bottom: 1px solid #f0f2f5;
 
   .hamburger-container {
     line-height: 46px;
@@ -120,19 +123,21 @@ export default {
   .right-menu {
     float: right;
     height: 100%;
-    line-height: 50px;
+    display: flex;
+    align-items: center;
 
     &:focus {
       outline: none;
     }
 
     .right-menu-item {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       padding: 0 10px; /* 调整水平间距 */
       height: 100%;
       font-size: 18px;
       color: $headerTxt;
-      vertical-align: middle; /* 垂直居中 */
 
       &.hover-effect {
         cursor: pointer;
@@ -146,26 +151,39 @@ export default {
     }
 
     .avatar-container {
-      margin-right: 20px; /* 调整右侧外边距 */
+      margin-right: 16px;
 
       .avatar-wrapper {
-        margin-top: 5px;
-        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 40px;
+
+        .avatar-box {
+          width: 40px;
+          height: 40px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f0f2f5;
+          border-radius: 2px;
+        }
 
         .user-avatar {
           cursor: pointer;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%; /* 圆形头像 */
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          object-fit: cover;
+          display: block;
         }
 
         .el-icon-caret-bottom {
           cursor: pointer;
-          position: absolute;
-          right: -16px; /* 调整位置 */
-          top: 18px; /* 调整位置 */
           font-size: 12px;
-          color: $headerTxt; /* 调整颜色 */
+          color: #4a4a4a;
+          line-height: 1;
         }
       }
     }

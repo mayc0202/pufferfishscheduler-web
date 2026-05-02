@@ -31,5 +31,11 @@ export default {
   // 告警方式
   ALERT_METHOD: 'alert_method',
   // 执行状态
-  EXECUTE_STATUS: 'execute_status'
+  EXECUTE_STATUS: 'execute_status',
+  // 知识库分类（与数据字典 dict_type=knowledge_type 一致）
+  KNOWLEDGE_TYPE: 'knowledge_type',
+  // 日期格式
+  DATE_FORMAT: 'date_format',
+  // 数字格式
+  NUMBER_FORMAT: 'number_format'
 }

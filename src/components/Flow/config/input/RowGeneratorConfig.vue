@@ -136,7 +136,13 @@
         </el-table-column>
         <el-table-column label="类型" width="160">
           <template slot-scope="scope">
-            <el-select v-model="scope.row.typeText" size="small" placeholder="请选择类型" class="field-type-select">
+            <el-select
+              v-model="scope.row.typeText"
+              size="small"
+              placeholder="请选择类型"
+              class="field-type-select"
+              @change="onRowTypeTextChange(scope.row)"
+            >
               <el-option v-for="t in typeOptions" :key="t" :label="t" :value="t" />
             </el-select>
           </template>
@@ -175,7 +181,13 @@
               placeholder="请选择格式"
               class="field-format-select"
             >
-              <el-option v-for="fmt in formatOptions" :key="fmt" :label="fmt || '(空)'" :value="fmt" />
+              <el-option label="(空)" value="" />
+              <el-option
+                v-for="opt in getFormatDictOptions(scope.row)"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
             </el-select>
           </template>
         </el-table-column>
@@ -241,6 +253,8 @@
 
 <script>
 import { previewData as previewDataApi } from '@/api/collect/trans/transFlow'
+import { getDict } from '@/api/dict/dict'
+import dictCode from '@/api/dict/dictCode'
 import FlowConfigHero from '../common/FlowConfigHero.vue'
 
 const GENERATION_TYPE_BATCH = 1
@@ -272,7 +286,8 @@ export default {
         { label: '持续生成记录', value: GENERATION_TYPE_CONTINUOUS }
       ],
       typeOptions: ['String', 'Number', 'Integer', 'Boolean', 'Date', 'Timestamp', 'Binary', 'BigNumber'],
-      formatOptions: ['', 'dd-MM-yyyy', 'yyyy-MM-ddTHH:mm:ss.SSSXXX', 'yyyy-MM-dd HH:mm:ss.SSS', '#,##0.###', '0.00', '0000000000000', '#.#', '#'],
+      dateFormatOptions: [],
+      numberFormatOptions: [],
       fieldEditor: {
         visible: false,
         rows: []
@@ -300,8 +315,66 @@ export default {
   },
   mounted() {
     this.initDefaults()
+    this.queryDateFormatDict()
+    this.queryNumberFormatDict()
   },
   methods: {
+    async queryDateFormatDict() {
+      try {
+        const res = await getDict(dictCode.DATE_FORMAT)
+        const items = Array.isArray(res && res.data) ? res.data : []
+        this.dateFormatOptions = items
+          .map(item => {
+            const labelRaw = item && (item.name ?? item.label ?? item.value ?? item.code)
+            const valueRaw = item && (item.code ?? item.id ?? item.value)
+            if (valueRaw == null || labelRaw == null) return null
+            return { value: String(valueRaw), label: String(labelRaw) }
+          })
+          .filter(Boolean)
+      } catch (e) {
+        this.dateFormatOptions = []
+      }
+    },
+    async queryNumberFormatDict() {
+      try {
+        const res = await getDict(dictCode.NUMBER_FORMAT)
+        const items = Array.isArray(res && res.data) ? res.data : []
+        this.numberFormatOptions = items
+          .map(item => {
+            const labelRaw = item && (item.name ?? item.label ?? item.value ?? item.code)
+            const valueRaw = item && (item.code ?? item.id ?? item.value)
+            if (valueRaw == null || labelRaw == null) return null
+            return { value: String(valueRaw), label: String(labelRaw) }
+          })
+          .filter(Boolean)
+      } catch (e) {
+        this.numberFormatOptions = []
+      }
+    },
+    isRowDateType(typeText) {
+      if (!typeText) return false
+      const t = String(typeText).toLowerCase()
+      return t.includes('date') || t.includes('time') || t.includes('timestamp')
+    },
+    isRowNumberType(typeText) {
+      if (!typeText) return false
+      const t = String(typeText).toLowerCase()
+      return ['number', 'integer', 'bignumber', 'decimal', 'bigdecimal', 'numeric', 'float', 'double'].includes(t)
+    },
+    getFormatDictOptions(row) {
+      const typeText = row && row.typeText
+      if (this.isRowDateType(typeText)) return this.dateFormatOptions
+      if (this.isRowNumberType(typeText)) return this.numberFormatOptions
+      return []
+    },
+    onRowTypeTextChange(row) {
+      if (!row) return
+      const opts = this.getFormatDictOptions(row)
+      const cur = row.fieldFormat != null ? String(row.fieldFormat) : ''
+      if (cur !== '' && !opts.some(o => o.value === cur)) {
+        this.$set(row, 'fieldFormat', '')
+      }
+    },
     initDefaults() {
       if (!this.formData.name) this.$set(this.formData, 'name', '生成测试数据')
       if (this.formData.description === undefined) this.$set(this.formData, 'description', '')

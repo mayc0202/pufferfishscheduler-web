@@ -109,16 +109,72 @@ export default {
   --dialog-padding: 20px;
 }
 
+.custom-dialog ::v-deep .el-dialog {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #ebeef5;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.custom-dialog ::v-deep .el-dialog__header {
+  position: relative;
+  flex-shrink: 0;
+  padding: 16px 48px 16px 20px;
+  margin: 0;
+  border-bottom: 1px solid #e9eef8;
+  background: #f8faff;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.custom-dialog ::v-deep .el-dialog__title {
+  color: #1f3358;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.custom-dialog ::v-deep .el-dialog__headerbtn {
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  padding: 0;
+}
+
+.custom-dialog ::v-deep .el-dialog__headerbtn .el-dialog__close {
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  text-align: center;
+  border-radius: 50%;
+  background: #eef0f3;
+  color: #606266;
+  font-size: 14px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.custom-dialog ::v-deep .el-dialog__headerbtn .el-dialog__close:hover {
+  background: #e4e7ed;
+  color: #1f3358;
+}
+
+.custom-dialog ::v-deep .el-dialog__body {
+  padding: 20px;
+  background: #fff;
+}
+
 .custom-descriptions {
   width: 100%;
   font-size: 14px;
-  /*padding: var(--dialog-padding);*/
-  min-height: 200px; /* 设置最小高度避免布局跳动 */
+  min-height: 200px;
 }
 
 .custom-descriptions.has-border {
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
+  border: 1px solid #e9eef8;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .descriptions-content {
@@ -133,19 +189,20 @@ export default {
 
 .descriptions-label {
   padding: 12px 16px;
-  background-color: #f5f7fa;
-  color: #4e5969;
+  background-color: #f8faff;
+  color: #31415f;
   font-weight: 500;
-  border-bottom: 1px solid #e4e7ed;
-  border-right: 1px solid #e4e7ed;
+  border-bottom: 1px solid #e9eef8;
+  border-right: 1px solid #e9eef8;
   text-align: left;
 }
 
 .descriptions-value {
   padding: 12px 16px;
-  color: #1f2d3d;
-  border-bottom: 1px solid #e4e7ed;
+  color: #4b566a;
+  border-bottom: 1px solid #e9eef8;
   word-break: break-all;
+  background-color: #fff;
 }
 
 .descriptions-row:last-child .descriptions-label,
@@ -161,6 +218,7 @@ export default {
   height: 100px;
   color: #909399;
   grid-column: 1 / -1;
+  background-color: #fff;
 }
 
 @media (max-width: 768px) {
@@ -172,6 +230,7 @@ export default {
     text-align: left;
     border-right: none;
     padding-bottom: 4px;
+    border-bottom: none;
   }
 
   .descriptions-value {
